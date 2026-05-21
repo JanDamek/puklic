@@ -29,7 +29,7 @@ Single source of truth pro architekturu a doménový model. Každá architektoni
 - [Persistence schema](03_infrastructure/persistence-schema.md)
 - [Cache policy](03_infrastructure/cache-policy.md)
 - [Platform abstractions](03_infrastructure/platform-abstractions.md)
-- [UI / UX (čeká na rozpravu)](04_ui/README.md)
+- [UI / UX overview](04_ui/README.md) · [Design system](04_ui/design-system.md) · [Adaptive layouts](04_ui/adaptive-layouts.md) · [Screens](04_ui/screens.md) · [Component library](04_ui/component-library.md) · [Interactions](04_ui/interactions.md)
 - [Linux/Wayland specifika](05_platforms/linux-wayland.md)
 - [Android specifika](05_platforms/android.md)
 - [iOS specifika](05_platforms/ios.md)

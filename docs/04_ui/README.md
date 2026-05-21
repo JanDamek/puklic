@@ -1,41 +1,51 @@
 # UI / UX
 
-> **Status: UX diskuze čeká.** Tato sekce je záměrně nechaná jako placeholder. Před implementací proběhne separátní UX rozprava (layout, screen inventory, visual style, interaction patterns) — viz Claude session.
+UX foundation rozpravou uzavřena. Tato sekce drží UI specifikaci na úrovni potřebné pro start implementace fáze 1. Detaily (přesné hex, font, login wireframe pixels) doděláváme za pochodu.
 
-## Co tu bude
+## Dokumenty
 
 | Dokument | Obsah |
 |---|---|
-| `design-system.md` | Design tokens (barvy, typo, spacing, elevation, radii), Material 3 customization, dark/light theme |
-| `screens.md` | Inventář obrazovek + jejich stavy (loading, empty, error, content) |
-| `component-library.md` | Reusable Compose komponenty (MessageBubble, ChannelListItem, GuildIcon, ...) |
-| `interactions.md` | Gestures, keyboard shortcuts, focus management |
-| `adaptive-layouts.md` | Compact / Medium / Expanded breakpoints (phone / tablet / desktop) |
+| [`design-system.md`](design-system.md) | Color/typography/spacing/shape tokens, dark theme palette, avatar a presence specs |
+| [`adaptive-layouts.md`](adaptive-layouts.md) | Compact / Medium / Expanded breakpointy, three-pane collapse strategie |
+| [`screens.md`](screens.md) | Inventory obrazovek (Login, Main three-pane, Settings, Command palette) + states |
+| [`component-library.md`](component-library.md) | Reusable Compose komponenty (Avatar, MessageRow, Composer, CommandPalette, ...) |
+| [`interactions.md`](interactions.md) | Keyboard shortcuts, gestures, focus management, accessibility |
 
-## Před UX rozpravou
+## Zafixovaná rozhodnutí (UX rozprava 2026-05-21)
 
-Otázky, které je třeba probrat s userem:
+| Aspekt | Volba |
+|---|---|
+| **Desktop layout** | Three-pane Discord-style (guild rail \| channels \| messages) |
+| **Density** | Compact (32 dp avatars, flat list, no bubbles) |
+| **Theme** | Dark only v MVP, light přidán ve fázi 2 |
+| **Visual jazyk** | Material 3 baseline + Puklic accent (konkrétní hex TBD) |
+| **Avatar shape** | Round (circle) |
+| **Composer** | Inline always-visible s formatting toolbar (B/I/S/code/link/emoji) |
+| **Settings** | Full-screen overlay s left category nav (Discord-style) |
+| **Channel list** | Collapsible categories (kategorie expand/collapse) |
+| **Animations** | Subtle — Material default easing, žádné bouncy springs |
+| **Keyboard nav** | Power-user heavy + `Mod+K` command palette + standard shortcuts |
 
-1. **Visual style:** Material 3 baseline + custom Puklic accent? Nebo úplně vlastní design system?
-2. **Density:** Discord-like compact (info-dense), nebo víc air?
-3. **Theme:** Dark default, light optional. Custom theming v MVP?
-4. **Layout (desktop):** Three-pane (guilds | channels | messages) jako Discord? Nebo jiný layout?
-5. **Layout (mobile):** Drawer + bottom tabs? Nebo overlay panels?
-6. **Animations:** Subtle (Material default) nebo expressive?
-7. **Avatar styling:** Round (Discord) / squircle (Apple) / square (rare)?
-8. **Composer:** Inline text input nebo modal? Markdown preview vedle? Slash commands?
-9. **Messages:** Bubble (per autor) nebo flat list (Discord-style)?
-10. **Settings:** Inline sidebar nebo full-screen modal?
+Rozhodnutí jsou dále rozvedená v ADR / detailních docs odkazovaných výše.
 
-Další otázky vyvstanou během rozpravy.
+## Pravidla, která ostávají v platnosti
 
-## Pravidla, která už platí
-
-I bez UX rozhodnutí jsou tyhle pravidla nastavená architekturou:
-
-- UI nesmí parsovat data ([CLAUDE.md](../../CLAUDE.md))
+- UI nesmí parsovat ani transformovat data ([CLAUDE.md](../../CLAUDE.md))
 - RichText render = jen Composable nad hotovým AST ([richtext-ast.md](../02_domain/richtext-ast.md))
 - State = `StateFlow` v ViewModelu ([threading-model.md](../01_architecture/threading-model.md))
-- Žádné `LiveData`, žádný `ObservableField`
 - Compose Multiplatform = jeden UI codebase pro Desktop/Android/iOS ([ADR-0001](../01_architecture/adr/0001-compose-mpp-everywhere.md))
-- Adaptive layouts (Compact / Medium / Expanded) — Material 3 adaptive
+- Adaptive layouts (Compact / Medium / Expanded) — Material 3 window size classes ([adaptive-layouts.md](adaptive-layouts.md))
+
+## Otevřené detaily (rozhodují se za pochodu)
+
+- Konkrétní accent color hex (placeholder `#7C9CFF` v design-system.md)
+- Logo / wordmark design
+- Login screen onboarding flow (jak token-paste návod ukázat — link vs in-app step-by-step)
+- Default notification preferences (mentions only vs all messages)
+- Avatar fallback styling (gradient by ID vs plain initials)
+- Empty state ilustrace vs plain text
+- Loading states convention (skeleton vs spinner per komponentu)
+- Custom keybinding rebinding (Phase 2)
+
+Tyto detaily se rozhodují při implementaci dotčené komponenty. Když přijde rozhodnutí, přidává se ADR nebo updatuje příslušný doc.
