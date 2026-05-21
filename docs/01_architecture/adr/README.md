@@ -11,6 +11,7 @@ Každé netriviální architektonické rozhodnutí má vlastní ADR. Formát viz
 | [0003](0003-cache-strategy.md) | Cache & RAM strategie | accepted |
 | [0004](0004-coroutine-first.md) | Coroutine-first architektura | accepted |
 | [0005](0005-decompose-navigation.md) | Decompose jako navigační knihovna | accepted |
+| [0006](0006-discord-json-leniency-exception.md) | `ignoreUnknownKeys = true` výjimka pro Discord DTO parser | accepted |
 
 ## Pravidla
 

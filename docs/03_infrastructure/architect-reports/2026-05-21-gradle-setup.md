@@ -401,7 +401,7 @@ internal val DiscordJsonStrict = Json {
 
 **Production code rule:** `DiscordJson` is `internal` to `:shared:protocol-discord`. No other module may use it. Every other `Json` instance in the project (settings serialization, SQLite JSON columns, non-Discord fixtures) must NOT set `ignoreUnknownKeys`.
 
-The architectural decision is documented as ADR-0006 (to be created alongside this setup).
+The architectural decision is documented in [ADR-0006](../../01_architecture/adr/0006-discord-json-leniency-exception.md).
 
 **Invariant:** The `:shared:protocol-discord` module boundary is the firewall. Discord DTO objects never escape into other modules (see CLAUDE.md rule 3: "Discord DTO nesmí proniknout do UI"). Mappers in `protocol-discord` convert DTOs to domain objects at the module boundary. Once converted, the domain objects have no unknown-field concerns.
 
@@ -617,7 +617,7 @@ shared/protocol-discord/src/commonTest/kotlin/
     gateway/                                — gateway state machine tests
 ```
 
-**Note on `Capabilities.kt`:** The file exposes `const val CAPABILITIES_VERSION = 16381` with a doc-comment referencing `docs/02_domain/discord-protocol.md` and the procedure for updating this value (see §9). The `GatewayConnection` `READY` event handler logs a `Warn`-level message if the response shape indicates an unexpected capabilities configuration (e.g., `READY_SUPPLEMENTAL` absent, guild count zero when guilds are expected). This is the signal that `CAPABILITIES_VERSION` may need updating. The update procedure is documented in `docs/02_domain/discord-protocol.md`.
+**Note on `Capabilities.kt`:** The file exposes `const val CAPABILITIES_VERSION = 16381` with a doc-comment referencing `docs/02_domain/discord-protocol.md` and the procedure for updating this value (see §9). The `GatewayConnection` `READY` event handler logs a `Warn`-level message if the response shape indicates an unexpected capabilities configuration (e.g., `READY_SUPPLEMENTAL` absent, guild count zero when guilds are expected). This is the signal that `CAPABILITIES_VERSION` may need updating. The update procedure **will be documented** in `docs/02_domain/discord-protocol.md` per §9 obligations (Phase 1 code-freeze gate).
 
 ### shared/persistence-api/
 
@@ -984,7 +984,7 @@ The following are explicitly outside the scope of this Gradle setup specificatio
 
 - **CI/CD pipeline definition** — GitHub Actions matrix, macOS runner for iOS builds, signing key management. See `docs/06_ops/build.md` (to be expanded).
 
-- **ADR-0006 (ignoreUnknownKeys exception)** — this spec recommends creating it; content is one paragraph based on Q8. Left to the engineer.
+- ~~**ADR-0006 (ignoreUnknownKeys exception)** — this spec recommends creating it; content is one paragraph based on Q8. Left to the engineer.~~ **Resolved 2026-05-21:** see [ADR-0006](../../01_architecture/adr/0006-discord-json-leniency-exception.md).
 
 - **Discord `capabilities` integer value — update procedure:**
   The `CAPABILITIES_VERSION` constant in `Capabilities.kt` is currently `16381` (per discord-protocol.md, May 2026). Discord changes this value as features ship. The update procedure must be documented in `docs/02_domain/discord-protocol.md` before Phase 1 code freeze. Minimum required documentation: (a) how to observe the current value from the official client's gateway traffic, (b) which `READY` / `READY_SUPPLEMENTAL` fields to check to detect a mismatch (the `Warn`-level log added to the READY handler serves as the runtime signal), (c) the Git commit message template to use when updating the constant so it's traceable. This documentation task is in-scope for Phase 1 but is not a Gradle setup task.
