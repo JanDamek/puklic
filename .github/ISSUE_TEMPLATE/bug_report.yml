@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a defect in Puklic
+labels: ["bug", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug.
+
+        **Important:** never include your Discord account credentials in this report.
+  - type: input
+    id: version
+    attributes:
+      label: Puklic version
+      placeholder: "0.1.0 or commit SHA"
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Linux (Wayland)
+        - Linux (X11)
+        - macOS
+        - Windows
+        - Android
+        - iOS
+    validations:
+      required: true
+  - type: input
+    id: os_version
+    attributes:
+      label: OS / distribution / version
+      placeholder: "Fedora 40, GNOME 46, Wayland"
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened
+      description: Describe the actual behavior you observed.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Puklic
+        2. ...
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Relevant logs from `~/.local/share/puklic/logs/` (Linux) or equivalent. Redact any tokens or personal data.
+      render: shell
+  - type: checkboxes
+    id: confirm
+    attributes:
+      label: Checks
+      options:
+        - label: I searched existing issues and didn't find a duplicate
+          required: true
+        - label: I did not include any account credentials in this report
+          required: true

@@ -1,0 +1,35 @@
+name: Feature request
+description: Suggest a new capability for Puklic
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before submitting, please check the [product vision](https://github.com/JanDamek/puklic/blob/main/docs/00_overview/product-vision.md) and [roadmap](https://github.com/JanDamek/puklic/blob/main/docs/07_roadmap/phases.md). Some directions are intentionally out of scope (automation, AI assistants, bot frameworks).
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What user problem does this feature solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+  - type: dropdown
+    id: scope_check
+    attributes:
+      label: Scope check
+      description: Does this fit Puklic's stated scope?
+      options:
+        - Yes — fits the user-client scope
+        - Unsure — please advise
+    validations:
+      required: true
