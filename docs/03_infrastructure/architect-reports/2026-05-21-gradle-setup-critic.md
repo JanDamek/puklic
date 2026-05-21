@@ -66,7 +66,7 @@ Apply the same fix to `ZlibInflater`. The spec must be internally consistent bec
 > "The most consequential decisions: **Decompose 3.x navigation** — only library with production-ready KMP three-pane adaptive support."  
 > ADR index (verified): `0001-compose-mpp-everywhere.md`, `0002-token-paste-login.md`, `0003-cache-strategy.md`, `0004-coroutine-first.md`. No ADR for navigation.
 
-**Reasoning:** CLAUDE.md documentation workflow states "každá architektonická nebo doménová změna povinně updatuje minimálně jeden soubor v `docs/` v témž commitu jako kód." The navigation choice is a Phase 1 foundational dependency — it affects `:shared:compose-ui`, `:shared:repositories` (ViewModels use Decompose `ComponentContext`), `:desktop:app`, and all stub platform modules. The spec recommends creating ADR-0005 for `ignoreUnknownKeys` (a minor exception) but omits an ADR for the navigation library that shapes the entire component lifecycle. When Phase 2 revisits iOS navigation behavior, there will be no recorded rationale to argue against.
+**Reasoning:** CLAUDE.md documentation workflow states "every architectural or domain change must update at least one file in `docs/` in the same commit as the code." The navigation choice is a Phase 1 foundational dependency — it affects `:shared:compose-ui`, `:shared:repositories` (ViewModels use Decompose `ComponentContext`), `:desktop:app`, and all stub platform modules. The spec recommends creating ADR-0005 for `ignoreUnknownKeys` (a minor exception) but omits an ADR for the navigation library that shapes the entire component lifecycle. When Phase 2 revisits iOS navigation behavior, there will be no recorded rationale to argue against.
 
 **Recommendation:** Create `docs/01_architecture/adr/0005-decompose-navigation.md` before any code is written. The spec's Q4 contains sufficient rationale. Move the `ignoreUnknownKeys` exception to ADR-0006.
 
@@ -118,7 +118,7 @@ Apply the same fix to `ZlibInflater`. The spec must be internally consistent bec
 
 **Evidence (§9 What This Spec Does NOT Include):**
 > "Discord `capabilities` integer value — currently `16381` per discord-protocol.md. Must be kept in sync with Discord's evolving expectation; tracked in `Capabilities.kt`."  
-> `discord-protocol.md`: "Discord vyvíjí toto interně, hodnoty se mění (typicky `16381` ke květnu 2026)"
+> `discord-protocol.md`: "Discord develops this internally; values change (typically `16381` as of May 2026)"
 
 **Reasoning:** The spec defers the adaptation mechanism to "the implementing engineer" with no design. The hardcoded value affects what `READY_SUPPLEMENTAL` data the gateway sends, how guild members are chunked, and what experimental features activate. When Discord changes the expected value (which they do multiple times per year as features ship), Puklic users will receive incomplete or malformed initial state without any error — not a `401`, not a gateway close code. The failure is silent and data-level. "Tracked in `Capabilities.kt`" means someone must monitor the official client's network traffic to notice, with no alerting.
 
@@ -386,7 +386,7 @@ Both entries now carry the pinned version `0.4.22`. The `(est.)` annotation is g
 **Evidence from r2:**
 
 - `docs/01_architecture/adr/0005-decompose-navigation.md` created (verified file exists, full content read).
-- ADR README updated: row `| [0005](0005-decompose-navigation.md) | Decompose jako navigační knihovna | accepted |` present.
+- ADR README updated: row `| [0005](0005-decompose-navigation.md) | Decompose as the navigation library | accepted |` present.
 - Spec §1 Summary: "Decompose 3.x navigation — only library with production-ready KMP three-pane adaptive support (see ADR-0005)."
 - Spec Q4: "This decision is formally recorded in ADR-0005 (`docs/01_architecture/adr/0005-decompose-navigation.md`)."
 
@@ -432,7 +432,7 @@ The strict test instance is placed in `commonTest` exactly as recommended. Q8 al
 
 > `decompose` | `3.3.0` | Navigation; **ChildPanels multi-pane API**; ComponentContext lifecycle
 
-The factual error is corrected. Q4 also states: "The `ChildPanels` component in Decompose 3.x (part of the `decompose` library, not `compose-material3-adaptive`)". ADR-0005 consequences: "🔒 `ChildPanels` pochází z `decompose` knihovny (ne z `compose-material3-adaptive`, která poskytuje `ThreePaneScaffold`)."
+The factual error is corrected. Q4 also states: "The `ChildPanels` component in Decompose 3.x (part of the `decompose` library, not `compose-material3-adaptive`)". ADR-0005 consequences: "🔒 `ChildPanels` comes from the `decompose` library (not from `compose-material3-adaptive`, which provides `ThreePaneScaffold`)."
 
 ---
 

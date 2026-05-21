@@ -1,16 +1,16 @@
 # Persistence schema (SQLDelight + SQLite)
 
-Definice tabulek pro lokální cache. Implementace v `:shared:persistence-api` (interfaces) + `:desktop:persistence-sqldelight` (per-platform actual). Stejné schema platí na všech platformách (Desktop/Android/iOS) — SQLDelight generuje platform-specific drivery.
+Table definitions for the local cache. Implementation in `:shared:persistence-api` (interfaces) + `:desktop:persistence-sqldelight` (per-platform actual). The same schema applies on all platforms (Desktop/Android/iOS) — SQLDelight generates platform-specific drivers.
 
-## Umístění databáze
+## Database location
 
 - Linux: `$XDG_DATA_HOME/puklic/db/puklic.db` (default `~/.local/share/puklic/db/puklic.db`)
 - macOS: `~/Library/Application Support/Puklic/db/puklic.db`
 - Windows: `%APPDATA%/Puklic/db/puklic.db`
-- Android: standardní context.getDatabasePath
+- Android: standard `context.getDatabasePath`
 - iOS: Application Support directory
 
-Cesta poskytuje `PlatformPaths.databaseFile(): Path`, viz [platform-abstractions.md](platform-abstractions.md).
+Path is provided by `PlatformPaths.databaseFile(): Path`, see [platform-abstractions.md](platform-abstractions.md).
 
 ## Pragmas
 
@@ -23,13 +23,13 @@ PRAGMA mmap_size = 268435456;     -- 256 MB
 PRAGMA cache_size = -8000;        -- 8 MB
 ```
 
-WAL pro concurrent read během write. `cache_size` záporné = KB, ne pages.
+WAL for concurrent reads during writes. Negative `cache_size` = KB, not pages.
 
-## Tabulky
+## Tables
 
 ### `account`
 
-Per-token entry. Klient může držet historii několika účtů (re-login).
+Per-token entry. The client can hold a history of several accounts (re-login).
 
 ```sql
 CREATE TABLE account (
@@ -42,7 +42,7 @@ CREATE TABLE account (
 );
 ```
 
-Token **není v DB** — drží se v platform secure storage, klíčovaný `user_id`.
+The token is **not in the DB** — it is held in platform secure storage, keyed by `user_id`.
 
 ### `guild`
 
@@ -63,7 +63,7 @@ CREATE TABLE guild (
 ```sql
 CREATE TABLE channel (
     id INTEGER PRIMARY KEY,
-    guild_id INTEGER,               -- NULL pro DM
+    guild_id INTEGER,               -- NULL for DM
     parent_id INTEGER,              -- category, FK channel(id)
     type INTEGER NOT NULL,          -- ChannelType ordinal
     name TEXT,
@@ -82,7 +82,7 @@ CREATE INDEX channel_parent_idx ON channel(parent_id);
 
 ### `user`
 
-User cache pro author lookup, mentions resolution.
+User cache for author lookup and mention resolution.
 
 ```sql
 CREATE TABLE user (
@@ -112,8 +112,8 @@ CREATE TABLE message (
     reference_channel_id INTEGER,
     reference_type INTEGER,         -- 0 = reply, 1 = forward
     mentions_everyone INTEGER DEFAULT 0,
-    -- Strukturované sub-objekty jako JSON pro jednoduchost:
-    -- (alternativně samostatné tabulky až bude potřeba dotazovat)
+    -- Structured sub-objects as JSON for simplicity:
+    -- (alternatively separate tables when query access is needed)
     attachments_json TEXT NOT NULL DEFAULT '[]',
     embeds_json TEXT NOT NULL DEFAULT '[]',
     reactions_json TEXT NOT NULL DEFAULT '[]',
@@ -128,13 +128,13 @@ CREATE INDEX message_channel_timestamp_idx ON message(channel_id, timestamp DESC
 CREATE INDEX message_author_idx ON message(author_id);
 ```
 
-**Pozn. k JSON columns:**
-- Pro fáze 1 stačí JSON serializace sub-objektů
-- Pokud bude potřeba dotazovat („všechny zprávy s reakcí emoji X") → migrace na normalizované tabulky `message_reaction`, `message_attachment`, atd. (řeší ADR později)
+**Note on JSON columns:**
+- JSON serialization of sub-objects is sufficient for Phase 1
+- If query access is needed ("all messages with reaction emoji X") → migrate to normalized tables `message_reaction`, `message_attachment`, etc. (resolved by ADR later)
 
 ### `attachment_cache_index`
 
-Metadata pro disk cache attachmentů. Soubory na disku, metadata v DB pro LRU eviction.
+Metadata for the disk attachment cache. Files on disk, metadata in the DB for LRU eviction.
 
 ```sql
 CREATE TABLE attachment_cache_index (
@@ -181,7 +181,7 @@ CREATE TABLE read_state (
 
 ### `local_draft`
 
-Rozepsaná zpráva per channel, neodeslaná.
+An unsent message being composed per channel.
 
 ```sql
 CREATE TABLE local_draft (
@@ -194,7 +194,7 @@ CREATE TABLE local_draft (
 
 ### `outbound_message`
 
-Queue pro odesílaní (offline / retry).
+Queue for sending (offline / retry).
 
 ```sql
 CREATE TABLE outbound_message (
@@ -203,7 +203,7 @@ CREATE TABLE outbound_message (
     content TEXT NOT NULL,
     attachments_json TEXT NOT NULL DEFAULT '[]',
     reference_message_id INTEGER,
-    nonce TEXT NOT NULL,            -- pro server idempotence
+    nonce TEXT NOT NULL,            -- for server idempotence
     created_at INTEGER NOT NULL,
     attempt_count INTEGER NOT NULL DEFAULT 0,
     last_error TEXT,
@@ -223,31 +223,31 @@ CREATE TABLE schema_version (
 );
 ```
 
-SQLDelight má vlastní migration mechanism (`Migration.kt`), `schema_version` slouží jen pro debug / sanity check.
+SQLDelight has its own migration mechanism (`Migration.kt`); `schema_version` is used only for debug / sanity checks.
 
-## Migrace
+## Migrations
 
-SQLDelight migrace = sekvence `.sqm` souborů (`migrations/1.sqm`, `2.sqm`, ...).
+SQLDelight migrations = a sequence of `.sqm` files (`migrations/1.sqm`, `2.sqm`, ...).
 
-**Pravidla:**
-- Nikdy needitovat již-shippnutou migraci
-- Každá change = nový `.sqm` s `ALTER TABLE` / `CREATE INDEX` / data migration
-- Při major schema changi → pokud nelze migrovat, **WIPE DB** je akceptovatelný (data jsou cache, autoritativní zdroj je Discord) — ale **musí být** opt-in dialog v UI, ne tiché smazání
-- Cache wipe je samostatná funkce v Settings → „Reset local cache"
+**Rules:**
+- Never edit an already-shipped migration
+- Every change = a new `.sqm` with `ALTER TABLE` / `CREATE INDEX` / data migration
+- For a major schema change where migration is not possible, **WIPE DB** is acceptable (data is cache; the authoritative source is Discord) — but it **must be** an opt-in dialog in the UI, not a silent deletion
+- Cache wipe is a separate function in Settings → "Reset local cache"
 
 ## Performance hints
 
-- `INSERT OR REPLACE` pro upsert eventů (gateway `MESSAGE_UPDATE` jako full replace zprávy)
-- Bulk insert (READY initial guild/channel state) v jedné transakci
-- `SELECT` zpráv pro UI: vždy `LIMIT 200` + `ORDER BY timestamp DESC`
-- Pagination přes `WHERE timestamp < ?` (nikoli OFFSET)
+- `INSERT OR REPLACE` for upsert of events (gateway `MESSAGE_UPDATE` as full message replacement)
+- Bulk insert (READY initial guild/channel state) in a single transaction
+- `SELECT` for messages in UI: always `LIMIT 200` + `ORDER BY timestamp DESC`
+- Pagination via `WHERE timestamp < ?` (not OFFSET)
 
-## Velikost DB
+## Database size
 
-Odhad pro typický účet (50 guildů, 500 channels, 6 měsíců historie):
-- Messages: ~50 000 zpráv × ~500 B = ~25 MB
+Estimate for a typical account (50 guilds, 500 channels, 6 months of history):
+- Messages: ~50 000 messages × ~500 B = ~25 MB
 - Channels + Guilds + Users: < 1 MB
 - Attachments index: ~5 000 entries × ~200 B = ~1 MB
-- **Celkem DB:** ~30 MB. Disk attachment cache separátně (500 MB default cap).
+- **Total DB:** ~30 MB. Disk attachment cache separate (500 MB default cap).
 
-Limit/eviction zpráv: zatím **žádný** v DB. Pokud DB přeroste 500 MB, přidat retention policy (`DELETE FROM message WHERE timestamp < ?` per kanál). Řeší ADR později.
+Message limit/eviction: currently **none** in the DB. If the DB exceeds 500 MB, add a retention policy (`DELETE FROM message WHERE timestamp < ?` per channel). Resolved by ADR later.

@@ -1,8 +1,8 @@
 # Screen inventory
 
-Soupis obrazovek + jejich stavů pro MVP (fáze 1). Každá obrazovka má state machine s minimálně: **Loading / Content / Empty / Error**.
+Inventory of screens + their states for MVP (Phase 1). Every screen has a state machine with at minimum: **Loading / Content / Empty / Error**.
 
-## Mapa obrazovek
+## Screen map
 
 ```
 RootScreen (decides based on session state)
@@ -26,11 +26,11 @@ RootScreen (decides based on session state)
 
 ## LoginScreen
 
-První obrazovka po startu, pokud není uložený token.
+First screen after startup if no token is stored.
 
 ### Layout
 
-Single centered card 480×auto dp. V Compact full-screen.
+Single centered card 480×auto dp. Full-screen in Compact.
 
 ```
 ┌───────────────────────────────────────┐
@@ -65,12 +65,12 @@ Single centered card 480×auto dp. V Compact full-screen.
 
 ### Interactions
 
-- Enter v input → submit (pokud token != empty)
-- Escape → no-op (nemáme kam back)
-- "How do I find my token?" → externí browser na docs page (zatím GitHub wiki)
-- Token v inputu = `obscureText` mode (jako password)
-- Paste detection: na paste eventu auto-trim whitespace
-- Žádné "Show token" toggle (security)
+- Enter in input → submit (if token != empty)
+- Escape → no-op (nowhere to go back to)
+- "How do I find my token?" → external browser to docs page (GitHub wiki for now)
+- Token in input = `obscureText` mode (like a password)
+- Paste detection: on paste event auto-trim whitespace
+- No "Show token" toggle (security)
 
 ---
 
@@ -84,14 +84,14 @@ Single centered card 480×auto dp. V Compact full-screen.
 | Channel list | 240 dp (resizable 200–320) | `ChannelListPane` |
 | Messages | rest | `MessagePane` |
 
-Top-most ribbon: žádný globální header. Channel name + actions jsou v header `MessagePane`.
+No global top ribbon. Channel name + actions are in the `MessagePane` header.
 
 ### GuildRail
 
-Vertikální list ikon. Items:
-- **Home / DMs** (top, fixed) — agreguje DMs across all
-- **Per guild icon** (32 dp, round) s presence dot pokud má unread
-- **+ Add server** (bottom, fixed) — disabled v MVP (read-only Discord server creation)
+Vertical icon list. Items:
+- **Home / DMs** (top, fixed) — aggregates DMs across all guilds
+- **Per guild icon** (32 dp, round) with a presence dot if it has unread
+- **+ Add server** (bottom, fixed) — disabled in MVP (read-only Discord server creation)
 
 States per guild item:
 - Default — icon at 80 % opacity
@@ -150,17 +150,17 @@ Each message row:
 - 32 dp round avatar (top-aligned)
 - 12 dp gap
 - Header row: username (titleSmall) + timestamp (bodySmall, `onSurfaceVariant`)
-- Body: RichTextView nad `parsedContent`
+- Body: RichTextView over `parsedContent`
 - Reactions chips below body (Phase 2)
 - Hover: row gets `surfaceVariant` background + actions overlay (react, edit if own, delete, copy link, more...)
 
 Message grouping:
-- Pokud autor stejný jako předchozí + timestamp diff < 5 min → bez avatara, bez headeru, gap mezi rows 2 dp
-- Jinak full row s avatarem, gap 12 dp
+- If same author as previous + timestamp diff < 5 min → no avatar, no header, gap between rows 2 dp
+- Otherwise full row with avatar, gap 12 dp
 
 Optimistic states:
 - **Sending** — opacity 0.6, no actions on hover
-- **Failed** — red ⚠ icon left of timestamp, retry option v context menu
+- **Failed** — red ⚠ icon left of timestamp, retry option in context menu
 
 #### Composer
 
@@ -192,15 +192,15 @@ Input:
 - `@` triggers user mention autocomplete (Phase 2)
 - `#` triggers channel mention autocomplete (Phase 2)
 - `:` triggers emoji shortcode autocomplete (Phase 2)
-- Markdown rendered v message listu po submit, ne v composeru
+- Markdown rendered in message list after submit, not in the composer
 
-Draft persistence: každých 500 ms debounced → `local_draft` table per channel.
+Draft persistence: every 500 ms debounced → `local_draft` table per channel.
 
 ---
 
 ## SettingsOverlay
 
-Modal, full-screen overlay s padding (16 dp each side on Expanded, 0 on Compact).
+Modal, full-screen overlay with padding (16 dp each side on Expanded, 0 on Compact).
 
 ### Layout
 
@@ -230,7 +230,7 @@ Categories MVP:
 - [Log out] button — destructive style, confirmation dialog
 
 #### Appearance
-- Theme: Dark (only, light disabled v MVP s "Coming in Phase 2" hint)
+- Theme: Dark (only, light disabled in MVP with "Coming in Phase 2" hint)
 - Density: Compact (only option in MVP, dropdown disabled)
 - Accent color (Phase 2 — disabled)
 
@@ -316,7 +316,7 @@ Centered, 640×480 dp on Expanded. Anchored 25 % from top.
 
 ## Error / disconnected states
 
-Globální banner above MessagePane (top edge):
+Global banner above MessagePane (top edge):
 
 | State | Color | Text |
 |---|---|---|
@@ -344,6 +344,6 @@ Standard pattern: small icon (48 dp, `onSurfaceVariant`) + heading + body + opti
 ## Open questions
 
 - Avatar fallback styling (gradient by ID? plain initials on accent?)
-- Logo / wordmark design (placeholder na LoginScreen)
+- Logo / wordmark design (placeholder on LoginScreen)
 - Empty state illustrations vs plain text
 - Loading skeletons vs spinners — convention TBD per component (lean to skeletons for content, spinners for actions)

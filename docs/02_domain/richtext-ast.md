@@ -1,10 +1,10 @@
 # RichText AST + parser pipeline
 
-Chat message content **není** `String` v UI. Discord posílá raw markdown-flavored text s vlastními extensions (mentions, custom emoji, channels). UI musí dostat **hotový AST**, který jen renderuje.
+Chat message content is **not** a `String` in the UI. Discord sends raw markdown-flavored text with its own extensions (mentions, custom emoji, channels). The UI must receive a **finished AST** that it only renders.
 
 ## AST model
 
-Bydlí v `:shared:domain` (typy) a `:shared:chat-parser` (parser).
+Lives in `:shared:domain` (types) and `:shared:chat-parser` (parser).
 
 ```kotlin
 data class RichTextDocument(
@@ -43,18 +43,18 @@ sealed interface MentionTarget {
 }
 ```
 
-### Pravidla AST
+### AST rules
 
-- `Text.styles` = množina (lze kombinovat bold+italic), ne hierarchie
-- Mentions, emoji, timestamps nesou **jen ID/ref**, ne resolved name — resolve dělá renderer s repository lookupem
-- `Spoiler` může obsahovat libovolné inline elements
-- `Link.display` může být plain text i další rich content (Discord embed-style link)
-- `CodeBlock.content` zachovává whitespace a newlines 1:1
+- `Text.styles` = a set (can combine bold+italic), not a hierarchy
+- Mentions, emoji, timestamps carry **only the ID/ref**, not the resolved name — resolution is done by the renderer with a repository lookup
+- `Spoiler` may contain arbitrary inline elements
+- `Link.display` can be plain text or further rich content (Discord embed-style link)
+- `CodeBlock.content` preserves whitespace and newlines 1:1
 
 ## Parser pipeline
 
 ```
-raw String (z DiscordMessageDto.content)
+raw String (from DiscordMessageDto.content)
    │
    ▼ 1. Lexer — tokenize markdown + Discord extensions
 TokenStream
@@ -63,16 +63,16 @@ TokenStream
 List<RawBlock>
    │
    ▼ 3. Inline parser — text styles, links, inline code per block
-List<RichTextBlock> (s ref-only mentions/emoji)
+List<RichTextBlock> (with ref-only mentions/emoji)
    │
-   ▼ 4. Reference resolution — žádný IO; jen syntax → typed refs
-   ▼ (User/Role/Channel name resolution = lazy v rendereru přes Repository)
+   ▼ 4. Reference resolution — no IO; syntax → typed refs only
+   ▼ (User/Role/Channel name resolution = lazy in renderer via Repository)
 RichTextDocument (final)
 ```
 
-Bydlí v `:shared:chat-parser`.
+Lives in `:shared:chat-parser`.
 
-### Discord markdown subset (fáze 1)
+### Discord markdown subset (Phase 1)
 
 | Syntax | Element |
 |---|---|
@@ -98,45 +98,45 @@ Bydlí v `:shared:chat-parser`.
 | `@everyone`, `@here` | Mention(Everyone/Here) |
 | `<:name:ID>` | Emoji(Custom, animated=false) |
 | `<a:name:ID>` | Emoji(Custom, animated=true) |
-| `:smile:` (unicode shortcode) | Emoji(Unicode) — pokud znám mapping |
+| `:smile:` (unicode shortcode) | Emoji(Unicode) — if the mapping is known |
 | `<t:UNIX:STYLE>` | Timestamp |
 | Unicode emoji codepoints | Emoji(Unicode) |
 
-### Out of scope MVP
+### Out of scope for MVP
 
-- Nested lists hlubší než 1 úroveň
-- Tables (Discord nepodporuje)
-- Math (`$$`) — Discord nepodporuje
-- Custom HTML — nepovoleno
+- Nested lists deeper than 1 level
+- Tables (Discord does not support them)
+- Math (`$$`) — Discord does not support it
+- Custom HTML — not allowed
 
-## Parser implementace — guidelines
+## Parser implementation — guidelines
 
-- **Bez třetích parserů** (CommonMark, flexmark) — Discord markdown je subset s odlišnostmi (nested ** vs * priority, `||spoiler||`), vlastní parser je menší a přesnější
-- **Pure function:** `fun parseRichText(raw: String): RichTextDocument` — žádné IO, žádný state, plně testovatelné
-- **Tolerance to malformed input:** nikdy nehodit exception, neuzavřený `**bold` → text run s prefixem `**`
-- **Performance:** parser běží na `Dispatchers.Default` při příchodu zprávy z gateway, výsledek se cachuje v `ChatMessage.parsedContent`. Re-parse jen při editu.
-- **Memory:** AST stromy malé (≤ 100 nodes per typická zpráva). Žádný interning, prostý alokační overhead je OK.
+- **No third-party parsers** (CommonMark, flexmark) — Discord markdown is a subset with differences (nested ** vs * priority, `||spoiler||`); a custom parser is smaller and more accurate
+- **Pure function:** `fun parseRichText(raw: String): RichTextDocument` — no IO, no state, fully testable
+- **Tolerance of malformed input:** never throw an exception; an unclosed `**bold` → text run with `**` prefix
+- **Performance:** parser runs on `Dispatchers.Default` when a message arrives from the gateway; result is cached in `ChatMessage.parsedContent`. Re-parse only on edit.
+- **Memory:** AST trees are small (≤ 100 nodes per typical message). No interning; plain allocation overhead is acceptable.
 
 ## Renderer (Compose)
 
-V `:desktop:compose-ui` (později i `:shared:compose-ui` pokud bude).
+In `:desktop:compose-ui` (later also `:shared:compose-ui` when applicable).
 
 ```kotlin
 @Composable
 fun RichTextView(
     document: RichTextDocument,
-    mentionResolver: MentionResolver,    // pro resolved jméno/avatar
+    mentionResolver: MentionResolver,    // for resolved name/avatar
     emojiResolver: EmojiResolver,
     onLinkClick: (String) -> Unit,
 )
 ```
 
-**Pravidla rendereru:**
-- UI **nikdy** neparsuje `String`. Vstup je vždy `RichTextDocument`.
-- Resolvers jsou injektované (přes CompositionLocal nebo parametr), Repository-backed
-- Resolvers vrací `State<ResolvedXxx>` (Flow → collectAsState) — během loadingu se zobrazí raw ID placeholder
-- Code blocks: monospace font, později syntax highlighting (fáze 2)
-- Spoilers: blackout overlay, klik odhalí (state per-spoiler v `remember`)
+**Renderer rules:**
+- UI **never** parses a `String`. Input is always a `RichTextDocument`.
+- Resolvers are injected (via CompositionLocal or parameter), backed by a Repository
+- Resolvers return `State<ResolvedXxx>` (Flow → collectAsState) — while loading, the raw ID placeholder is shown
+- Code blocks: monospace font, syntax highlighting later (Phase 2)
+- Spoilers: blackout overlay, click reveals (state per spoiler in `remember`)
 
 ## Resolvers
 
@@ -149,19 +149,19 @@ interface MentionResolver {
 
 interface EmojiResolver {
     fun resolveCustom(id: EmojiId): Flow<CustomEmojiInfo?>   // CDN URL, animated
-    fun resolveUnicode(codepoint: String): UnicodeEmojiInfo? // sync, ze statické tabulky
+    fun resolveUnicode(codepoint: String): UnicodeEmojiInfo? // sync, from static table
 }
 ```
 
-Bydlí v `:shared:repositories`, implementuje proti Repository + cache.
+Lives in `:shared:repositories`, implemented against Repository + cache.
 
-## Test strategie
+## Test strategy
 
 Parser tests:
-- Golden-file based — `parser-fixtures/*.input.txt` + `*.expected.json` (serializovaný AST)
-- Edge cases: nested markdown, malformed mentions, oversized input (Discord max 4000 znaků)
+- Golden-file based — `parser-fixtures/*.input.txt` + `*.expected.json` (serialized AST)
+- Edge cases: nested markdown, malformed mentions, oversized input (Discord max 4000 characters)
 - Property-based (Kotest property): `parse(render(parse(x))) == parse(x)` (idempotence)
 
 Renderer tests:
-- Compose UI tests s mock resolvers
-- Screenshot tests (až bude infra)
+- Compose UI tests with mock resolvers
+- Screenshot tests (once infra is in place)

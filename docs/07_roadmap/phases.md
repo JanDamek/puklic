@@ -1,14 +1,14 @@
-# Roadmap — fáze 1–5
+# Roadmap — Phases 1–5
 
-Detailní rozpis fází ze zadání. Tracking statusů per task.
+Detailed breakdown of phases from the specification. Per-task status tracking.
 
-Legenda: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` skip / out of scope
+Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` skip / out of scope
 
 ---
 
-## Fáze 1 — Základní chat klient (MVP)
+## Phase 1 — Basic chat client (MVP)
 
-Cíl: použitelný read+write klient pro běžnou textovou komunikaci.
+Goal: a usable read+write client for everyday text communication.
 
 - [ ] Gradle multimodule setup
 - [ ] Compose Desktop app skeleton
@@ -26,10 +26,10 @@ Cíl: použitelný read+write klient pro běžnou textovou komunikaci.
 - [ ] Basic parser (markdown subset)
 - [ ] Basic Compose RichText renderer
 - [ ] Unicode emoji support
-- [ ] Desktop notifikace (libnotify / xdg-notification)
+- [ ] Desktop notifications (libnotify / xdg-notification)
 - [ ] Settings screen (account info, cache limits, logout)
 
-## Fáze 2 — Rich content
+## Phase 2 — Rich content
 
 - [ ] Mentions (user, channel, role) — parser + renderer + resolve
 - [ ] Custom emoji (Discord CDN, disk cache)
@@ -41,52 +41,52 @@ Cíl: použitelný read+write klient pro běžnou textovou komunikaci.
 - [ ] Message edit/delete sync via gateway
 - [ ] Email+password login (ADR-0002 Option B)
 
-## Fáze 3 — Voice
+## Phase 3 — Voice
 
-- [ ] Voice gateway protokol
+- [ ] Voice gateway protocol
 - [ ] Audio device enumeration (PipeWire / CoreAudio / AAudio)
 - [ ] Join/leave voice channel
 - [ ] Opus integration (libopus binding)
 - [ ] RTP/UDP voice transport
 - [ ] Voice encryption (xsalsa20_poly1305_lite)
 - [ ] Mute/deafen UI + state sync
-- [ ] DAVE protokol (E2EE voice, dle veřejné spec)
-- [ ] Voice state indicators v channel list
+- [ ] DAVE protocol (E2EE voice, per public spec)
+- [ ] Voice state indicators in channel list
 
-## Fáze 4 — Wayland screenshare
+## Phase 4 — Wayland screenshare
 
 - [ ] xdg-desktop-portal D-Bus binding
 - [ ] PipeWire stream capture
-- [ ] Window picker (přes portal RequestScreenCast)
+- [ ] Window picker (via portal RequestScreenCast)
 - [ ] Monitor picker
 - [ ] H.264 / VP8 encoder (libav / native)
 - [ ] Share with audio (PipeWire audio capture)
-- [ ] Video send přes voice gateway transport
+- [ ] Video send via voice gateway transport
 
-## Fáze 5 — Optimalizace
+## Phase 5 — Optimisation
 
 - [ ] Memory profiling (JFR baseline + per-screen flamegraph)
 - [ ] Image cache tuning (eviction policy, disk size)
 - [ ] Disk cache benchmarking
-- [ ] Coroutine leak detection (debug agent v dev buildech)
-- [ ] Compose recomposition optimization (`Modifier.composed` audit, stable types)
+- [ ] Coroutine leak detection (debug agent in dev builds)
+- [ ] Compose recomposition optimisation (`Modifier.composed` audit, stable types)
 - [ ] SQLite index audit + EXPLAIN QUERY PLAN review
 - [ ] Network retry/backoff policy (gateway resume, REST 429 handling)
-- [ ] Cold start measurement + optimalizace (target < 2 s)
+- [ ] Cold start measurement + optimisation (target < 2 s)
 
 ---
 
-## Cross-cutting concerns (průběžně přes všechny fáze)
+## Cross-cutting concerns (ongoing across all phases)
 
-- [ ] Crash reporting (lokálně do `$XDG_DATA_HOME/puklic/crashes/`, opt-in upload)
+- [ ] Crash reporting (local to `$XDG_DATA_HOME/puklic/crashes/`, opt-in upload)
 - [ ] Logging (structured, rotation, redact tokens)
-- [ ] i18n framework (česky + EN minimálně)
+- [ ] i18n framework (English + at least one additional locale)
 - [ ] Accessibility (Compose semantics, keyboard navigation)
-- [ ] Update mechanism (auto-update na desktop?)
+- [ ] Update mechanism (auto-update on desktop?)
 
-## Platformy — kdy přibývají
+## Platforms — when they are added
 
-- Linux desktop: od fáze 1
-- macOS / Windows desktop: best-effort od fáze 1 (Compose Desktop podporuje), tested ne dříve než fáze 2
-- Android: fáze 2 ship cíl
-- iOS: fáze 2/3 (závisí na zralosti Compose iOS)
+- Linux desktop: from phase 1
+- macOS / Windows desktop: best-effort from phase 1 (Compose Desktop supports it), tested no earlier than phase 2
+- Android: phase 2 ship target
+- iOS: phase 2/3 (depends on Compose iOS maturity)

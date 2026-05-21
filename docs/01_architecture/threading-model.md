@@ -1,6 +1,6 @@
 # Threading model
 
-Detailizace ADR-0004. Konkrétní scopes, dispatchers, lifecycle.
+Detail of ADR-0004. Concrete scopes, dispatchers, lifecycle.
 
 ## Scope hierarchy
 
@@ -36,20 +36,20 @@ ViewModelScope                                       (one per ViewModel = one pe
   Purpose:    Per-screen async work, StateFlow collection from repositories
 ```
 
-**Důležité:** `ViewModelScope` **není** dítětem `ApplicationScope`. Důvod — ViewModel může přežít re-login (např. Settings screen otevřený před logoutem zůstává a má hodit error). Repository injection do ViewModelu používá `WeakReference` nebo Flow s `onCompletion` cleanup.
+**Important:** `ViewModelScope` is **not** a child of `ApplicationScope`. Reason — a ViewModel may outlive a re-login (e.g. a Settings screen open before logout remains open and should emit an error). Repository injection into ViewModels uses `WeakReference` or Flow with `onCompletion` cleanup.
 
 ## Dispatcher cheatsheet
 
 | Operation | Dispatcher | Reason |
 |---|---|---|
 | Compose state read/write | `Dispatchers.Main.immediate` | Compose runtime constraint |
-| Final `StateFlow.emit` v ViewModelu | `Dispatchers.Main.immediate` | Smooth UI updates |
+| Final `StateFlow.emit` in ViewModel | `Dispatchers.Main.immediate` | Smooth UI updates |
 | SQLDelight read/write | `Dispatchers.IO` | Blocking JDBC SQLite driver |
-| Ktor REST / WebSocket | `Dispatchers.IO` | Ktor interní pool, manual switch ne nutný |
+| Ktor REST / WebSocket | `Dispatchers.IO` | Ktor internal pool, no manual switch needed |
 | JSON deserialize | `Dispatchers.Default` | CPU bound |
 | RichText parse | `Dispatchers.Default` | CPU bound |
 | File IO (disk cache) | `Dispatchers.IO` | Blocking |
-| Crypto (Opus encode, fáze 3) | dedicated `newSingleThreadContext` | Avoid pool starvation |
+| Crypto (Opus encode, Phase 3) | dedicated `newSingleThreadContext` | Avoid pool starvation |
 
 ## Coroutine patterns
 
@@ -110,7 +110,7 @@ GatewayScope
   └─ heartbeatJob: while (isActive) { delay(interval); send Heartbeat; check ack }
 ```
 
-Když kterýkoli z těchto jobů zfailí → cancel GatewayScope → reconnect orchestrator (v SessionScope) detekuje a spawne nový GatewayScope.
+When any of these jobs fails → cancel GatewayScope → the reconnect orchestrator (in SessionScope) detects it and spawns a new GatewayScope.
 
 ## Cancellation patterns
 
@@ -135,7 +135,7 @@ val websocketJob = scope.launch {
     try {
         // ... read loop
     } finally {
-        socket.close()                // garantovaný cleanup
+        socket.close()                // guaranteed cleanup
     }
 }
 ```
@@ -171,19 +171,19 @@ suspend fun fetchWithTimeout(url: String): Response = withTimeout(10_000) {
 
 ## Anti-patterns (forbidden)
 
-- ❌ `GlobalScope.launch` — žádný owner, leak guaranteed
-- ❌ `runBlocking` mimo `main()` a testy
-- ❌ `Thread.sleep` v coroutine
-- ❌ `Channel.receive()` ve UI threadu bez timeout/select
-- ❌ `MutableStateFlow` exposovaný public — vždy `asStateFlow()`
-- ❌ Sdílený scope pro nesouvisející featury („MainScope" everywhere)
-- ❌ `Flow.collect { ... }` bez explicit scope ownership
-- ❌ Vytvoření coroutine v `@Composable` mimo `LaunchedEffect`/`rememberCoroutineScope`
-- ❌ Recursive `Flow` chains s nejasným ownership
+- ❌ `GlobalScope.launch` — no owner, leak guaranteed
+- ❌ `runBlocking` outside `main()` and tests
+- ❌ `Thread.sleep` in a coroutine
+- ❌ `Channel.receive()` on the UI thread without timeout/select
+- ❌ `MutableStateFlow` exposed publicly — always `asStateFlow()`
+- ❌ Shared scope for unrelated features ("MainScope" everywhere)
+- ❌ `Flow.collect { ... }` without explicit scope ownership
+- ❌ Creating a coroutine inside a `@Composable` outside `LaunchedEffect`/`rememberCoroutineScope`
+- ❌ Recursive `Flow` chains with unclear ownership
 
 ## Debug
 
-V dev buildech enable coroutine debugger:
+In dev builds, enable the coroutine debugger:
 
 ```kotlin
 // JVM start args:
@@ -191,15 +191,15 @@ V dev buildech enable coroutine debugger:
 -Dkotlinx.coroutines.stacktrace.recovery=true
 ```
 
-Vystaví coroutine name v stack traces:
+Exposes coroutine names in stack traces:
 
 ```kotlin
 scope.launch(CoroutineName("MessageRepository.observe(channelId=$cid)")) { ... }
 ```
 
-## Test strategie
+## Test strategy
 
-- `kotlinx-coroutines-test` `runTest` pro deterministic dispatching
-- `TestScope` s virtual clock pro debounce/delay testy
-- Custom `TestDispatcher` injection do Repository konstruktorů
-- Žádný `Thread.sleep` v testech — vždy `advanceUntilIdle()` / `advanceTimeBy()`
+- `kotlinx-coroutines-test` `runTest` for deterministic dispatching
+- `TestScope` with virtual clock for debounce/delay tests
+- Custom `TestDispatcher` injection into Repository constructors
+- No `Thread.sleep` in tests — always `advanceUntilIdle()` / `advanceTimeBy()`

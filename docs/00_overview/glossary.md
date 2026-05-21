@@ -1,46 +1,46 @@
 # Glossary
 
-Doménové pojmy Puklic + Discord. Aktualizovat při zavedení nového typu / abstrakce.
+Domain terms for Puklic + Discord. Update when introducing a new type / abstraction.
 
-## Discord doména
+## Discord domain
 
-| Term | Definice |
+| Term | Definition |
 |---|---|
-| **Guild** | Discord „server" — kontejner kanálů, rolí, členů. ID = snowflake. |
-| **Channel** | Text / voice / category / thread / forum kanál uvnitř guildu nebo DM. |
-| **DM / Group DM** | Direct message mezi 2 / více uživateli, bez guildu. |
-| **User** | Discord účet. Self-user = přihlášený uživatel (`@me`). |
-| **Member** | User v kontextu guildu (nickname, role, joined_at). |
-| **Message** | Jedna textová zpráva s přílohami, embeds, reactions. |
-| **Embed** | Strukturovaný blok pod zprávou (link preview, bot output). |
-| **Attachment** | Soubor přiložený ke zprávě (image, video, file). |
-| **Reaction** | Emoji reakce pod zprávou, agregovaná count + per-user list. |
-| **Gateway** | Discord websocket endpoint pro real-time eventy. |
-| **REST API** | Discord HTTP API v10 pro request/response operace. |
-| **Snowflake** | 64-bit ID s timestamp encoded. |
-| **Presence** | Online status uživatele (online / idle / dnd / offline). |
-| **Typing indicator** | Ephemeral event „X píše v kanálu Y". |
-| **Voice state** | Uživatel připojený do voice channelu, mute/deafen flags. |
-| **DAVE** | Discord Audio/Video Encryption — E2EE voice protokol. |
+| **Guild** | A Discord "server" — a container for channels, roles, and members. ID = snowflake. |
+| **Channel** | A text / voice / category / thread / forum channel inside a guild, or a DM. |
+| **DM / Group DM** | Direct message between 2 / more users, without a guild. |
+| **User** | A Discord account. Self-user = the logged-in user (`@me`). |
+| **Member** | A user in the context of a guild (nickname, roles, joined_at). |
+| **Message** | A single text message with attachments, embeds, and reactions. |
+| **Embed** | A structured block below a message (link preview, bot output). |
+| **Attachment** | A file attached to a message (image, video, file). |
+| **Reaction** | An emoji reaction on a message, with an aggregated count + per-user list. |
+| **Gateway** | The Discord WebSocket endpoint for real-time events. |
+| **REST API** | The Discord HTTP API v10 for request/response operations. |
+| **Snowflake** | A 64-bit ID with an encoded timestamp. |
+| **Presence** | A user's online status (online / idle / dnd / offline). |
+| **Typing indicator** | An ephemeral event "X is typing in channel Y". |
+| **Voice state** | A user connected to a voice channel, with mute/deafen flags. |
+| **DAVE** | Discord Audio/Video Encryption — the E2EE voice protocol. |
 
-## Puklic doména
+## Puklic domain
 
-| Term | Definice |
+| Term | Definition |
 |---|---|
-| **Session** | Lifecycle připojení jednoho účtu (token + gateway + state). |
-| **RichTextDocument** | Parsed AST zprávy, struktura `List<RichTextBlock>`. |
-| **RichTextBlock** | Block-level element: paragraph / code block / quote. |
-| **RichTextNode** | Inline element: text / emoji / mention / link / inline code. |
-| **MessageRepository** | Vrstva nad SQLite + RAM cache + API; vystavuje Flow streams. |
-| **DiscordSession** | Náš abstraction nad gateway + REST pro jeden account. |
-| **PlatformXxxService** | `expect` rozhraní v `:shared:platform-api`, `actual` per platforma. |
-| **Hot/warm/cold cache** | Vrstvy message cache, viz ADR-0003. |
+| **Session** | The lifecycle of a single account's connection (token + gateway + state). |
+| **RichTextDocument** | A parsed AST of a message, structured as `List<RichTextBlock>`. |
+| **RichTextBlock** | A block-level element: paragraph / code block / quote. |
+| **RichTextNode** | An inline element: text / emoji / mention / link / inline code. |
+| **MessageRepository** | A layer over SQLite + RAM cache + API; exposes Flow streams. |
+| **DiscordSession** | Our abstraction over the gateway + REST for one account. |
+| **PlatformXxxService** | `expect` interface in `:shared:platform-api`, `actual` per platform. |
+| **Hot/warm/cold cache** | Message cache layers, see ADR-0003. |
 
-## Anti-glossary (pojmy, které v Puklic NEPOUŽÍVÁME)
+## Anti-glossary (terms we do NOT use in Puklic)
 
-| Term | Proč ne |
+| Term | Why not |
 |---|---|
-| **Bot** | Puklic není bot, viz CLAUDE.md scope. |
-| **Self-bot** | Out of scope, zakázáno. |
-| **Plugin** | Bez plugin systému (fáze 1–5). |
-| **Activity / Stage / Boost** | Mimo MVP scope, viz product-vision.md anti-goals. |
+| **Bot** | Puklic is not a bot, see CLAUDE.md scope. |
+| **Self-bot** | Out of scope, prohibited. |
+| **Plugin** | No plugin system (Phases 1–5). |
+| **Activity / Stage / Boost** | Outside MVP scope, see product-vision.md anti-goals. |

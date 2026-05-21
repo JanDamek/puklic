@@ -1,74 +1,74 @@
 # iOS
 
-Terciární platforma. Cíl: fáze 2/3, závisí na zralosti Compose iOS.
+Tertiary platform. Target: Phase 2/3, depending on Compose iOS maturity.
 
 ## Targets
 
 - **iOS deployment target:** 14.0+
 - **Xcode:** latest stable
-- **Compose Multiplatform iOS:** stable channel (vyhnout se EAP/dev)
+- **Compose Multiplatform iOS:** stable channel (avoid EAP/dev)
 
-## Klíčové platform integrace
+## Key platform integrations
 
-| Capability | Implementace |
+| Capability | Implementation |
 |---|---|
-| Secure storage | Keychain Services (přes `kotlin-native` `platform.Security`) |
+| Secure storage | Keychain Services (via `kotlin-native` `platform.Security`) |
 | Notifications | `UNUserNotificationCenter` |
-| Background gateway | **omezeno** — iOS suspendí WebSocket v backgroundu (~30 s grace, pak kill) |
+| Background gateway | **limited** — iOS suspends WebSocket in the background (~30 s grace, then kill) |
 | File picker | `UIDocumentPickerViewController` |
-| Audio | `AVAudioEngine` (fáze 3) |
-| Push | APNs (vyžaduje server-side relay — out of scope) |
+| Audio | `AVAudioEngine` (Phase 3) |
+| Push | APNs (requires server-side relay — out of scope) |
 
 ## Background limitations
 
-iOS je pro Discord-style klient mnohem omezenější než Android:
-- **Žádný foreground service ekvivalent** pro běžné apps
-- VoIP background mode (`com.apple.developer.networking.voip`) povoluje persistent socket, ale je vyhrazený pro telefonování — App Store reject jistý pro chat app
-- BackgroundTasks framework dovoluje periodické refreshes (max ~1×/15 min)
+iOS is far more restrictive than Android for a Discord-style client:
+- **No foreground service equivalent** for regular apps
+- VoIP background mode (`com.apple.developer.networking.voip`) allows a persistent socket but is reserved for phone calls — App Store rejection is certain for a chat app
+- BackgroundTasks framework allows periodic refreshes (max ~1× per 15 min)
 
-**Strategie:**
-- Foreground: gateway aktivní, full functionality
-- Background: gateway disconnect po grace period, app vrací na foreground → reconnect + READY → SQLite hydratuje UI okamžitě, gateway sync async
-- **Push notifikace:** UPS (User Push Service) by vyžadoval vlastní server-side komponentu, která mezi Discord gateway a APNs překládá. Out of scope.
+**Strategy:**
+- Foreground: gateway active, full functionality
+- Background: gateway disconnects after grace period; app returns to foreground → reconnect + READY → SQLite hydrates UI immediately, gateway sync async
+- **Push notifications:** APNs would require a custom server-side component translating between the Discord gateway and APNs. Out of scope.
 
-V důsledku: iOS Puklic = „check messages when I open app" model, ne „real-time notifications" model.
+As a result: iOS Puklic = "check messages when I open the app" model, not a "real-time notifications" model.
 
-## App Store distribuce risk
+## App Store distribution risk
 
-Discord ToS violation = vyšší riziko App Review rejection než Android Play. Apple obecně přísnější.
+Discord ToS violation = higher risk of App Review rejection than on Android Play. Apple is generally stricter.
 
-Plán:
-- **Apple Developer Program:** $99/rok pro distribuci
-- **TestFlight:** beta primárně, pro early adopters
-- **App Store submission:** zkusit, ale počítat s rejection. Apple typicky odmítne třetí-stranné Discord klienty.
-- **Alternative:** AltStore / sideloading přes Apple ID — uživatel installuje vlastní build (vyžaduje Apple Developer účet nebo 7-day re-signing)
+Plan:
+- **Apple Developer Program:** $99/year for distribution
+- **TestFlight:** primary beta, for early adopters
+- **App Store submission:** try, but expect rejection. Apple typically rejects third-party Discord clients.
+- **Alternative:** AltStore / sideloading via Apple ID — user installs their own build (requires Apple Developer account or 7-day re-signing)
 
-## Compose iOS — známé bolesti (k 2026-05)
+## Compose iOS — known pain points (as of 2026-05)
 
-- Text input má rough hrany (selection, paste menu)
-- Scroll inertia jiný feel než UIKit
-- No native context menu — custom impl
+- Text input has rough edges (selection, paste menu)
+- Scroll inertia feels different from UIKit
+- No native context menu — custom implementation needed
 - Accessibility (VoiceOver) partial support
 - Dark mode handling OK
 - HiDPI / Retina handled by Compose Skia
 
-Workaround: nejvíc problematické komponenty (text input) re-implementovat přes `UIViewController` interop, ostatní necháme Compose.
+Workaround: re-implement the most problematic components (text input) via `UIViewController` interop; leave the rest to Compose.
 
 ## UI considerations
 
-- Safe area insets (notch, home indicator) — Compose iOS má `WindowInsets.safeArea`
-- Predictive back N/A (iOS používá swipe-from-edge — Compose Navigation podporuje)
-- Sheets (modal): Compose Bottom Sheet OK, nativní modal presentation přes interop
-- iPad: split view adaptive layouts (stejný systém jako Android tablety)
+- Safe area insets (notch, home indicator) — Compose iOS has `WindowInsets.safeArea`
+- Predictive back N/A (iOS uses swipe-from-edge — Compose Navigation supports it)
+- Sheets (modal): Compose Bottom Sheet OK, native modal presentation via interop
+- iPad: split view adaptive layouts (same system as Android tablets)
 
-## Specifika
+## Specifics
 
-- Žádný tray, žádný background gateway → UX se posune více k „pull" modelu
-- Notifikace přes APNs by vyžadovaly server — out of scope
-- Vyhnout se features, které předpokládají background presence (typing v jiném channelu na pozadí)
+- No tray, no background gateway → UX shifts more toward a "pull" model
+- Notifications via APNs would require a server — out of scope
+- Avoid features that assume background presence (typing in another channel in the background)
 
 ## Open questions
 
-- **Real-time experience na iOS:** bez push je app reaktivní jen v foreground. Acceptable trade-off pro MVP. Možná opt-in „relay server" feature ve fázi 5+.
-- **App Store vs TestFlight pouze:** rozhodnutí dle prvního submission outcome.
-- **Compose iOS stability:** re-evaluate při startu fáze 2 (pokud bude bolest, switch na SwiftUI per ADR-0001 superseding).
+- **Real-time experience on iOS:** without push the app is reactive only in the foreground. Acceptable trade-off for MVP. Possible opt-in "relay server" feature in Phase 5+.
+- **App Store vs TestFlight only:** decision based on first submission outcome.
+- **Compose iOS stability:** re-evaluate at the start of Phase 2 (if it becomes painful, switch to SwiftUI per a superseding ADR-0001).

@@ -1,4 +1,4 @@
-# ADR-0005: Decompose jako navigační knihovna
+# ADR-0005: Decompose as the navigation library
 
 - **Status:** accepted
 - **Date:** 2026-05-21
@@ -6,95 +6,95 @@
 
 ## Context
 
-Puklic potřebuje navigační knihovnu pro Compose Multiplatform, která zvládne tří-panelový adaptivní layout (guild rail | channel list | messages) — stejný pattern jako Discord desktop. Tento layout vyžaduje:
+Puklic needs a navigation library for Compose Multiplatform that can handle a three-pane adaptive layout (guild rail | channel list | messages) — the same pattern as Discord desktop. This layout requires:
 
-- Nezávislý back-stack pro každý panel (ne globální stack)
-- Přepínání mezi `SINGLE` / `DUAL` / `TRIPLE` zobrazením podle window size class
-- Fungující state restoration při Android process death
-- Produkční stabilitu na JVM desktop + Android od Phase 1; iOS (Kotlin/Native) od Phase 2
+- An independent back-stack per pane (not a global stack)
+- Switching between `SINGLE` / `DUAL` / `TRIPLE` display modes based on window size class
+- Working state restoration on Android process death
+- Production stability on JVM desktop + Android from Phase 1; iOS (Kotlin/Native) from Phase 2
 
-Rozhodnutí je označeno jako "nejzávažnější" v setupu, protože navigační knihovna tvaruje lifecycle každého ViewModelu, ComponentContextu a scope v celém `:shared:compose-ui`.
+This decision is marked as "the most consequential" in the setup because the navigation library shapes the lifecycle of every ViewModel, ComponentContext, and scope across all of `:shared:compose-ui`.
 
 ## Options considered
 
 ### Option A — Decompose 3.x
 
-Arkivanov Decompose je KMP navigační framework orientovaný na component-based architekturu.
+Arkivanov Decompose is a KMP navigation framework oriented around component-based architecture.
 
 **Pros:**
-- `ChildPanels` API přímo modeluje tří-panelový layout jako `SINGLE` / `DUAL` / `TRIPLE` — přesná shoda s adaptive-layouts.md
-- Per-panel `ComponentContext` s vlastním back-stackem (`ChildStack`)
-- `instanceKeeper` + `StateKeeper` pro Android process death restoration
-- Produkční nasazení: Discord-like aplikace (třetí strany), Kotlin KMP showcase projekty
-- Aktivní vývoj a podpora (Arkivanov, 2024–2026)
-- Přirozené místo pro ViewModely: Decompose component IS ViewModel — bez ViewModelFactory/ViewModel lifecycle kolizí
+- `ChildPanels` API directly models the three-pane layout as `SINGLE` / `DUAL` / `TRIPLE` — an exact match with adaptive-layouts.md
+- Per-pane `ComponentContext` with its own back-stack (`ChildStack`)
+- `instanceKeeper` + `StateKeeper` for Android process death restoration
+- Production deployments: Discord-like applications (third parties), Kotlin KMP showcase projects
+- Active development and support (Arkivanov, 2024–2026)
+- Natural home for ViewModels: a Decompose component IS the ViewModel equivalent — no ViewModelFactory/ViewModel lifecycle conflicts
 
 **Cons:**
-- Větší API surface než Voyager / Compose Navigation
-- Learning curve: `ComponentContext`, `ChildStack`, `ChildPanels` jsou nové koncepty
-- Nutnost ručního DI do komponent (Koin constructor injection) — žádný `koinViewModel()` shortcut bez boilerplate
+- Larger API surface than Voyager / Compose Navigation
+- Learning curve: `ComponentContext`, `ChildStack`, `ChildPanels` are new concepts
+- Requires manual DI into components (Koin constructor injection) — no `koinViewModel()` shortcut without boilerplate
 
 ### Option B — Voyager
 
-Café Bazaar Voyager je jednoduchá KMP navigace orientovaná na screen stack.
+Café Bazaar Voyager is a simple KMP navigation library oriented around a screen stack.
 
 **Pros:**
-- Jednodušší API: `Navigator`, `Screen`, push/pop
-- Dobrá KMP podpora (Desktop + Android + iOS)
+- Simpler API: `Navigator`, `Screen`, push/pop
+- Good KMP support (Desktop + Android + iOS)
 
 **Cons:**
-- Žádný `ChildPanels` ekvivalent — tří-panelový layout by vyžadoval custom navigation coordinator
-- Globální stack, ne per-panel — back-stack logika musela by být implementována ručně
-- Desktop je sekundární platforma pro Voyager (Android-first)
+- No `ChildPanels` equivalent — a three-pane layout would require a custom navigation coordinator
+- Global stack, not per-pane — back-stack logic would have to be implemented manually
+- Desktop is a secondary platform for Voyager (Android-first)
 
 ### Option C — Compose Navigation (Jetpack)
 
-Jetpack Navigation Compose je Android-first navigace portovaná na KMP.
+Jetpack Navigation Compose is Android-first navigation ported to KMP.
 
 **Pros:**
-- Velká komunita (Android ekosystém)
-- Native Android deep link podpora
-- `ViewModel` integrace (Android Jetpack)
+- Large community (Android ecosystem)
+- Native Android deep link support
+- `ViewModel` integration (Android Jetpack)
 
 **Cons:**
-- KMP podpora je mladá (přidána ~2024), Desktop má mezery v 2026
-- Žádný `ChildPanels` ekvivalent
-- Globální single-stack — tří-panelový layout není přímou abstrakcí
-- Android-centric design: iOS a Desktop jsou second-class citizens
+- KMP support is young (added ~2024), Desktop has gaps in 2026
+- No `ChildPanels` equivalent
+- Global single-stack — a three-pane layout is not a direct abstraction
+- Android-centric design: iOS and Desktop are second-class citizens
 
-### Option D — Vlastní navigace
+### Option D — Custom navigation
 
-Implementace custom navigation coordinatoru bez knihovny třetích stran.
+Implementing a custom navigation coordinator without a third-party library.
 
 **Pros:**
-- Plná kontrola
-- Žádná závislost na třetí straně
+- Full control
+- No third-party dependency
 
 **Cons:**
-- Reimplementuje přesně to, co Decompose nabízí (`ChildPanels`, `ChildStack`, lifecycle)
-- Vysoké náklady na vývoj a údržbu
-- Validity pouze pokud žádná knihovna nepokrývá potřebu — Decompose ji pokrývá plně
+- Re-implements exactly what Decompose provides (`ChildPanels`, `ChildStack`, lifecycle)
+- High development and maintenance cost
+- Only valid if no library covers the need — Decompose covers it fully
 
 ## Decision
 
 **Option A — Decompose 3.x.**
 
-Důvod: `ChildPanels` API je přímou abstrakcí tří-panelového layoutu vyžadovaného v adaptive-layouts.md. Žádná jiná KMP knihovna tuto abstrakci nenabízí — alternativy by vyžadovaly custom implementaci srovnatelné složitosti. Decompose má produkční track record na Desktop + Android, a iOS podpora (Kotlin/Native) je dostupná pro Phase 2.
+Rationale: The `ChildPanels` API is a direct abstraction of the three-pane layout required in adaptive-layouts.md. No other KMP library offers this abstraction — alternatives would require a custom implementation of comparable complexity. Decompose has a production track record on Desktop + Android, and iOS support (Kotlin/Native) is available for Phase 2.
 
 ## Consequences
 
-- ✅ `:shared:compose-ui` obsahuje Decompose `RootComponent` + `ChildPanels` pro tří-panelový layout
-- ✅ ViewModely žijí v `:shared:compose-ui` jako Decompose komponenty (presentation layer), ne v `:shared:repositories` (data layer)
-- ✅ `ComponentContext` je lifecycle owner každého ViewModelu — přirozené zrušení coroutinů při navigaci pryč z obrazovky (ADR-0004)
-- ✅ Android process death restoration: `instanceKeeper` + `StateKeeper` zabudovány do Decompose
-- ⚠️ Decompose API je větší — engineer potřebuje přečíst dokumentaci před implementací `:shared:compose-ui`
-- ⚠️ Koin + Decompose: nepoužívat `koinViewModel()`, místo toho constructor injection do Decompose komponent
-- 🔒 Pin Decompose na verzi `3.3.0` v `libs.versions.toml`; update pouze po ověření `ChildPanels` stability na všech platformách
-- 🔒 `ChildPanels` pochází z `decompose` knihovny (ne z `compose-material3-adaptive`, která poskytuje `ThreePaneScaffold`)
+- ✅ `:shared:compose-ui` contains a Decompose `RootComponent` + `ChildPanels` for the three-pane layout
+- ✅ ViewModels live in `:shared:compose-ui` as Decompose components (presentation layer), not in `:shared:repositories` (data layer)
+- ✅ `ComponentContext` is the lifecycle owner of every ViewModel — coroutines are naturally cancelled on navigation away from the screen (ADR-0004)
+- ✅ Android process death restoration: `instanceKeeper` + `StateKeeper` are built into Decompose
+- ⚠️ Decompose API is larger — engineers need to read the documentation before implementing `:shared:compose-ui`
+- ⚠️ Koin + Decompose: do not use `koinViewModel()`, use constructor injection into Decompose components instead
+- 🔒 Pin Decompose to version `3.3.0` in `libs.versions.toml`; update only after verifying `ChildPanels` stability on all platforms
+- 🔒 `ChildPanels` comes from the `decompose` library (not from `compose-material3-adaptive`, which provides `ThreePaneScaffold`)
 
 ## Related
 
-- ADR-0001: Compose Multiplatform jako jednotná UI vrstva
-- ADR-0004: Coroutine-first architektura (ComponentContext lifecycle + coroutine scopes)
-- `docs/04_ui/adaptive-layouts.md` — tří-panelový layout spec
+- ADR-0001: Compose Multiplatform as the unified UI layer
+- ADR-0004: Coroutine-first architecture (ComponentContext lifecycle + coroutine scopes)
+- `docs/04_ui/adaptive-layouts.md` — three-pane layout spec
 - Spec: `docs/03_infrastructure/architect-reports/2026-05-21-gradle-setup.md` §Q4

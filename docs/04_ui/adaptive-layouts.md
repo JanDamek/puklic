@@ -1,22 +1,22 @@
 # Adaptive layouts
 
-Puklic běží na Desktop / Android / iOS — různé velikosti oken a obrazovek. Adaptive systém vychází z Material 3 window size classes.
+Puklic runs on Desktop / Android / iOS — different window and screen sizes. The adaptive system is based on Material 3 window size classes.
 
-## Breakpointy
+## Breakpoints
 
 Material 3 window size classes:
 
-| Class | Width | Typický device |
+| Class | Width | Typical device |
 |---|---|---|
-| **Compact** | 0–599 dp | Phone portrait, malá phone landscape |
-| **Medium** | 600–839 dp | Tablet portrait, phone landscape, malé okno desktop |
+| **Compact** | 0–599 dp | Phone portrait, small phone landscape |
+| **Medium** | 600–839 dp | Tablet portrait, phone landscape, small desktop window |
 | **Expanded** | 840+ dp | Tablet landscape, desktop |
 
-Detekce přes `WindowSizeClass.calculateFromSize(...)` z `androidx.compose.material3.windowsizeclass` (KMP-compatible).
+Detection via `WindowSizeClass.calculateFromSize(...)` from `androidx.compose.material3.windowsizeclass` (KMP-compatible).
 
 ## Three-pane → adaptive collapse
 
-Zafixované rozhodnutí UX: **three-pane Discord-style** (guilds rail | channels | messages). Toto je expanded layout. Pro menší šířky **degradujeme**:
+Fixed UX decision: **three-pane Discord-style** (guilds rail | channels | messages). This is the expanded layout. For narrower widths we **degrade**:
 
 ```
 Expanded (≥ 840 dp):
@@ -24,20 +24,20 @@ Expanded (≥ 840 dp):
 │G │ Channels │ Messages                    │
 │  │          │                             │
 └──┴──────────┴─────────────────────────────┘
- 36         240            zbytek
+ 36         240            rest
 
 Medium (600–839 dp):
-- guild rail viditelný (36 dp)
-- channel list overlaynutý (drawer) — toggle button v channel header
+- guild rail visible (36 dp)
+- channel list overlaid (drawer) — toggle button in channel header
 ┌──┬─────────────────────────────────────────┐
 │G │ Messages                                │
 │  │                                         │
-│  │ (channels drawer slide-in když potřeba) │
+│  │ (channels drawer slide-in when needed)  │
 └──┴─────────────────────────────────────────┘
 
 Compact (< 600 dp):
-- 3 oddělené screens: Guilds → Channels → Messages
-- Back navigation mezi nimi (drawer overlay nebo navigation stack)
+- 3 separate screens: Guilds → Channels → Messages
+- Back navigation between them (drawer overlay or navigation stack)
 ┌─────────────────────────────────────────────┐
 │ ← #general                                  │
 │                                             │
@@ -46,9 +46,9 @@ Compact (< 600 dp):
 └─────────────────────────────────────────────┘
 ```
 
-## Per-platforma defaults
+## Per-platform defaults
 
-| Platform | Typický start | Class |
+| Platform | Typical start | Class |
 |---|---|---|
 | Linux desktop | 1280×800 → 1920×1080 | Expanded |
 | macOS desktop | 1440×900 | Expanded |
@@ -65,67 +65,67 @@ Compact (< 600 dp):
 
 ### Expanded
 
-Three-pane podle obrazovky. Šířky:
-- Guild rail: 56 dp fixed (36 dp ikona + 10 dp padding each side)
+Three-pane according to screen size. Widths:
+- Guild rail: 56 dp fixed (36 dp icon + 10 dp padding each side)
 - Channel list: 240 dp default, resizable 200–320 dp (drag separator)
-- Messages: zbytek (min 480 dp pro čitelnost)
+- Messages: rest (min 480 dp for readability)
 
-Pokud window < 840 dp ale > 600 dp → degrade na **Medium**.
+If window < 840 dp but > 600 dp → degrade to **Medium**.
 
 ### Medium
 
-Two-pane s collapsible channel drawer:
+Two-pane with collapsible channel drawer:
 - Guild rail: 56 dp fixed
-- Messages: zbytek
-- Channel list: overlay drawer (280 dp) přes messages, toggle button v header (☰)
+- Messages: rest
+- Channel list: overlay drawer (280 dp) over messages, toggle button in header (☰)
 
-Drawer state persistuje per session — pokud byl otevřen, otevři ho i po reload do stejné šířky.
+Drawer state persists per session — if it was open, open it again on reload to the same width.
 
 ### Compact
 
 Three-screen stack navigation:
-1. **Guilds screen** — full-width list guildů (větší ikony 48 dp + jméno + last activity)
-2. **Channels screen** — full-width list channels pro vybraný guild, back button
+1. **Guilds screen** — full-width guild list (larger icons 48 dp + name + last activity)
+2. **Channels screen** — full-width channel list for the selected guild, back button
 3. **Messages screen** — full-width chat, back button
 
-Žádné drawers, žádné side panels. Navigation stack mezi screens (Compose Navigation / Decompose).
+No drawers, no side panels. Navigation stack between screens (Compose Navigation / Decompose).
 
-### Compact landscape (mobile rotace)
+### Compact landscape (mobile rotation)
 
-Pokud user pootočí telefon v messages screen:
-- Channel switcher zůstává drawer overlay (left edge swipe to open)
-- Žádný break z messages screen — userl běžně chce jen číst, ne přepínat
+If the user rotates their phone in the messages screen:
+- Channel switcher remains a drawer overlay (left edge swipe to open)
+- No break from the messages screen — users typically just want to read, not switch channels
 
-## Settings adaptivně
+## Settings adaptively
 
-Settings UX rozhodnutí: **full-screen overlay s left category nav**.
+Settings UX decision: **full-screen overlay with left category nav**.
 
 | Class | Layout |
 |---|---|
-| Expanded | Two-pane modal: left nav (240 dp) + right content (zbytek). Modal překryv min 1024×640 dp s padding kolem. |
-| Medium | Stejné jako Expanded, ale modal vyplní 90 % šířky. |
+| Expanded | Two-pane modal: left nav (240 dp) + right content (rest). Modal overlay min 1024×640 dp with padding around. |
+| Medium | Same as Expanded, but modal fills 90 % of width. |
 | Compact | Two-screen stack: categories screen → selected category content (back button). |
 
-## Command palette adaptivně
+## Command palette adaptively
 
 Ctrl+K palette:
 
 | Class | Layout |
 |---|---|
 | Expanded | Centered modal 640×480 dp, top-aligned 25 % from top |
-| Medium | Stejné, ale 90 % šířky |
+| Medium | Same, but 90 % of width |
 | Compact | Full-screen overlay with search at top, results vertically scrollable |
 
-## Composer adaptivně
+## Composer adaptively
 
 | Class | Composer |
 |---|---|
 | Expanded / Medium | Bottom-anchored, full width of messages pane, formatting toolbar visible |
-| Compact | Bottom-anchored, formatting toolbar collapsed do "+" button (expand on tap) |
+| Compact | Bottom-anchored, formatting toolbar collapsed into "+" button (expand on tap) |
 
 ## Touch vs pointer
 
-Compact (mobile) = touch. Expanded (desktop) = pointer. Medium může být oboje.
+Compact (mobile) = touch. Expanded (desktop) = pointer. Medium can be either.
 
 | Touch | Pointer |
 |---|---|
@@ -134,13 +134,13 @@ Compact (mobile) = touch. Expanded (desktop) = pointer. Medium může být oboje
 | Swipe gestures (back, refresh) | Scrollbars visible |
 | No hover states | Hover states full |
 
-Compose detekuje input mode přes `LocalInputModeManager` — adaptér v `PuklicTheme` přepíná density a tap target sizing automaticky.
+Compose detects input mode via `LocalInputModeManager` — an adapter in `PuklicTheme` switches density and tap target sizing automatically.
 
 ## Multi-window (desktop)
 
-Desktop user může mít víc Puklic oken — Phase 5+ feature. Pro MVP: jedno okno per process. Settings se otevírá jako overlay v stejném okně, ne jako separate window.
+Desktop users may have multiple Puklic windows — Phase 5+ feature. For MVP: one window per process. Settings open as an overlay within the same window, not as a separate window.
 
-## Implementace
+## Implementation
 
 ```kotlin
 @Composable
@@ -158,10 +158,10 @@ fun PuklicApp() {
 }
 ```
 
-Každý Scaffold je samostatný Composable s vlastním layoutem. Sdílí stejné child Composables (MessageList, ChannelList, ComposerArea) — adaptivita je v scaffold úrovni, ne v komponentách.
+Each Scaffold is a separate Composable with its own layout. They share the same child Composables (MessageList, ChannelList, ComposerArea) — adaptivity is at the scaffold level, not inside the components.
 
 ## Open questions
 
-- **Tablet split-view (iPadOS / Android multi-window):** kdy se chovat jako Compact vs Medium — zatím detect width only
-- **Foldable phones:** TBD test, default behavior dle width class by měl stačit
-- **TV / 10-foot UI:** mimo scope. Pokud někdo nasadí na TV, Compose Desktop run → expanded layout × 1.5 scale je víc-méně použitelný, ale nedoporučujeme
+- **Tablet split-view (iPadOS / Android multi-window):** when to behave as Compact vs Medium — for now detect width only
+- **Foldable phones:** TBD testing, default behavior based on width class should suffice
+- **TV / 10-foot UI:** out of scope. If someone deploys on TV, Compose Desktop run → expanded layout × 1.5 scale is more-or-less usable, but not recommended

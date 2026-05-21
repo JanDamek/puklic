@@ -1,12 +1,12 @@
 # Module map
 
-Gradle multimodule layout. **Draft** — finální struktura projde architect subagent review před `gradle init`.
+Gradle multimodule layout. **Draft** — final structure will go through architect subagent review before `gradle init`.
 
 ## Kotlin Multiplatform topology
 
-Puklic je Gradle multi-project build s Kotlin Multiplatform (KMP) projekty. Většina modulů má targets `[jvm, android, iosArm64, iosX64, iosSimulatorArm64]`; některé jen JVM (desktop).
+Puklic is a Gradle multi-project build with Kotlin Multiplatform (KMP) projects. Most modules have targets `[jvm, android, iosArm64, iosX64, iosSimulatorArm64]`; some are JVM-only (desktop).
 
-## Modulový strom
+## Module tree
 
 ```
 puklic/
@@ -25,158 +25,158 @@ puklic/
 │   ├── persistence-sqldelight/       # :shared:persistence-sqldelight
 │   ├── repositories/                 # :shared:repositories
 │   ├── session/                      # :shared:session
-│   ├── media-api/                    # :shared:media-api  (fáze 3)
+│   ├── media-api/                    # :shared:media-api  (Phase 3)
 │   └── compose-ui/                   # :shared:compose-ui
 │
 ├── desktop/
 │   ├── app/                          # :desktop:app
 │   ├── platform-linux/               # :desktop:platform-linux
-│   ├── platform-macos/               # :desktop:platform-macos     (stub fáze 1)
-│   ├── platform-windows/             # :desktop:platform-windows   (stub fáze 1)
-│   ├── media-pipewire/               # :desktop:media-pipewire     (fáze 3)
-│   └── media-portal/                 # :desktop:media-portal       (fáze 4, xdg-desktop-portal)
+│   ├── platform-macos/               # :desktop:platform-macos     (stub Phase 1)
+│   ├── platform-windows/             # :desktop:platform-windows   (stub Phase 1)
+│   ├── media-pipewire/               # :desktop:media-pipewire     (Phase 3)
+│   └── media-portal/                 # :desktop:media-portal       (Phase 4, xdg-desktop-portal)
 │
 ├── android/
-│   ├── app/                          # :android:app                (fáze 2)
-│   └── platform/                     # :android:platform           (fáze 2)
+│   ├── app/                          # :android:app                (Phase 2)
+│   └── platform/                     # :android:platform           (Phase 2)
 │
 ├── ios/
-│   ├── app/                          # :ios:app                    (fáze 2/3)
-│   └── platform/                     # :ios:platform               (fáze 2/3)
+│   ├── app/                          # :ios:app                    (Phase 2/3)
+│   └── platform/                     # :ios:platform               (Phase 2/3)
 │
 └── tools/
     └── parser-fixtures-gen/          # :tools:parser-fixtures-gen  (CLI tool)
 ```
 
-## Per-modul popis
+## Per-module description
 
 ### `:shared:ids`
 
-- **Účel:** Type-safe ID value classes (UserId, GuildId, ChannelId, ...)
+- **Purpose:** Type-safe ID value classes (UserId, GuildId, ChannelId, ...)
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** kotlinx-datetime (jen pro Snowflake → Instant extension)
-- **Závisí na:** nic
+- **Dependencies:** kotlinx-datetime (only for Snowflake → Instant extension)
+- **Depends on:** nothing
 
 ### `:shared:domain`
 
-- **Účel:** Doménové typy (ChatMessage, Guild, Channel, UserSummary, ...). Pure data classes.
+- **Purpose:** Domain types (ChatMessage, Guild, Channel, UserSummary, ...). Pure data classes.
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** kotlinx-datetime, kotlinx-serialization (pro Json serialization annotations)
-- **Závisí na:** `:shared:ids`
+- **Dependencies:** kotlinx-datetime, kotlinx-serialization (for Json serialization annotations)
+- **Depends on:** `:shared:ids`
 
 ### `:shared:platform-api`
 
-- **Účel:** `expect` interfaces pro SecureStorage, NotificationService, atd.
+- **Purpose:** `expect` interfaces for SecureStorage, NotificationService, etc.
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** kotlinx-coroutines
-- **Závisí na:** nic
+- **Dependencies:** kotlinx-coroutines
+- **Depends on:** nothing
 
 ### `:shared:chat-parser`
 
-- **Účel:** RichText AST parser (raw String → RichTextDocument). Pure functions.
+- **Purpose:** RichText AST parser (raw String → RichTextDocument). Pure functions.
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** kotlinx-datetime
-- **Závisí na:** `:shared:domain`, `:shared:ids`
+- **Dependencies:** kotlinx-datetime
+- **Depends on:** `:shared:domain`, `:shared:ids`
 
 ### `:shared:protocol-discord`
 
-- **Účel:** Discord DTO, JSON serialization, mappers do `:shared:domain`. Gateway + REST low-level client.
+- **Purpose:** Discord DTOs, JSON serialization, mappers to `:shared:domain`. Gateway + REST low-level client.
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** Ktor Client (CIO / Darwin engine per platform), kotlinx-serialization, kotlinx-coroutines
-- **Závisí na:** `:shared:domain`, `:shared:ids`
+- **Dependencies:** Ktor Client (CIO / Darwin engine per platform), kotlinx-serialization, kotlinx-coroutines
+- **Depends on:** `:shared:domain`, `:shared:ids`
 
 ### `:shared:persistence-api`
 
-- **Účel:** Repository interfaces, SQLDelight schema (`.sq` files) deklarace
+- **Purpose:** Repository interfaces, SQLDelight schema (`.sq` files) declarations
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** SQLDelight runtime, kotlinx-coroutines
-- **Závisí na:** `:shared:domain`, `:shared:ids`
+- **Dependencies:** SQLDelight runtime, kotlinx-coroutines
+- **Depends on:** `:shared:domain`, `:shared:ids`
 
 ### `:shared:persistence-sqldelight`
 
-- **Účel:** SQLDelight generated code + per-platform driver wiring
+- **Purpose:** SQLDelight generated code + per-platform driver wiring
 - **Targets:** JVM (SQLite JDBC), Android (Android SQLite), iOS (Native SQLite)
-- **Závisí na:** `:shared:persistence-api`, `:shared:platform-api`
+- **Depends on:** `:shared:persistence-api`, `:shared:platform-api`
 
 ### `:shared:repositories`
 
-- **Účel:** Concrete `MessageRepository`, `GuildRepository`, ... — wiring Discord protokol + persistence + RAM cache
+- **Purpose:** Concrete `MessageRepository`, `GuildRepository`, ... — wiring Discord protocol + persistence + RAM cache
 - **Targets:** JVM, Android, iOS
-- **Závisí na:** `:shared:protocol-discord`, `:shared:persistence-api`, `:shared:chat-parser`
+- **Depends on:** `:shared:protocol-discord`, `:shared:persistence-api`, `:shared:chat-parser`
 
 ### `:shared:session`
 
-- **Účel:** `DiscordSession` — top-level session lifecycle, gateway connect/resume, state machine
+- **Purpose:** `DiscordSession` — top-level session lifecycle, gateway connect/resume, state machine
 - **Targets:** JVM, Android, iOS
-- **Závisí na:** `:shared:protocol-discord`, `:shared:repositories`, `:shared:platform-api`
+- **Depends on:** `:shared:protocol-discord`, `:shared:repositories`, `:shared:platform-api`
 
-### `:shared:media-api` (fáze 3)
+### `:shared:media-api` (Phase 3)
 
-- **Účel:** `expect` audio capture/playback, video capture interfaces
-- **Závisí na:** `:shared:platform-api`
+- **Purpose:** `expect` audio capture/playback, video capture interfaces
+- **Depends on:** `:shared:platform-api`
 
 ### `:shared:compose-ui`
 
-- **Účel:** Compose Composables sdílené přes platformy (chat list, message bubble, RichText renderer, settings dialogy)
+- **Purpose:** Compose Composables shared across platforms (chat list, message bubble, RichText renderer, settings dialogs)
 - **Targets:** JVM, Android, iOS
-- **Závislosti:** Compose Multiplatform, Coil, Decompose (routing) / Voyager?
-- **Závisí na:** `:shared:domain`, `:shared:repositories`, `:shared:platform-api`
+- **Dependencies:** Compose Multiplatform, Coil, Decompose (routing)
+- **Depends on:** `:shared:domain`, `:shared:repositories`, `:shared:platform-api`
 
 ### `:desktop:app`
 
-- **Účel:** Desktop entry point — `main()`, top-level window, DI wiring, runtime configuration
+- **Purpose:** Desktop entry point — `main()`, top-level window, DI wiring, runtime configuration
 - **Targets:** JVM
-- **Závislosti:** Compose Desktop, Koin (nebo manual DI)
-- **Závisí na:** `:shared:compose-ui`, `:shared:session`, jeden z `:desktop:platform-*` (per OS detection)
+- **Dependencies:** Compose Desktop, Koin (or manual DI)
+- **Depends on:** `:shared:compose-ui`, `:shared:session`, one of `:desktop:platform-*` (per OS detection)
 
 ### `:desktop:platform-linux`
 
-- **Účel:** Linux `actual` implementace `:shared:platform-api` — libsecret, D-Bus notifications, libayatana tray, xdg-open
+- **Purpose:** Linux `actual` implementations of `:shared:platform-api` — libsecret, D-Bus notifications, libayatana tray, xdg-open
 - **Targets:** JVM
-- **Závislosti:** JNA, dbus-java
-- **Závisí na:** `:shared:platform-api`
+- **Dependencies:** JNA, dbus-java
+- **Depends on:** `:shared:platform-api`
 
 ### `:desktop:platform-macos` / `:desktop:platform-windows`
 
-- Stub ve fázi 1 (jen base path / clipboard). Plná implementace fáze 2+.
+- Stub in Phase 1 (base paths / clipboard only). Full implementation Phase 2+.
 
-### `:desktop:media-pipewire` (fáze 3)
+### `:desktop:media-pipewire` (Phase 3)
 
-- **Účel:** Linux audio capture/playback přes PipeWire
-- **Závisí na:** `:shared:media-api`, `:desktop:platform-linux`
+- **Purpose:** Linux audio capture/playback via PipeWire
+- **Depends on:** `:shared:media-api`, `:desktop:platform-linux`
 
-### `:desktop:media-portal` (fáze 4)
+### `:desktop:media-portal` (Phase 4)
 
-- **Účel:** Wayland screenshare přes xdg-desktop-portal + PipeWire video stream
-- **Závisí na:** `:shared:media-api`, `:desktop:platform-linux`, `:desktop:media-pipewire`
+- **Purpose:** Wayland screenshare via xdg-desktop-portal + PipeWire video stream
+- **Depends on:** `:shared:media-api`, `:desktop:platform-linux`, `:desktop:media-pipewire`
 
 ### `:android:app`
 
-- **Účel:** Android entry point — Application, MainActivity, Compose host
+- **Purpose:** Android entry point — Application, MainActivity, Compose host
 - **Targets:** Android
-- **Závisí na:** `:shared:compose-ui`, `:shared:session`, `:android:platform`
+- **Depends on:** `:shared:compose-ui`, `:shared:session`, `:android:platform`
 
 ### `:android:platform`
 
-- **Účel:** Android `actual` implementace `:shared:platform-api`
-- **Závisí na:** `:shared:platform-api`
+- **Purpose:** Android `actual` implementations of `:shared:platform-api`
+- **Depends on:** `:shared:platform-api`
 
 ### `:ios:app`
 
-- **Účel:** iOS entry point — `UIApplicationMain`, Compose iOS host
+- **Purpose:** iOS entry point — `UIApplicationMain`, Compose iOS host
 - **Targets:** iOS
-- **Závisí na:** `:shared:compose-ui`, `:shared:session`, `:ios:platform`
+- **Depends on:** `:shared:compose-ui`, `:shared:session`, `:ios:platform`
 
 ### `:ios:platform`
 
-- **Účel:** iOS `actual` implementace `:shared:platform-api`
-- **Závisí na:** `:shared:platform-api`
+- **Purpose:** iOS `actual` implementations of `:shared:platform-api`
+- **Depends on:** `:shared:platform-api`
 
 ### `:tools:parser-fixtures-gen`
 
-- **Účel:** CLI tool pro generování parser test fixtures z reálných Discord zpráv (sanitized)
+- **Purpose:** CLI tool for generating parser test fixtures from real Discord messages (sanitized)
 - **Targets:** JVM
-- **Závisí na:** `:shared:chat-parser`
+- **Depends on:** `:shared:chat-parser`
 
 ## Dependency graph (ASCII)
 
@@ -211,27 +211,27 @@ ids ◄──── domain ◄──── chat-parser ◄────┐
 
 ## Versioning & toolchain
 
-- **Kotlin:** 2.x (latest stable při startu)
+- **Kotlin:** 2.x (latest stable at project start)
 - **Compose Multiplatform:** latest stable
 - **JVM target:** 17 (Compose Desktop requirement)
 - **Android minSdk:** 26 (Oreo, ~98 % coverage)
 - **Android targetSdk:** latest
 - **iOS deployment target:** 14.0+
-- **Gradle:** 8.x s Version Catalog (`gradle/libs.versions.toml`)
-- **JDK pro build:** 21 (toolchain)
+- **Gradle:** 8.x with Version Catalog (`gradle/libs.versions.toml`)
+- **JDK for build:** 21 (toolchain)
 
 ## Build conventions
 
-- Gradle convention plugins v `buildSrc/` nebo `build-logic/` (TBD — ADR později)
-- Jeden `KotlinMultiplatformExtension` setup per typový modul (shared multiplatform vs desktop-only)
-- ktlint + detekt jako pre-commit a CI gate
-- `ktfmt` nebo `ktlint --format` jako formatter
-- KMP source sets: `commonMain`, `commonTest`, `jvmMain`, `androidMain`, `iosMain` (s shared `iosMain` přes hierarchy template)
+- Gradle convention plugins in `buildSrc/` or `build-logic/` (TBD — ADR later)
+- One `KotlinMultiplatformExtension` setup per module type (shared multiplatform vs desktop-only)
+- ktlint + detekt as pre-commit and CI gate
+- `ktfmt` or `ktlint --format` as formatter
+- KMP source sets: `commonMain`, `commonTest`, `jvmMain`, `androidMain`, `iosMain` (with shared `iosMain` via hierarchy template)
 
-## Open questions (k diskuzi s architect subagentem)
+## Open questions (to discuss with architect subagent)
 
-1. **Compose for `:shared:compose-ui`?** Compose iOS je beta. Možnost: ponechat Compose code v `:desktop:compose-ui` ve fázi 1, sdílet až ve fázi 2 při startu mobile. Snižuje risk.
-2. **Navigation:** Decompose vs Voyager vs vlastní. Decompose má lepší KMP support, Voyager hezčí DSL.
-3. **DI:** Koin (multiplatform, runtime) vs manual constructor injection. Pro malou app stačí manual.
-4. **Image loading:** Coil vs Compose Multiplatform image loader. Coil 3.x má MPP support.
-5. **WebSocket on iOS:** Ktor Client iOS engine používá NSURLSession — websocket podpora je novější, ověřit stabilitu.
+1. **Compose for `:shared:compose-ui`?** Compose iOS is beta. Option: keep Compose code in `:desktop:compose-ui` in Phase 1, share from Phase 2 when mobile starts. Reduces risk.
+2. **Navigation:** Decompose vs Voyager vs custom. Decompose has better KMP support, Voyager a nicer DSL.
+3. **DI:** Koin (multiplatform, runtime) vs manual constructor injection. Manual is sufficient for a small app.
+4. **Image loading:** Coil vs Compose Multiplatform image loader. Coil 3.x has MPP support.
+5. **WebSocket on iOS:** Ktor Client iOS engine uses NSURLSession — WebSocket support is newer, verify stability.

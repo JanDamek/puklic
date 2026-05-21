@@ -1,38 +1,38 @@
 # Linux / Wayland
 
-Primární cílová platforma Puklic.
+The primary target platform for Puklic.
 
-## Display server strategie
+## Display server strategy
 
-Compose Multiplatform Desktop běží na **Skia + AWT**. AWT na Linuxu má:
+Compose Multiplatform Desktop runs on **Skia + AWT**. AWT on Linux has:
 - Production-ready **X11** backend
-- **XWayland** fallback pro Wayland desktops (Compose běží jako X11 client uvnitř XWaylandu)
-- Žádný nativní Wayland backend (JetBrains na něm pracuje, není production)
+- **XWayland** fallback for Wayland desktops (Compose runs as an X11 client inside XWayland)
+- No native Wayland backend (JetBrains is working on one, not yet production-ready)
 
-**Strategie:**
-- **Fáze 1–4:** XWayland. Funguje na GNOME, KDE Plasma, Sway, Hyprland. UX rozdíl proti native Wayland minimální pro chat klient.
-- **Fáze 5+:** Sledovat JetBrains Wayland progress, switch on native když bude stable.
+**Strategy:**
+- **Phase 1–4:** XWayland. Works on GNOME, KDE Plasma, Sway, Hyprland. UX difference from native Wayland is minimal for a chat client.
+- **Phase 5+:** Track JetBrains Wayland progress, switch to native when stable.
 
-Známé XWayland nedostatky:
-- HiDPI scaling (řeší se `-Dsun.java2d.uiScale=2.0` nebo runtime detekcí)
-- Screenshare nepoužitelný přes XWayland (řeší se přes xdg-desktop-portal → PipeWire native, bypassuje display server)
-- Drag & drop z native Wayland aplikací — handled by XWayland clipboard bridge
+Known XWayland limitations:
+- HiDPI scaling (handled via `-Dsun.java2d.uiScale=2.0` or runtime detection)
+- Screenshare is unusable through XWayland (handled via xdg-desktop-portal → PipeWire native, bypassing the display server)
+- Drag & drop from native Wayland applications — handled by XWayland clipboard bridge
 
-## Distribuce
+## Distribution
 
 ### AppImage (preferred MVP)
 
-- Bundluje JRE + classes + native libs
-- `appimagetool` z `appimage/AppImageKit`
-- One file, double-click run, no install
-- Velikost: ~80 MB (JRE 21 stripped + Compose)
+- Bundles JRE + classes + native libs
+- `appimagetool` from `appimage/AppImageKit`
+- One file, double-click to run, no install required
+- Size: ~80 MB (JRE 21 stripped + Compose)
 
-### Flatpak (později)
+### Flatpak (later)
 
 - Sandbox isolation
-- Závislosti přes Flathub runtime
-- Snazší update přes Flathub
-- Vyžaduje `org.freedesktop.Platform` runtime
+- Dependencies via Flathub runtime
+- Easier updates via Flathub
+- Requires `org.freedesktop.Platform` runtime
 
 ### Native packages (later)
 
@@ -42,38 +42,38 @@ Známé XWayland nedostatky:
 
 ### Conveyor
 
-Alternativa k jpackage — JetBrains-friendly, samostatný auto-update mechanismus. Hodnocení později.
+Alternative to jpackage — JetBrains-friendly, standalone auto-update mechanism. Evaluation deferred.
 
-## Závislosti systému
+## System dependencies
 
-| Lib | Účel | Optional? |
+| Lib | Purpose | Optional? |
 |---|---|---|
-| `libsecret-1` | Token storage (Secret Service API) | No (fallback file store s passphrase) |
-| `libdbus-1` | Notifications, tray | Yes (notifikace fail gracefully) |
+| `libsecret-1` | Token storage (Secret Service API) | No (fallback file store with passphrase) |
+| `libdbus-1` | Notifications, tray | Yes (notifications fail gracefully) |
 | `libayatana-appindicator3-1` | System tray (StatusNotifierItem) | Yes (no tray icon if missing) |
-| `libpipewire-0.3` | Audio capture (fáze 3) | Yes (no voice without it) |
-| `xdg-desktop-portal` | Screenshare (fáze 4) | Yes |
+| `libpipewire-0.3` | Audio capture (Phase 3) | Yes (no voice without it) |
+| `xdg-desktop-portal` | Screenshare (Phase 4) | Yes |
 | `xdg-desktop-portal-{gtk,kde,hyprland}` | Portal backend | Yes |
 
-V AppImage bundlujeme jen JNA glue libs, system libs taháme z hosta (varianta build na starší distro → wider compat).
+In AppImage we bundle only JNA glue libs; system libs are pulled from the host (build on older distro → wider compatibility).
 
-## Window manager integrace
+## Window manager integration
 
 ### Notifications
 
 D-Bus `org.freedesktop.Notifications`:
-- Sender app ID: `puklic` (pro grouping)
-- Hint `desktop-entry: puklic` (pro icon resolution z .desktop file)
-- Actions support (Reply, Mark as read) — pokud capabilities response obsahuje `actions`
+- Sender app ID: `puklic` (for grouping)
+- Hint `desktop-entry: puklic` (for icon resolution from the .desktop file)
+- Actions support (Reply, Mark as read) — if the capabilities response includes `actions`
 
 ### Tray
 
-`StatusNotifierItem` (KDE/GNOME via extension, Cinnamon, Budgie). Fallback na legacy `XEmbed` tray pokud SNI nedostupný.
+`StatusNotifierItem` (KDE/GNOME via extension, Cinnamon, Budgie). Fallback to legacy `XEmbed` tray if SNI is unavailable.
 
-Tray ikona stavy:
+Tray icon states:
 - Connected — base icon
 - Disconnected — orange dot
-- Unread mentions — red dot s číslem
+- Unread mentions — red dot with count
 - Error — red triangle
 
 ### Desktop integration
@@ -95,36 +95,36 @@ StartupNotify=true
 StartupWMClass=Puklic
 ```
 
-Mime type `x-scheme-handler/discord` — Puklic zaregistruje jako handler pro `discord://` URLs (server invites, channel deep links). Optional, lze vypnout v Settings.
+MIME type `x-scheme-handler/discord` — Puklic registers as the handler for `discord://` URLs (server invites, channel deep links). Optional, can be disabled in Settings.
 
 ### Autostart
 
-`~/.config/autostart/puklic.desktop` — kopie hlavního .desktop s `Hidden=false`. Toggle přes Settings → „Spustit po přihlášení".
+`~/.config/autostart/puklic.desktop` — a copy of the main .desktop with `Hidden=false`. Toggle via Settings → "Launch on login".
 
 ## HiDPI
 
-- Detect přes GTK settings (`gsettings get org.gnome.desktop.interface scaling-factor`) nebo `Xft.dpi`
-- Apply via `-Dsun.java2d.uiScale=<factor>` při spuštění
-- Compose Desktop respektuje `LocalDensity`
+- Detect via GTK settings (`gsettings get org.gnome.desktop.interface scaling-factor`) or `Xft.dpi`
+- Apply via `-Dsun.java2d.uiScale=<factor>` at startup
+- Compose Desktop respects `LocalDensity`
 
 ## Wayland-specific testing
 
-CI/dev test na:
-- GNOME (Mutter) na Fedora / Ubuntu
+CI/dev test on:
+- GNOME (Mutter) on Fedora / Ubuntu
 - KDE Plasma 6 (KWin)
 - Sway / Hyprland (wlroots-based)
 
-Manual smoke test checklist (fáze 1):
-- [ ] Window resize hladký
+Manual smoke test checklist (Phase 1):
+- [ ] Window resize is smooth
 - [ ] HiDPI scale 1.0, 1.5, 2.0
 - [ ] Multi-monitor (window placement)
-- [ ] Clipboard copy/paste mezi Puklic a Firefox
-- [ ] Notifikace zobrazí + akce
-- [ ] Tray icon viditelný
-- [ ] Drag & drop attachmentu z Nautilus / Dolphin
+- [ ] Clipboard copy/paste between Puklic and Firefox
+- [ ] Notification shows + actions work
+- [ ] Tray icon is visible
+- [ ] Drag & drop attachment from Nautilus / Dolphin
 
 ## Open questions
 
-- **Compose nativní Wayland:** kdy switch? Sledovat [github.com/JetBrains/compose-multiplatform](https://github.com/JetBrains/compose-multiplatform) issues.
-- **Tray na GNOME:** vyžaduje user extension (AppIndicator and KStatusNotifierItem Support). Zdokumentovat v onboarding pro GNOME users.
-- **Global hotkeys:** Wayland nepovoluje. Workaround: per-DE konfigurace (`gnome-extension`, KWin shortcut) → Puklic D-Bus method na trigger. Mimo MVP.
+- **Compose native Wayland:** when to switch? Track [github.com/JetBrains/compose-multiplatform](https://github.com/JetBrains/compose-multiplatform) issues.
+- **Tray on GNOME:** requires user extension (AppIndicator and KStatusNotifierItem Support). Document in onboarding for GNOME users.
+- **Global hotkeys:** Wayland does not allow them. Workaround: per-DE configuration (`gnome-extension`, KWin shortcut) → Puklic D-Bus method as trigger. Outside MVP.

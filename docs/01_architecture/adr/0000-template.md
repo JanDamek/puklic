@@ -6,7 +6,7 @@
 
 ## Context
 
-Co je problém / rozhodnutí, které řešíme. Jaké jsou síly v hraní (technické, business, time).
+What is the problem / decision we are solving. What forces are at play (technical, business, time).
 
 ## Options considered
 
@@ -18,14 +18,14 @@ Pros / Cons.
 
 ## Decision
 
-Vybraná option + důvod jednou větou.
+The chosen option + rationale in one sentence.
 
 ## Consequences
 
-- Pozitivní následky
-- Negativní následky / kompromisy
-- Co tím odbloková­váme / blokujeme dál
+- Positive consequences
+- Negative consequences / trade-offs
+- What this unlocks / blocks going forward
 
 ## Related
 
-- Linky na další ADR, docs, externí materiály
+- Links to other ADRs, docs, external materials
