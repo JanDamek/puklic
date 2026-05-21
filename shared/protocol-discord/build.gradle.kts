@@ -1,5 +1,6 @@
 plugins {
     id("puklic.kmp-library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
