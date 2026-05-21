@@ -326,3 +326,187 @@ top_3_must_address_before_code:
     be resolved in the design phase because they affect the module dependency graph 
     and every subsequent implementation step builds on it.
 </JERVIS_CRITIC_RESULT>
+
+---
+
+## R2 Verification (2026-05-21)
+
+MEDIUM/NIT findings (9–18) explicitly deferred per orchestrator — not re-verified this round.
+
+---
+
+### BLOCKER-1 — RESOLVED
+
+**Evidence from r2 (Q7/§5 `shared/protocol-discord/`, Q9/§5 `shared/persistence-sqldelight/`):**
+
+> `commonMain`: `interface ZlibInflater` — declares the inflation contract  
+> `jvmMain`: `class JvmZlibInflater : ZlibInflater` — uses `java.util.zip.Inflater`  
+> `androidMain`: `class AndroidZlibInflater : ZlibInflater` — uses `java.util.zip.Inflater`  
+> `iosMain`: `class IosZlibInflater : ZlibInflater` — uses `platform.zlib` CInterop
+
+> `commonMain`: `interface DriverFactory { fun createDriver(): SqlDriver }` (interface+impl pattern, NOT expect/actual)  
+> `jvmMain`: `class JvmDriverFactory(private val path: Path) : DriverFactory`  
+> `androidMain`: `class AndroidDriverFactory(private val context: Context) : DriverFactory`  
+> `iosMain`: `class IosDriverFactory : DriverFactory`
+
+Both `DriverFactory` and `ZlibInflater` now use "interface + impl" consistently throughout Q7, Q9, and §5 file inventory. The word `actual` does not appear for either type anywhere in the r2 spec (grep confirmed zero matches). Option B from the r1 recommendation was applied.
+
+---
+
+### BLOCKER-2 — RESOLVED
+
+**Evidence from r2 (Q2 plugin inventory + §5):**
+
+> `puklic.ios-library` | `puklic.ios-library.gradle.kts` | `:ios:app`, `:ios:platform` — iOS-only modules
+
+> **`puklic.ios-library` scope:** Configures Kotlin/Native targets only — iosArm64, iosX64, iosSimulatorArm64 — with the default hierarchy template. Does NOT configure JVM toolchain and does NOT apply the Android Gradle Plugin.
+
+> **`puklic.kmp-library` scope:** Applied to all `:shared:*` modules. **NOT applied to `:ios:*` modules** — those use `puklic.ios-library` instead.
+
+> `ios/app/build.gradle.kts — applies puklic.ios-library`  
+> `ios/platform/build.gradle.kts — applies puklic.ios-library`
+
+The `puklic.ios-library.gradle.kts` convention plugin was added exactly as recommended. Q1's "Implication" section also reinforces: "The iOS-only app modules (`:ios:app`, `:ios:platform`) use the separate `puklic.ios-library` convention plugin."
+
+---
+
+### BLOCKER-3 — RESOLVED
+
+**Evidence from r2 (§6 Build tooling table):**
+
+> `detekt-compose-rules (io.nlopez)` | **0.4.22** | Compose-specific rules  
+> `ktlint-compose-rules (io.nlopez)` | **0.4.22** | Compose ktlint rules
+
+Both entries now carry the pinned version `0.4.22`. The `(est.)` annotation is gone from `compose-material3-adaptive` (now `1.1.0`). Grep for `0.4.x` and `est.)` in the r2 spec returns zero matches.
+
+---
+
+### CRITICAL-4 — RESOLVED
+
+**Evidence from r2:**
+
+- `docs/01_architecture/adr/0005-decompose-navigation.md` created (verified file exists, full content read).
+- ADR README updated: row `| [0005](0005-decompose-navigation.md) | Decompose jako navigační knihovna | accepted |` present.
+- Spec §1 Summary: "Decompose 3.x navigation — only library with production-ready KMP three-pane adaptive support (see ADR-0005)."
+- Spec Q4: "This decision is formally recorded in ADR-0005 (`docs/01_architecture/adr/0005-decompose-navigation.md`)."
+
+The ADR covers all required sections: Context, four Options considered with pros/cons, Decision with rationale, Consequences (including explicit lifecycle/scope implications), and Related documents. The `ignoreUnknownKeys` exception was correctly moved to ADR-0006 (per r1 recommendation), though ADR-0006 itself is deferred — see New Issues below.
+
+---
+
+### CRITICAL-5 — RESOLVED
+
+**Evidence from r2 (§5 `shared/repositories/` and `shared/compose-ui/`):**
+
+`:shared:repositories/` file inventory contains only:
+> `MessageRepository.kt`, `GuildRepository.kt`, `ChannelRepository.kt`, `UserRepository.kt`, `EmojiRepository.kt`, `OutboundMessageQueue.kt`, `SessionCache.kt`, `MentionResolver.kt`, `EmojiResolver.kt`
+
+No `*ViewModel.kt` files. The four ViewModels are now in `:shared:compose-ui/src/commonMain/kotlin/viewmodels/`:
+> `MessageListViewModel.kt — StateFlow<MessageListState>; Decompose ComponentContext lifecycle owner`  
+> `GuildListViewModel.kt`, `ChannelListViewModel.kt`, `SettingsViewModel.kt`
+
+DAG (§3) updated: `:shared:repositories` annotated "repositories + resolvers only — no ViewModels"; `:shared:compose-ui` annotated "owns ViewModels (presentation layer)." Q4 also explicitly states: "ViewModels reside in `:shared:compose-ui` (presentation layer), not in `:shared:repositories` (data layer)."
+
+---
+
+### CRITICAL-6 — RESOLVED
+
+**Evidence from r2 (Q8, §5 `shared/protocol-discord/commonTest/`):**
+
+> **Decision: Two `Json` instances — one lenient (production), one strict (tests).** `ignoreUnknownKeys = true` scoped exclusively to the production Discord DTO `Json` instance in `:shared:protocol-discord`.
+
+> `DiscordJsonStrict.kt` — `internal val DiscordJsonStrict = Json { ignoreUnknownKeys = false }`; used by ALL mapper tests
+
+Risk Register R7 updated:
+> "Intended behavior: CI failure prompts explicit DTO update decision. Update DTOs and/or fixtures when new fields appear. Do NOT switch test fixtures to the lenient `DiscordJson` instance."
+
+The strict test instance is placed in `commonTest` exactly as recommended. Q8 also adds an explicit "Test fixture rule": all mapper unit tests and fixture-based deserialization use `DiscordJsonStrict`.
+
+---
+
+### CRITICAL-7 — RESOLVED
+
+**Evidence from r2 (§6 UI table):**
+
+> `compose-material3-adaptive` | `1.1.0` | Adaptive scaffold utilities: ThreePaneScaffold, ListDetailPaneScaffold, adaptive breakpoints — **does NOT provide ChildPanels (that is Decompose's API)**
+
+> `decompose` | `3.3.0` | Navigation; **ChildPanels multi-pane API**; ComponentContext lifecycle
+
+The factual error is corrected. Q4 also states: "The `ChildPanels` component in Decompose 3.x (part of the `decompose` library, not `compose-material3-adaptive`)". ADR-0005 consequences: "🔒 `ChildPanels` pochází z `decompose` knihovny (ne z `compose-material3-adaptive`, která poskytuje `ThreePaneScaffold`)."
+
+---
+
+### CRITICAL-8 — RESOLVED
+
+**Evidence from r2 (§5 `Capabilities.kt` note + §9):**
+
+> **Note on `Capabilities.kt`:** The file exposes `const val CAPABILITIES_VERSION = 16381` with a doc-comment referencing `docs/02_domain/discord-protocol.md` and the procedure for updating this value (see §9). The `GatewayConnection` `READY` event handler logs a `Warn`-level message if the response shape indicates an unexpected capabilities configuration (e.g., `READY_SUPPLEMENTAL` absent, guild count zero when guilds are expected).
+
+> **§9:** The update procedure must be documented in `docs/02_domain/discord-protocol.md` before Phase 1 code freeze. Minimum required documentation: (a) how to observe the current value from the official client's gateway traffic, (b) which `READY` / `READY_SUPPLEMENTAL` fields to check to detect a mismatch, (c) the Git commit message template to use when updating the constant so it's traceable.
+
+All three items from the r1 recommendation are addressed: (a) named constant with doc-comment referencing `discord-protocol.md`, (b) `READY` handler logs `Warn` on unexpected response shape, (c) §9 mandates full update procedure documentation before Phase 1 code freeze. The mechanism is now designed in the spec; the `discord-protocol.md` documentation task is explicitly in-scope for Phase 1.
+
+---
+
+## New issues introduced in r2
+
+### NEW-1 — ADR-0006 dangling forward reference (Minor)
+
+**[spec:§1 Summary, spec:§5 DiscordJson.kt, spec:Q8]**
+
+The r2 spec references ADR-0006 in three places as if it exists: `§1 Summary` says "(see ADR-0006)", `§5` DiscordJson.kt annotation says "see ADR-0006", and Q8 code block says "// Discord external API exception (see ADR-0006)". However, ADR-0006 does not exist — the file is absent and the ADR README has no ADR-0006 row. §9 contradicts these present-tense references by stating "ADR-0006 (ignoreUnknownKeys exception) — this spec recommends creating it... Left to the engineer."
+
+An implementing engineer following the spec will look for ADR-0006 to understand the `DiscordJson` exception and find nothing. The spec's own claim of being the "sole reference for gradle init" is undermined by a broken reference. This is not a compile blocker — the DI and serialization design are fully specified in Q8 — but the dangling `(see ADR-0006)` annotations misrepresent document completeness.
+
+- **Recommendation:** Change the three "(see ADR-0006)" references to "(see Q8 in this spec; ADR-0006 to be created)" until ADR-0006 is actually written. Alternatively, write ADR-0006 now — Q8 already contains the full rationale, it is a one-paragraph job.
+
+### NEW-2 — Tense conflict on `Capabilities.kt` update procedure (Minor)
+
+**[spec:§5 line 620 vs spec:§9]**
+
+§5 `Capabilities.kt` note states: "The update procedure **is documented** in `docs/02_domain/discord-protocol.md`" (present tense, implying the document already contains this). §9 states: "The update procedure **must be documented** in `docs/02_domain/discord-protocol.md` before Phase 1 code freeze" (future obligation, task not yet done).
+
+If the update procedure is not yet in `discord-protocol.md`, the §5 present-tense reference is factually false and will cause the implementing engineer to look for documentation that doesn't exist, potentially skipping writing it themselves since they believe it's already there.
+
+- **Recommendation:** Change §5 to "The update procedure will be documented in `docs/02_domain/discord-protocol.md` (see §9 for required content)" to match the §9 future obligation.
+
+---
+
+<JERVIS_CRITIC_R2_RESULT>
+r1_findings_verified:
+  BLOCKER-1: RESOLVED
+    method: interface+impl pattern applied consistently to both DriverFactory and ZlibInflater; zero `actual` occurrences for these types in r2 spec
+  BLOCKER-2: RESOLVED
+    method: puklic.ios-library.gradle.kts added to plugin inventory; kmp-library explicitly excludes :ios:* modules; both ios/app and ios/platform apply ios-library in §5
+  BLOCKER-3: RESOLVED
+    method: detekt-compose-rules and ktlint-compose-rules pinned to 0.4.22; all (est.) annotations removed; zero unparseable version strings remain
+  CRITICAL-4: RESOLVED
+    method: ADR-0005 file created and complete; ADR README updated; spec Q4 and §1 reference it
+  CRITICAL-5: RESOLVED
+    method: ViewModels removed from :shared:repositories §5 inventory; placed in :shared:compose-ui viewmodels/; DAG annotations updated; Q4 explicitly confirms placement
+  CRITICAL-6: RESOLVED
+    method: DiscordJsonStrict defined in commonTest; all mapper tests directed to use strict instance; Risk R7 rewritten to describe CI-gate intent; production/test separation is explicit
+  CRITICAL-7: RESOLVED
+    method: compose-material3-adaptive notes column corrected ("does NOT provide ChildPanels"); decompose row now lists "ChildPanels multi-pane API"; ADR-0005 consequences reinforce correct attribution
+  CRITICAL-8: RESOLVED
+    method: §5 adds CAPABILITIES_VERSION named constant with doc-comment + READY handler Warn log; §9 mandates update procedure documentation with three explicit sub-items before Phase 1 code freeze
+
+new_issues_in_r2:
+  NEW-1:
+    severity: Minor (not a blocker)
+    finding: ADR-0006 referenced as existing in §1/§5/Q8 but file does not exist and is not in ADR README; §9 contradicts by deferring creation to engineer
+  NEW-2:
+    severity: Minor (not a blocker)
+    finding: §5 present-tense "The update procedure is documented in discord-protocol.md" contradicts §9 future-tense "must be documented before Phase 1 code freeze"
+
+new_blockers_in_r2: NONE
+
+summary: >
+  All 3 BLOCKERS and all 5 CRITICAL findings from the r1 review are fully resolved in r2.
+  The two new issues introduced are minor documentation inconsistencies (dangling ADR-0006 
+  reference, tense conflict on Capabilities update procedure) — neither prevents gradle init, 
+  compilation, or correct architectural implementation. No new BLOCKERs or CRITICALs 
+  were introduced.
+
+recommendation: PROCEED TO IMPL
+</JERVIS_CRITIC_R2_RESULT>
