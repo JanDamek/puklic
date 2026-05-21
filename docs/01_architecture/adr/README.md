@@ -10,6 +10,7 @@ Každé netriviální architektonické rozhodnutí má vlastní ADR. Formát viz
 | [0002](0002-token-paste-login.md) | Token paste jako primární login flow pro MVP | accepted |
 | [0003](0003-cache-strategy.md) | Cache & RAM strategie | accepted |
 | [0004](0004-coroutine-first.md) | Coroutine-first architektura | accepted |
+| [0005](0005-decompose-navigation.md) | Decompose jako navigační knihovna | accepted |
 
 ## Pravidla
 
