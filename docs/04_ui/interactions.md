@@ -1,6 +1,6 @@
 # Interactions — keyboard shortcuts, gestures, focus
 
-Power-user keyboard nav je first-class. Mouse-only uživatel funguje, ale Puklic se nepokouší předstírat, že je touch-first.
+Power-user keyboard navigation is first-class. Mouse-only users work fine, but Puklic does not pretend to be touch-first.
 
 ## Modifier convention
 
@@ -10,7 +10,7 @@ Power-user keyboard nav je first-class. Mouse-only uživatel funguje, ale Puklic
 | `Alt` | Alt | Option |
 | `Shift` | Shift | Shift |
 
-Tyto labels jsou pro UI hint. V Compose binding používáme `KeyboardModifiers` abstrakci.
+These labels are for UI hints. In Compose bindings we use the `KeyboardModifiers` abstraction.
 
 ## Global shortcuts
 
@@ -97,7 +97,7 @@ Open: `Mod+K`. Once open:
 | Pull down at top | Load older messages |
 | Pinch on image | Zoom (image viewer Phase 2) |
 
-Žádné aggressive gesture chaining — uživatel nemá objevovat skrytý gesture set.
+No aggressive gesture chaining — users should not have to discover a hidden gesture set.
 
 ## Mouse interactions
 
@@ -128,7 +128,7 @@ MVP minimums:
 - All interactive elements have `contentDescription` (Compose semantics)
 - Tab order matches visual order
 - Color contrast: WCAG AA for body text (4.5:1 minimum)
-- No information conveyed by color alone (unread = bold + indicator, ne jen barva)
+- No information conveyed by color alone (unread = bold + indicator, not just color)
 - Screen reader friendly hierarchy (Compose `Modifier.semantics`)
 
 Phase 5+ improvements:

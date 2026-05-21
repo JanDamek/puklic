@@ -1,95 +1,95 @@
 # CLAUDE.md — Puklic (repo-level)
 
-Tento soubor **rozšiřuje** globální `~/.claude/CLAUDE.md`. Globální pravidla (HARD RULE #0 K8s subagenti, HARD RULE #1 TEST-FIRST pipeline, minimum-complexity, SOLID) platí beze zbytku.
+This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE #0 K8s subagents, HARD RULE #1 TEST-FIRST pipeline, minimum-complexity, SOLID) apply in full.
 
 ---
 
-## Co Puklic JE
+## What Puklic IS
 
-Lehký nativní desktop/mobile chat klient pro Discord, postavený na Kotlin Multiplatform + Compose Multiplatform. Cíl: alternativa k Electron klientovi se zaměřením na nízkou spotřebu RAM, Wayland-first Linux, dlouhodobou stabilitu a budoucí mobilní platformy (Android, iOS).
+A lightweight native desktop/mobile chat client for Discord, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, Wayland-first Linux, long-term stability, and future mobile platforms (Android, iOS).
 
-## Co Puklic NENÍ
+## What Puklic IS NOT
 
-- ❌ Bot ani bot framework
-- ❌ Self-bot / automatizace účtu (auto-reply, auto-react, scraping, bulk operations)
-- ❌ AI agent / LLM integrace
-- ❌ Plugin do Discordu
-- ❌ Modifikace oficiálního klienta
+- ❌ A bot or bot framework
+- ❌ A self-bot / account automation (auto-reply, auto-react, scraping, bulk operations)
+- ❌ An AI agent / LLM integration
+- ❌ A plugin for Discord
+- ❌ A modification of the official client
 
-Když nás napadne featura, která dává smysl jen pro automaty (scheduled messages, auto-translate, bulk delete), odpověď je **NE** — to je bot teritorium.
+When a feature idea only makes sense for automated accounts (scheduled messages, auto-translate, bulk delete), the answer is **NO** — that is bot territory.
 
 ---
 
-## Performance targety
+## Performance targets
 
-| Metrika | Target |
+| Metric | Target |
 |---|---|
-| RAM idle (přihlášen, 1 guild) | < 150 MB |
-| RAM aktivní (10 guilds, 5 channels cache) | < 300 MB |
+| RAM idle (logged in, 1 guild) | < 150 MB |
+| RAM active (10 guilds, 5 channels cache) | < 300 MB |
 | Cold start (Linux) | < 2 s |
-| Desktop binary (s JVM) | < 80 MB |
+| Desktop binary (with JVM) | < 80 MB |
 
-Tyto targety platí pro fázi 1 MVP. Voice/screenshare může posunout RAM nahoru — bude vyhodnoceno ve fázi 3+.
-
----
-
-## Architektonická pravidla (repo-specific)
-
-Globální pravidla z `~/.claude/CLAUDE.md` plus:
-
-1. **UI nesmí parsovat ani transformovat data.** Compose pouze renderuje hotový state. Rich text parsing patří do `:shared:chat-parser`.
-2. **`:shared:*` moduly nesmí znát platformu.** Žádné přímé volání AWT, JVM-only API, Wayland, PipeWire. Platform-specific kód jen přes `expect/actual` v `:shared:platform-api`.
-3. **Discord DTO nesmí proniknout do UI.** Vrstvy: `Discord DTO → Domain → Persistence → UI state → Compose`. Mapping mezi vrstvami je explicitní.
-4. **Žádný globální coroutine scope.** Každý ViewModel / Repository / Session má vlastní scope s definovaným lifecycle.
-5. **Žádný globální event bus.** Streamy přes `StateFlow` / `SharedFlow` / `Channel` s jasným vlastníkem.
-6. **Cache je vždy bounded.** Žádný unbounded message buffer, žádné attachmenty v RAM.
+These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to be evaluated in Phase 3+.
 
 ---
 
-## Dokumentace — povinný workflow
+## Architectural rules (repo-specific)
 
-Adresář `docs/` je **single source of truth** pro architekturu a doménový model. Struktura:
+Global rules from `~/.claude/CLAUDE.md` plus:
+
+1. **The UI must not parse or transform data.** Compose only renders finished state. Rich text parsing belongs in `:shared:chat-parser`.
+2. **`:shared:*` modules must not know about the platform.** No direct calls to AWT, JVM-only APIs, Wayland, or PipeWire. Platform-specific code only via `expect/actual` in `:shared:platform-api`.
+3. **Discord DTOs must not leak into the UI.** Layers: `Discord DTO → Domain → Persistence → UI state → Compose`. Mapping between layers is explicit.
+4. **No global coroutine scope.** Every ViewModel / Repository / Session has its own scope with a defined lifecycle.
+5. **No global event bus.** Streams via `StateFlow` / `SharedFlow` / `Channel` with a clear owner.
+6. **Cache is always bounded.** No unbounded message buffer, no attachments in RAM.
+
+---
+
+## Documentation — mandatory workflow
+
+The `docs/` directory is the **single source of truth** for architecture and the domain model. Structure:
 
 ```
 docs/
-├── 00_overview/        # Vize, glossary
+├── 00_overview/        # Vision, glossary
 ├── 01_architecture/    # ADR, module map, data flow, threading
-├── 02_domain/          # Chat model, RichText AST, Discord protokol
-├── 03_infrastructure/  # Persistence, cache, platform abstrakce, architect reports
+├── 02_domain/          # Chat model, RichText AST, Discord protocol
+├── 03_infrastructure/  # Persistence, cache, platform abstractions, architect reports
 ├── 04_ui/              # Design system, screen inventory
-├── 05_platforms/       # Linux/Wayland, Android, iOS specifika
+├── 05_platforms/       # Linux/Wayland, Android, iOS specifics
 ├── 06_ops/             # Build, CI, release
-└── 07_roadmap/         # Fáze 1–5
+└── 07_roadmap/         # Phases 1–5
 ```
 
-**Pravidlo:** každá architektonická nebo doménová změna povinně updatuje minimálně jeden soubor v `docs/` v **témž commitu** jako kód. PR bez doc updatu = nemerguje se.
+**Rule:** every architectural or domain change must update at least one file in `docs/` in **the same commit** as the code. A PR without a doc update will not be merged.
 
-Architect subagent reporty: `docs/03_infrastructure/architect-reports/<YYYY-MM-DD>-<slug>.md`.
-
----
-
-## Discord protokol — risk acknowledgement
-
-Discord ToS zakazuje third-party user klienty. Puklic je tolerován pouze dokud:
-- neautomatizuje účet (žádné self-bot funkce, viz „Co Puklic NENÍ")
-- chová se jako reálný uživatel (heartbeat timing, presence, typing)
-- neimplementuje detection-evasion ani crypto wrappery nad oficiálním protokolem (DAVE bude implementován dle veřejné spec, ne reverse-engineered)
-
-Riziko banu účtu nese uživatel. README projektu toto musí explicitně uvádět.
+Architect subagent reports: `docs/03_infrastructure/architect-reports/<YYYY-MM-DD>-<slug>.md`.
 
 ---
 
-## Build & platformy
+## Discord protocol — risk acknowledgement
+
+Discord ToS prohibits third-party user clients. Puklic is tolerated only as long as it:
+- does not automate the account (no self-bot features, see "What Puklic IS NOT")
+- behaves like a real user (heartbeat timing, presence, typing)
+- does not implement detection-evasion or crypto wrappers on top of the official protocol (DAVE will be implemented per the public spec, not reverse-engineered)
+
+The risk of account ban is borne by the user. The project README must state this explicitly.
+
+---
+
+## Build & platforms
 
 - **Build:** Gradle multimodule, Compose Multiplatform
-- **Primární platforma fáze 1:** Linux desktop (Wayland přes XWayland zatím — nativní Wayland backend Compose není ready)
-- **Fáze 2+:** Android, iOS (Compose iOS — jeden UI codebase, viz ADR-0001)
-- **Voice/media:** samostatný modul, na desktop přes PipeWire, na iOS/Android přes platform-native audio
+- **Primary platform Phase 1:** Linux desktop (Wayland via XWayland for now — native Wayland backend for Compose is not ready)
+- **Phase 2+:** Android, iOS (Compose iOS — one UI codebase, see ADR-0001)
+- **Voice/media:** separate module, on desktop via PipeWire, on iOS/Android via platform-native audio
 
 ---
 
-## Odkazy
+## Links
 
-- Produktová vize: `docs/00_overview/product-vision.md`
+- Product vision: `docs/00_overview/product-vision.md`
 - ADR index: `docs/01_architecture/adr/`
 - Roadmap: `docs/07_roadmap/phases.md`

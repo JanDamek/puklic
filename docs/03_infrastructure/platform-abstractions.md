@@ -1,31 +1,31 @@
 # Platform abstractions (`:shared:platform-api`)
 
-`:shared:*` moduly nesmí znát platformu. Veškerý platform-specific kód jde přes `expect`/`actual` rozhraní v `:shared:platform-api`. Per platforma jeden `actual` modul.
+`:shared:*` modules must not know about the platform. All platform-specific code goes through `expect`/`actual` interfaces in `:shared:platform-api`. One `actual` module per platform.
 
-## Rozhraní
+## Interfaces
 
 ### `SecureStorage`
 
-Bezpečné úložiště pro Discord token, případně další tajemství.
+Secure storage for the Discord token and other secrets.
 
 ```kotlin
 interface SecureStorage {
     suspend fun put(key: String, value: String)
     suspend fun get(key: String): String?
     suspend fun remove(key: String)
-    suspend fun list(): List<String>   // jen klíče, ne hodnoty
+    suspend fun list(): List<String>   // keys only, not values
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
-| Linux | libsecret přes JNA (`org.freedesktop.secrets`) |
+| Linux | libsecret via JNA (`org.freedesktop.secrets`) |
 | macOS | Keychain Services |
 | Windows | Credential Manager (DPAPI) |
 | Android | EncryptedSharedPreferences (Jetpack Security) + Keystore |
 | iOS | Keychain |
 
-Fallback při chybě (libsecret neexistuje): explicit error → UI nabídne file-based encrypted store s user-supplied passphrase.
+Fallback on error (libsecret not available): explicit error → UI offers a file-based encrypted store with a user-supplied passphrase.
 
 ### `NotificationService`
 
@@ -41,7 +41,7 @@ data class Notification(
     val body: String,
     val iconPath: String?,
     val actions: List<NotificationAction>,
-    val tag: String?,           // dedup klíč
+    val tag: String?,           // dedup key
     val urgent: Boolean,
 )
 
@@ -49,7 +49,7 @@ data class NotificationAction(val id: String, val label: String)
 data class NotificationCapabilities(val actions: Boolean, val images: Boolean, val markup: Boolean)
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
 | Linux | D-Bus `org.freedesktop.Notifications` |
 | macOS | UserNotifications framework |
@@ -57,7 +57,7 @@ data class NotificationCapabilities(val actions: Boolean, val images: Boolean, v
 | Android | NotificationManagerCompat |
 | iOS | UNUserNotificationCenter |
 
-Akce na notifikaci (Reply, Mark as read) propagované zpět přes `Channel<NotificationActionEvent>`.
+Notification actions (Reply, Mark as read) propagated back via `Channel<NotificationActionEvent>`.
 
 ### `TrayService` (desktop only)
 
@@ -70,13 +70,13 @@ interface TrayService {
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
-| Linux | StatusNotifierItem (KDE/GNOME via libayatana-appindicator nebo D-Bus přímo) |
+| Linux | StatusNotifierItem (KDE/GNOME via libayatana-appindicator or D-Bus directly) |
 | macOS | NSStatusItem |
 | Windows | Shell_NotifyIcon |
 
-### `AudioCaptureService` (fáze 3)
+### `AudioCaptureService` (Phase 3)
 
 ```kotlin
 interface AudioCaptureService {
@@ -87,19 +87,19 @@ interface AudioCaptureService {
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
-| Linux | PipeWire (přes libpipewire JNA) |
+| Linux | PipeWire (via libpipewire JNA) |
 | macOS | AVAudioEngine |
 | Windows | WASAPI |
 | Android | Oboe / AAudio |
 | iOS | AVAudioEngine |
 
-### `AudioPlaybackService` (fáze 3)
+### `AudioPlaybackService` (Phase 3)
 
-Symetrická k `AudioCaptureService`. Detail v `voice-protocol.md` při startu fáze 3.
+Symmetric to `AudioCaptureService`. Details in `voice-protocol.md` at the start of Phase 3.
 
-### `MediaCaptureService` (fáze 4, desktop only)
+### `MediaCaptureService` (Phase 4, desktop only)
 
 Screenshare / window capture.
 
@@ -111,7 +111,7 @@ interface MediaCaptureService {
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
 | Linux Wayland | xdg-desktop-portal RequestScreenCast → PipeWire stream |
 | Linux X11 | (skip — Wayland-first) |
@@ -127,7 +127,7 @@ interface PlatformPresence {
 }
 ```
 
-Use case: auto-set Discord status na „idle" když OS hlásí idle > N min.
+Use case: automatically set Discord status to "idle" when the OS reports idle > N min.
 
 ### `PlatformPaths`
 
@@ -141,11 +141,11 @@ interface PlatformPaths {
 }
 ```
 
-Implementace per platforma respektuje XDG / native conventions.
+Implementation per platform respects XDG / native conventions.
 
 ### `PlatformOpen`
 
-Otevření URL / souboru externím handlerem.
+Open a URL / file with an external handler.
 
 ```kotlin
 interface PlatformOpen {
@@ -155,9 +155,9 @@ interface PlatformOpen {
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
-| Linux | `xdg-open` přes ProcessBuilder |
+| Linux | `xdg-open` via ProcessBuilder |
 | macOS | `open` |
 | Windows | `ShellExecute` |
 | Android | Intent.ACTION_VIEW |
@@ -173,7 +173,7 @@ interface PlatformClipboard {
 }
 ```
 
-Compose má built-in clipboard, ale jen text. Pro paste obrázku do chatu potřebujeme platform abstraction.
+Compose has a built-in clipboard, but text only. For pasting an image into the chat we need a platform abstraction.
 
 ### `PlatformAutoStart`
 
@@ -185,7 +185,7 @@ interface PlatformAutoStart {
 }
 ```
 
-| Platforma | Implementace |
+| Platform | Implementation |
 |---|---|
 | Linux | `~/.config/autostart/puklic.desktop` |
 | macOS | LaunchAgent plist |
@@ -204,17 +204,17 @@ interface PlatformAutoStart {
    └── :ios:platform-ios           (actual: Keychain, UNUserNotificationCenter, AVAudioEngine, ...)
 ```
 
-Application module (`:desktop:app`, `:android:app`, `:ios:app`) wiruje přes DI (Koin / manual) konkrétní `actual` implementace.
+The application module (`:desktop:app`, `:android:app`, `:ios:app`) wires the concrete `actual` implementations via DI (Koin / manual).
 
-## Pravidla
+## Rules
 
-- `expect` interface **nikdy** nezahrnuje platform-specific typy (žádný `NSString`, `Bundle`, `java.io.File`). Jen Kotlin stdlib + kotlinx libs.
-- `actual` může používat cokoli platform-native, ale **musí** stejnou public signature.
-- Žádný leak platform exception type přes interface — wrappuj do `Platform*Exception` (sealed hierarchy v `:shared:platform-api`).
-- Capabilities (`supported: Boolean`, `NotificationCapabilities`) explicit — UI musí gracefully degradovat na platformách bez featury.
+- `expect` interfaces **never** include platform-specific types (no `NSString`, `Bundle`, `java.io.File`). Only Kotlin stdlib + kotlinx libs.
+- `actual` implementations may use anything platform-native, but **must** keep the same public signature.
+- No platform exception types leaked through the interface — wrap them in `Platform*Exception` (sealed hierarchy in `:shared:platform-api`).
+- Capabilities (`supported: Boolean`, `NotificationCapabilities`) are explicit — the UI must degrade gracefully on platforms that lack a feature.
 
-## Test strategie
+## Test strategy
 
-- **Unit testy:** každý `actual` implementace má vlastní integraci testy proti reálnému API (Linux: libsecret test instance, Android: AndroidX instrumented test, atd.)
-- **Shared kód:** používá fake `actual` v `commonTest` (`FakeSecureStorage`, `FakeNotificationService`)
-- **Capability matrix:** dokumentace + CI matrix který platforma má kterou capability — slouží jako kontrakt
+- **Unit tests:** each `actual` implementation has its own integration tests against the real API (Linux: libsecret test instance, Android: AndroidX instrumented test, etc.)
+- **Shared code:** uses fake `actual` in `commonTest` (`FakeSecureStorage`, `FakeNotificationService`)
+- **Capability matrix:** documentation + CI matrix showing which platform has which capability — serves as a contract

@@ -1,15 +1,15 @@
 # Component library
 
-Reusable Compose komponenty Puklic. Bydlí v `:shared:compose-ui`. Tato sekce je **draft inventory** — finální API se uzavře při implementaci.
+Reusable Compose components for Puklic. Lives in `:shared:compose-ui`. This section is a **draft inventory** — the final API will be settled during implementation.
 
-Žádný kód neexistuje. Tahle sekce je kontrakt mezi UX a budoucí implementací.
+No code exists yet. This section is a contract between UX and the future implementation.
 
-## Princip
+## Principle
 
-- Komponenty jsou **dumb renderers** — vstup `state`, výstup events (`on*` lambdas). Žádný state inside, žádný Repository access.
-- `state` typy bydlí v `:shared:repositories` (nebo blízko). Komponenty jsou na nich nezávislé jen v signature, ne v hodnotách.
-- Composables jsou **adaptive-aware** přes `LocalWindowSizeClass`. Komponenta ví, jak se chovat na Compact / Medium / Expanded.
-- **Žádný IO**, **žádný parsing**, **žádný launch coroutine** uvnitř komponenty mimo `LaunchedEffect`/`rememberCoroutineScope` přesně-vázané na lifecycle.
+- Components are **dumb renderers** — input `state`, output events (`on*` lambdas). No internal state, no Repository access.
+- `state` types live in `:shared:repositories` (or nearby). Components depend on them only in the signature, not in values.
+- Composables are **adaptive-aware** via `LocalWindowSizeClass`. A component knows how to behave on Compact / Medium / Expanded.
+- **No IO**, **no parsing**, **no coroutine launch** inside a component outside `LaunchedEffect`/`rememberCoroutineScope` tightly bound to the lifecycle.
 
 ## Theme primitives
 
@@ -53,9 +53,9 @@ fun RichTextView(
 )
 ```
 
-Spec viz [`02_domain/richtext-ast.md`](../02_domain/richtext-ast.md).
+Spec see [`02_domain/richtext-ast.md`](../02_domain/richtext-ast.md).
 
-Konzumuje `MentionResolver` + `EmojiResolver` přes `CompositionLocal` (`LocalMentionResolver`, `LocalEmojiResolver`).
+Consumes `MentionResolver` + `EmojiResolver` via `CompositionLocal` (`LocalMentionResolver`, `LocalEmojiResolver`).
 
 ## MessageRow
 
@@ -75,7 +75,7 @@ fun MessageRow(
 )
 ```
 
-States v jednom Composable:
+States in one Composable:
 - Normal
 - Grouped (suppressed header)
 - Sending / Failed (delivery state)
@@ -109,7 +109,7 @@ sealed interface MessageListState {
 - `LazyColumn` reverse layout (newest at bottom)
 - Auto-scroll to bottom on new message if user is near bottom
 - Pull-to-load-older near top edge (scroll up triggers `onLoadOlder`)
-- Skeleton rows při `Loading`
+- Skeleton rows during `Loading`
 
 ## Composer
 
@@ -132,7 +132,7 @@ enum class FormatCommand { BOLD, ITALIC, STRIKETHROUGH, INLINE_CODE, CODE_BLOCK,
 
 - Auto-grow textfield 1–10 lines
 - Toolbar above input
-- Format commands aplikují markdown wrap kolem aktuální selection (`**text**`, `*text*`, ...)
+- Format commands apply markdown wrap around the current selection (`**text**`, `*text*`, ...)
 - Enter submit / Shift+Enter newline / Ctrl+Enter submit (multi-line variant)
 - Draft persistence handled by ViewModel, not component
 
@@ -185,7 +185,7 @@ fun GuildRailItem(
 @Composable fun CompactScaffold(navState: NavigationState, ...)
 ```
 
-Compose by se nemělo větvit `when (windowSize)` v každé komponentě — větvení žije v root scaffoldu.
+Compose should not branch `when (windowSize)` in every component — the branching lives in the root scaffold.
 
 ## SettingsOverlay
 
@@ -278,11 +278,11 @@ Shimmer animation, base color `surfaceVariant`, highlight `surfaceContainer`.
 
 ## Buttons (M3 wrappers)
 
-Žádné vlastní button komponenty pro MVP — Material 3 `Button`, `OutlinedButton`, `TextButton`, `FilledTonalButton`, `IconButton` jsou dostatečné. Custom button vznikne až bude konkrétní use case, který M3 nepokrývá.
+No custom button components for MVP — Material 3 `Button`, `OutlinedButton`, `TextButton`, `FilledTonalButton`, `IconButton` are sufficient. A custom button will be created only when a concrete use case arises that M3 does not cover.
 
 ## Icons
 
-`Icon` z Material 3. Material Symbols Outlined assets.
+`Icon` from Material 3. Material Symbols Outlined assets.
 
 ```kotlin
 Icon(
@@ -299,11 +299,11 @@ fun Modifier.puklicHoverable(): Modifier  // unified hover/press feedback
 fun Modifier.puklicFocusable(): Modifier  // keyboard focus ring
 ```
 
-## Pravidla pro nové komponenty
+## Rules for new components
 
-1. Komponenta = pure function ze state → UI
-2. Žádná závislost na konkrétní Repository / ViewModel
-3. State typy v `:shared:repositories` nebo `:shared:domain`
-4. Per komponentu jeden Composable v souboru (ne mega-files)
-5. Preview Composable v `:shared:compose-ui` `androidMain` / `desktopMain` source set (preview infra fáze 5)
-6. Unit / UI testy s mock state — Compose UI test runner
+1. Component = pure function from state → UI
+2. No dependency on a specific Repository / ViewModel
+3. State types in `:shared:repositories` or `:shared:domain`
+4. One Composable per file (no mega-files)
+5. Preview Composable in `:shared:compose-ui` `androidMain` / `desktopMain` source set (preview infra Phase 5)
+6. Unit / UI tests with mock state — Compose UI test runner

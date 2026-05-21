@@ -1,10 +1,10 @@
-# Chat doménový model
+# Chat domain model
 
-Tento dokument definuje **doménové typy** používané napříč `:shared:*` moduly. Tyto typy jsou **nezávislé** na Discord DTO (`:shared:protocol-discord`) i na perzistenci (`:shared:persistence-api`). Mapping mezi vrstvami je explicitní.
+This document defines the **domain types** used across `:shared:*` modules. These types are **independent** of Discord DTOs (`:shared:protocol-discord`) and of persistence (`:shared:persistence-api`). Mapping between layers is explicit.
 
-## Identifikátory
+## Identifiers
 
-Všechny ID jsou type-safe value classes (inline classes), ne raw `String`/`Long`. Bydlí v `:shared:ids`.
+All IDs are type-safe value classes (inline classes), not raw `String`/`Long`. They live in `:shared:ids`.
 
 ```kotlin
 @JvmInline value class UserId(val value: Long)
@@ -16,7 +16,7 @@ Všechny ID jsou type-safe value classes (inline classes), ne raw `String`/`Long
 @JvmInline value class AttachmentId(val value: Long)
 ```
 
-Důvod: kompilátor odmítne záměnu `ChannelId` za `MessageId`. Discord snowflake je 64-bit unsigned, ale Kotlin Long stačí (kladný rozsah pokryje vše do roku 2084).
+Rationale: the compiler rejects mixing up `ChannelId` with `MessageId`. Discord snowflakes are 64-bit unsigned, but Kotlin Long is sufficient (the positive range covers everything until 2084).
 
 ## Top-level types
 
@@ -27,8 +27,8 @@ data class ChatMessage(
     val id: MessageId,
     val channelId: ChannelId,
     val author: UserSummary,
-    val rawContent: String,                  // raw transport, primární pro edit / re-parse
-    val parsedContent: RichTextDocument,     // hotový AST pro renderer
+    val rawContent: String,                  // raw transport, primary for edit / re-parse
+    val parsedContent: RichTextDocument,     // finished AST for the renderer
     val attachments: List<Attachment>,
     val embeds: List<MessageEmbed>,
     val reactions: List<Reaction>,
@@ -40,10 +40,10 @@ data class ChatMessage(
 )
 ```
 
-Pravidla:
-- `rawContent` = single source of truth pro obsah. `parsedContent` se regeneruje při změně.
-- `parsedContent` je výsledek `:shared:chat-parser` (viz [richtext-ast.md](richtext-ast.md)).
-- `attachments`, `embeds`, `reactions` jsou **immutable** kopie. Update zprávy = nový `ChatMessage`.
+Rules:
+- `rawContent` = single source of truth for content. `parsedContent` is regenerated on change.
+- `parsedContent` is the result of `:shared:chat-parser` (see [richtext-ast.md](richtext-ast.md)).
+- `attachments`, `embeds`, `reactions` are **immutable** copies. Updating a message = new `ChatMessage`.
 
 ### `UserSummary`
 
@@ -51,15 +51,15 @@ Pravidla:
 data class UserSummary(
     val id: UserId,
     val username: String,
-    val globalName: String?,         // Discord display name (post pomelo)
-    val discriminator: String?,      // legacy "0001", null pro pomelo accounts
-    val avatarHash: String?,         // pro CDN URL composition
+    val globalName: String?,         // Discord display name (post-pomelo)
+    val discriminator: String?,      // legacy "0001", null for pomelo accounts
+    val avatarHash: String?,         // for CDN URL composition
     val bot: Boolean,
     val system: Boolean,
 )
 ```
 
-V kontextu guildu může být obohacen na `GuildMember` (nickname, roles, joined_at). `UserSummary` je minimální subset pro autorství zprávy.
+In a guild context it can be enriched to `GuildMember` (nickname, roles, joined_at). `UserSummary` is the minimal subset for message authorship.
 
 ### `Guild`
 
@@ -104,10 +104,10 @@ data class DmChannel(
     override val name: String? = null
 }
 
-// ... ostatní typy přidat dle potřeby ve fázi 1/2
+// ... add other types as needed in Phase 1/2
 ```
 
-Sealed hierarchy → exhaustive `when` v UI / repository, žádné runtime castingy.
+Sealed hierarchy → exhaustive `when` in UI / repository, no runtime casts.
 
 ### `Attachment`
 
@@ -146,7 +146,7 @@ data class MessageEmbed(
 )
 ```
 
-Detail sub-typů viz Discord API docs — držet 1:1 shape pro snadný mapping.
+Detail of sub-types see Discord API docs — keep 1:1 shape for easy mapping.
 
 ### `Reaction`
 
@@ -154,7 +154,7 @@ Detail sub-typů viz Discord API docs — držet 1:1 shape pro snadný mapping.
 data class Reaction(
     val emoji: EmojiRef,
     val count: Int,
-    val me: Boolean,                 // přihlášený user reagoval
+    val me: Boolean,                 // logged-in user reacted
     val countDetails: ReactionCountDetails?, // burst vs normal
 )
 
@@ -175,7 +175,7 @@ data class MessageMentions(
 )
 ```
 
-Resolved entities (`UserSummary`, `Channel.name`, ...) drží repository, ne `ChatMessage` přímo — vyhneme se duplikaci.
+Resolved entities (`UserSummary`, `Channel.name`, ...) are held by the repository, not `ChatMessage` directly — avoids duplication.
 
 ### `MessageReference`
 
@@ -188,7 +188,7 @@ data class MessageReference(
 )
 ```
 
-## Mapping vrstev
+## Layer mapping
 
 ```
 :shared:protocol-discord
@@ -207,27 +207,27 @@ data class MessageReference(
   └─ MessageListView (@Composable)
 ```
 
-**Mapping pravidla:**
+**Mapping rules:**
 - Mapper functions = `fun DiscordMessageDto.toDomain(): ChatMessage` extensions
-- Null handling explicit při mappingu (Discord posílá hodně optional fieldů, doména je strict)
-- Mapping nikdy v UI ani v Compose
-- Persistence entity (`MessageEntity`) je vlastní typ s primitivy pro SQLite — ne `ChatMessage` přímo (rich content se serializuje samostatně)
+- Null handling explicit in the mapper (Discord sends many optional fields, domain is strict)
+- Mapping never happens in UI or in Compose
+- Persistence entity (`MessageEntity`) is its own type with primitives for SQLite — not `ChatMessage` directly (rich content is serialized separately)
 
 ## Equality & identity
 
-- Všechny `data class` mají strukturální equality (Kotlin default)
-- Pro caching/diff používat `MessageId` jako klíč (referenční equality v `LazyColumn` keys)
-- `Instant` srovnáváme přes `==` (data class generuje), ne `compareTo` (kromě řazení)
+- All `data class` instances have structural equality (Kotlin default)
+- For caching/diffing use `MessageId` as the key (referential equality in `LazyColumn` keys)
+- `Instant` compared via `==` (generated by data class), not `compareTo` (except for sorting)
 
-## Lokální-only typy
+## Local-only types
 
-Některá data v Puklic existují jen lokálně, ne na Discord:
-- `MessageDeliveryState` — `Sending` / `Sent` / `Failed(retry: Int)` pro outbound queue
-- `LocalDraft` — rozepsaná zpráva per channel, persistovaná do SQLite
-- `ChannelReadState` — last-read message ID per channel (Discord má serverový read state, ale držíme lokální shadow pro offline)
+Some data in Puklic exists only locally, not on Discord:
+- `MessageDeliveryState` — `Sending` / `Sent` / `Failed(retry: Int)` for the outbound queue
+- `LocalDraft` — a message being composed per channel, persisted to SQLite
+- `ChannelReadState` — last-read message ID per channel (Discord has server-side read state, but we keep a local shadow for offline)
 
-Tyto typy nebydlí v `ChatMessage` — jsou v separátních modelech (`OutboundMessage`, `ChannelDraft`, `ReadState`).
+These types do not live in `ChatMessage` — they are in separate models (`OutboundMessage`, `ChannelDraft`, `ReadState`).
 
 ## Versioning
 
-Doménový model může breaking changovat — není veřejné API. Změna doménového typu = update mapperů + persistence schema (s migrací) + UI bindings v jednom commitu. Viz [persistence-schema.md](../03_infrastructure/persistence-schema.md) sekce „Migrations".
+The domain model may break-change — it is not a public API. Changing a domain type = update mappers + persistence schema (with migration) + UI bindings in one commit. See [persistence-schema.md](../03_infrastructure/persistence-schema.md) section "Migrations".

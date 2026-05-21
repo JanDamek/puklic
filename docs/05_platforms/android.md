@@ -1,35 +1,35 @@
 # Android
 
-Sekundární platforma. Cíl: fáze 2 ship.
+Secondary platform. Target: Phase 2 ship.
 
 ## Targets
 
-- **minSdk:** 26 (Android 8.0 Oreo) — ~98 % aktivních zařízení v 2026
-- **targetSdk:** latest stable (35+ v 2026)
-- **compileSdk:** stejný jako target
-- **NDK:** v případě potřeby native (Opus, libwebrtc) — fáze 3+
+- **minSdk:** 26 (Android 8.0 Oreo) — ~98 % of active devices in 2026
+- **targetSdk:** latest stable (35+ in 2026)
+- **compileSdk:** same as target
+- **NDK:** if native code is needed (Opus, libwebrtc) — Phase 3+
 
-## Klíčové platform integrace
+## Key platform integrations
 
-| Capability | Implementace |
+| Capability | Implementation |
 |---|---|
 | Secure storage | `EncryptedSharedPreferences` (Jetpack Security) + Android Keystore master key |
-| Notifications | `NotificationManagerCompat` s channels per importance |
-| Background work | Foreground service pro gateway connection udržení (microphone permission pro voice, fáze 3) |
+| Notifications | `NotificationManagerCompat` with channels per importance |
+| Background work | Foreground service to maintain gateway connection (microphone permission for voice, Phase 3) |
 | File picker | Storage Access Framework (`ACTION_OPEN_DOCUMENT`) |
-| Audio capture | `AudioRecord` / Oboe (fáze 3) |
-| Push notifications | FCM (Firebase Cloud Messaging) — **NE pro fáze 2**, gateway funguje při běžící app |
+| Audio capture | `AudioRecord` / Oboe (Phase 3) |
+| Push notifications | FCM (Firebase Cloud Messaging) — **NOT for Phase 2**, gateway works when app is running |
 
 ## Process / lifecycle
 
-Discord gateway = persistent WebSocket. Android agresivně killuje background apps. Strategie:
-- **Foreground service** s persistent notifikací „Puklic running" když je app v backgroundu
-- User toggle „Background mode" v Settings (default: on)
-- Bez foreground: app suspend → gateway disconnect → reconnect při návratu
+Discord gateway = persistent WebSocket. Android aggressively kills background apps. Strategy:
+- **Foreground service** with a persistent "Puklic running" notification when the app is in the background
+- User toggle "Background mode" in Settings (default: on)
+- Without foreground service: app suspends → gateway disconnects → reconnects on return
 
 ## Permissions
 
-| Permission | Účel | Phase |
+| Permission | Purpose | Phase |
 |---|---|---|
 | `INTERNET` | Network | 2 |
 | `ACCESS_NETWORK_STATE` | Connectivity changes | 2 |
@@ -41,21 +41,21 @@ Discord gateway = persistent WebSocket. Android agresivně killuje background ap
 
 ## UI considerations
 
-- Compose Multiplatform Android UI je full feature parity s Compose Android
-- Material 3 jako base theme
+- Compose Multiplatform Android UI has full feature parity with Compose Android
+- Material 3 as base theme
 - Edge-to-edge support (transparent system bars)
 - Predictive back gesture (Android 14+) — Compose Navigation hookup
-- Dynamic color (Material You) — opt-in v Settings
+- Dynamic color (Material You) — opt-in in Settings
 
 ## Distribution
 
 - **Google Play:** primary
-- **F-Droid:** sekundární (reproducible build požadavek — řešit fáze 5)
-- **APK direct:** vždy dostupné na GitHub Releases
+- **F-Droid:** secondary (reproducible build requirement — address in Phase 5)
+- **APK direct:** always available on GitHub Releases
 
-Discord ToS violation risk je u Google Play vyšší — Play může app odstranit pokud Discord podá DMCA / ToS complaint. Plán B: F-Droid + APK distribution. README to musí explicit uvést.
+Discord ToS violation risk is higher on Google Play — Play may remove the app if Discord files a DMCA / ToS complaint. Plan B: F-Droid + APK distribution. README must state this explicitly.
 
-## Foreground service notifikace
+## Foreground service notification
 
 ```kotlin
 NotificationChannel("puklic.gateway", "Puklic background", NotificationManager.IMPORTANCE_LOW).apply {
@@ -65,15 +65,15 @@ NotificationChannel("puklic.gateway", "Puklic background", NotificationManager.I
 }
 ```
 
-User-facing text: „Puklic je připojen k Discordu" + tap action vrátí do app.
+User-facing text: "Puklic is connected to Discord" + tap action returns to app.
 
-## Specifika oproti Desktop
+## Differences from Desktop
 
-- Žádný tray, místo toho persistent notification
-- Menu structure jiná (drawer + bottom tabs vs split view)
-- File dialogs cez Storage Access Framework, ne JFileChooser
-- Window resizing N/A (fixed screen) — kromě tabletů a foldablů
-- Předpokládá se mobile-first UX adaptace (větší tap targets, gesture nav)
+- No tray, persistent notification instead
+- Menu structure different (drawer + bottom tabs vs split view)
+- File dialogs via Storage Access Framework, not JFileChooser
+- Window resizing N/A (fixed screen) — except for tablets and foldables
+- Mobile-first UX adaptations assumed (larger tap targets, gesture navigation)
 
 ## Adaptive layouts
 
@@ -82,10 +82,10 @@ Compose Multiplatform Material 3 adaptive:
 - Medium (tablet portrait, phone landscape): rail + two pane (channels | messages)
 - Expanded (tablet landscape): permanent drawer + three pane (guilds | channels | messages)
 
-Stejný adaptive systém pak použitelný na Desktop (window resize) a iPad.
+The same adaptive system is then usable on Desktop (window resize) and iPad.
 
 ## Open questions
 
-- **Push:** Discord nemá veřejné push API pro user accounts. Možnost: vlastní notification relay (server-side komponenta) — out of scope.
-- **Voice na mobile (fáze 3):** battery impact — agresivní backoff, suspend non-active channels.
-- **Storage limit:** mobile má méně místa — default cache 200 MB místo 500.
+- **Push:** Discord has no public push API for user accounts. Option: custom notification relay (server-side component) — out of scope.
+- **Voice on mobile (Phase 3):** battery impact — aggressive backoff, suspend non-active channels.
+- **Storage limit:** mobile has less space — default cache 200 MB instead of 500.

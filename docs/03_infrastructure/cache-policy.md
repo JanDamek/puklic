@@ -1,48 +1,48 @@
 # Cache policy
 
-Konkretizace ADR-0003 — limity, eviction, konfigurace.
+Specification of ADR-0003 — limits, eviction, configuration.
 
 ## RAM cache (in-process)
 
 ### Message hot cache
 
-- **Owner:** `MessageRepository` per channel (ne globální)
-- **Struktura:** `ArrayDeque<ChatMessage>` ring buffer
-- **Limit:** 200 zpráv per aktivní channel
+- **Owner:** `MessageRepository` per channel (not global)
+- **Structure:** `ArrayDeque<ChatMessage>` ring buffer
+- **Limit:** 200 messages per active channel
 - **Eviction:** FIFO (oldest by timestamp)
-- **Lifecycle:** vzniká při otevření channelu, předává se do `MessageListViewModel`
+- **Lifecycle:** created when a channel is opened, passed to `MessageListViewModel`
 
 ### Message warm cache (recent channels)
 
 - **Owner:** `SessionCache` (per Discord session)
-- **Struktura:** `LinkedHashMap<ChannelId, ArrayDeque<ChatMessage>>` (access-order LRU)
-- **Limit:** 5 channels × 50 zpráv
-- **Eviction:** 6. channel push → vypadne LRU; při flush channelu na disk se uvolní
-- **Purpose:** rychlý switch back na nedávný channel bez SQLite read
+- **Structure:** `LinkedHashMap<ChannelId, ArrayDeque<ChatMessage>>` (access-order LRU)
+- **Limit:** 5 channels × 50 messages
+- **Eviction:** 6th channel push → LRU evicted; flushing a channel to disk also frees it
+- **Purpose:** fast switch back to a recent channel without a SQLite read
 
 ### Guild / Channel / User metadata
 
-- **Owner:** Per-typ Repository
-- **Struktura:** `MutableStateFlow<Map<XxxId, Xxx>>`
-- **Limit:** unbounded v RAM (malá data, jednotky MB i pro velký účet)
-- **Eviction:** žádná během sezení; reset při logout
-- **Persistence:** mirror v SQLite, hydratace při startu
+- **Owner:** per-type Repository
+- **Structure:** `MutableStateFlow<Map<XxxId, Xxx>>`
+- **Limit:** unbounded in RAM (small data, single-digit MB even for a large account)
+- **Eviction:** none during the session; reset on logout
+- **Persistence:** mirrored in SQLite, hydrated on startup
 
 ### Custom emoji
 
 - **Owner:** `EmojiRepository`
-- **Struktura RAM:** `LruCache<EmojiId, EmojiDecoded>` (decoded bitmapy)
-- **Limit:** 256 entries (≈ 8 MB RAM při 32×32 px)
+- **RAM structure:** `LruCache<EmojiId, EmojiDecoded>` (decoded bitmaps)
+- **Limit:** 256 entries (≈ 8 MB RAM at 32×32 px)
 - **Eviction:** LRU
-- **Persistence:** raw bytes na disku v `$XDG_CACHE_HOME/puklic/emoji/`
+- **Persistence:** raw bytes on disk in `$XDG_CACHE_HOME/puklic/emoji/`
 
 ### Image decode cache (Coil)
 
 - **Owner:** Coil `ImageLoader` (singleton per app)
-- **Limit RAM:** 25 % heap, ne víc než 64 MB
-- **Limit disk:** 200 MB v `$XDG_CACHE_HOME/puklic/images/`
+- **RAM limit:** 25 % of heap, no more than 64 MB
+- **Disk limit:** 200 MB in `$XDG_CACHE_HOME/puklic/images/`
 - **Eviction:** Coil LRU
-- **Decode:** lazy on first display, recycled na recompose
+- **Decode:** lazy on first display, recycled on recompose
 
 ## Disk cache
 
@@ -54,47 +54,47 @@ Konkretizace ADR-0003 — limity, eviction, konfigurace.
 | Stickers | `$XDG_CACHE_HOME/puklic/stickers/` | 100 MB | `cache.stickers.maxBytes` |
 | **Total disk cache** | `$XDG_CACHE_HOME/puklic/` | **850 MB** | |
 
-Plus SQLite DB v `$XDG_DATA_HOME/puklic/db/` (separate path, ne pod cache — neměl by se mazat při `rm -rf ~/.cache`).
+Plus SQLite DB in `$XDG_DATA_HOME/puklic/db/` (separate path, not under cache — should not be deleted by `rm -rf ~/.cache`).
 
 ### Disk eviction
 
-- Background coroutine při startu sezení (`Dispatchers.IO`):
-  1. Spočítá velikost každé cache
-  2. Pokud > limit → `DELETE FROM attachment_cache_index ORDER BY last_accessed_at LIMIT N` + smazat fyzické soubory
-- Re-check každých 30 minut během běhu
-- Pri každém přístupu k attachmentu: `UPDATE attachment_cache_index SET last_accessed_at = ?` (batched, ne na každý read)
+- Background coroutine at session start (`Dispatchers.IO`):
+  1. Calculates the size of each cache
+  2. If > limit → `DELETE FROM attachment_cache_index ORDER BY last_accessed_at LIMIT N` + delete physical files
+- Re-check every 30 minutes while running
+- On each attachment access: `UPDATE attachment_cache_index SET last_accessed_at = ?` (batched, not on every read)
 
 ### Cache wipe
 
-Manuální „Reset local cache" v Settings:
-- 1. Confirm dialog
-- 2. Smaže celý `$XDG_CACHE_HOME/puklic/`
-- 3. Volitelně i `$XDG_DATA_HOME/puklic/db/` (separate checkbox „Wipe DB too")
+Manual "Reset local cache" in Settings:
+- 1. Confirmation dialog
+- 2. Delete the entire `$XDG_CACHE_HOME/puklic/`
+- 3. Optionally also `$XDG_DATA_HOME/puklic/db/` (separate checkbox "Wipe DB too")
 - 4. Restart app
 
-## Konfigurace
+## Configuration
 
-User-facing nastavení (Settings → Storage):
+User-facing settings (Settings → Storage):
 
-| Klíč | UI label | Range | Default |
+| Key | UI label | Range | Default |
 |---|---|---|---|
-| `cache.attachments.maxBytes` | „Velikost cache souborů" | 100 MB – 5 GB | 500 MB |
-| `cache.images.maxBytes` | „Velikost cache obrázků" | 50 MB – 1 GB | 200 MB |
-| `cache.disable` | „Vypnout disk cache" | bool | false |
+| `cache.attachments.maxBytes` | "File cache size" | 100 MB – 5 GB | 500 MB |
+| `cache.images.maxBytes` | "Image cache size" | 50 MB – 1 GB | 200 MB |
+| `cache.disable` | "Disable disk cache" | bool | false |
 | `messages.hotCacheSize` | (advanced, hidden) | 50–500 | 200 |
 | `messages.warmCacheChannels` | (advanced, hidden) | 1–20 | 5 |
 
-Persisted v `$XDG_CONFIG_HOME/puklic/settings.toml`.
+Persisted in `$XDG_CONFIG_HOME/puklic/settings.toml`.
 
 ## Invariants
 
-- **RAM:** žádný `List<ChatMessage>` neomezené velikosti. Vždy bounded ring nebo Flow nad bounded oknem.
-- **RAM:** žádné `ByteArray` attachmentu žije déle než jeden Compose frame.
-- **Disk:** žádný soubor neexistuje bez záznamu v `attachment_cache_index` (orphan detection na startu).
-- **Disk:** každý cache file má kontrolu velikosti (anti-disk-full).
+- **RAM:** no `List<ChatMessage>` of unbounded size. Always a bounded ring or Flow over a bounded window.
+- **RAM:** no `ByteArray` attachment lives longer than one Compose frame.
+- **Disk:** no file exists without a record in `attachment_cache_index` (orphan detection on startup).
+- **Disk:** every cache file has a size check (anti-disk-full).
 
-## Test strategie
+## Test strategy
 
-- **Memory leak test:** 24 h běh klienta, scroll 1000+ zpráv napříč 20 kanály. Heap growth target < 50 MB.
-- **Cache eviction test:** naplnit attachment cache nad limit, ověřit že LRU evict funguje a velikost klesne pod limit.
-- **Orphan test:** ručně přidat soubor do cache adresáře, ověřit, že startup ho smaže.
+- **Memory leak test:** 24 h client run, scroll 1000+ messages across 20 channels. Heap growth target < 50 MB.
+- **Cache eviction test:** fill attachment cache above limit, verify LRU eviction works and size drops below limit.
+- **Orphan test:** manually add a file to the cache directory, verify that startup deletes it.

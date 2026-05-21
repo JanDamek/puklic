@@ -4,67 +4,67 @@
 
 > Puklic is a lightweight Kotlin Multiplatform desktop chat client focused on native UI, low memory usage, coroutine-first architecture, and first-class Linux Wayland support.
 
-## Problém
+## Problem
 
-Oficiální Discord klient je Electron aplikace s 400–800 MB RAM idle, opakovanými UI freezes, problematickou podporou Wayland a dlouhým cold startem. Na Linuxu navíc roky neřešené chyby (screenshare na Waylandu, notifikace, tray, audio routing).
+The official Discord client is an Electron application consuming 400–800 MB of RAM at idle, with repeated UI freezes, poor Wayland support, and a slow cold start. On Linux, long-standing bugs have gone unresolved for years (screenshare on Wayland, notifications, tray, audio routing).
 
-Existující alternativy (Ripcord — proprietary a opuštěný, Abaddon — alpha, Webcord — pořád Electron) buď stagnují nebo neřeší jádro problému.
+Existing alternatives (Ripcord — proprietary and abandoned, Abaddon — alpha, Webcord — still Electron) either stagnate or don't address the core problem.
 
-## Cílový uživatel
+## Target user
 
-- **Linux power user** používající Wayland (GNOME/KDE/Sway/Hyprland), který chce stabilní klient s low RAM footprintem
-- **Cross-platform uživatel**, který chce stejný klient na Linuxu, Androidu a iOS
-- **Privacy-conscious uživatel**, který nechce mít Electron běžící celý den
+- **Linux power user** running Wayland (GNOME/KDE/Sway/Hyprland) who wants a stable client with a low RAM footprint
+- **Cross-platform user** who wants the same client on Linux, Android, and iOS
+- **Privacy-conscious user** who doesn't want Electron running all day
 
-Sekundárně: macOS, Windows uživatelé (Compose Desktop podporuje, ale není to primární cíl).
+Secondarily: macOS and Windows users (Compose Desktop supports them, but they are not the primary target).
 
-## Hodnotová propozice
+## Value proposition
 
 | | Electron Discord | Puklic |
 |---|---|---|
 | RAM idle | 400–800 MB | < 150 MB |
 | Cold start | 5–10 s | < 2 s |
-| Wayland | XWayland fallback s chybami | XWayland → native plán |
-| Screenshare na Wayland | broken / partial | xdg-desktop-portal + PipeWire |
+| Wayland | XWayland fallback with bugs | XWayland → native plan |
+| Screenshare on Wayland | broken / partial | xdg-desktop-portal + PipeWire |
 | Codebase | Electron + React | Kotlin + Compose Multiplatform |
-| iOS/Android | iOS oficiální, Android oficiální | sdílený codebase |
+| iOS/Android | official iOS, official Android | shared codebase |
 
-## Scope MVP (fáze 1)
+## MVP scope (Phase 1)
 
-Použitelný read+write klient pro běžnou komunikaci:
+A usable read+write client for everyday communication:
 - Login (token paste)
 - Guild + channel browser
 - Text chat: read, send, edit, delete
 - Basic markdown + Unicode emoji
 - Lazy message loading + SQLite cache
-- Settings (account, appearance, cache limity)
-- Notifikace (desktop)
+- Settings (account, appearance, cache limits)
+- Notifications (desktop)
 
-**Mimo MVP:** voice, video, screenshare, custom emoji, mentions resolution, link previews, reactions UI, threads, stickers, Nitro features. Tyto přicházejí v dalších fázích.
+**Out of MVP:** voice, video, screenshare, custom emoji, mention resolution, link previews, reactions UI, threads, stickers, Nitro features. These arrive in later phases.
 
-## Out of scope (permanentně)
+## Out of scope (permanently)
 
-- Automatizace uživatelského účtu
+- User account automation
 - Bot framework
-- AI integrace (auto-translate, auto-summarize)
-- Modifikace nebo plugin do oficiálního Discord klienta
-- Self-bot funkce (bulk actions, scheduled messages)
+- AI integration (auto-translate, auto-summarize)
+- Modification or plugin for the official Discord client
+- Self-bot features (bulk actions, scheduled messages)
 
 ## Success metrics
 
-Fáze 1 ship:
-- 1 týden denního používání autorem bez crash / OOM
-- RAM idle < 150 MB ověřeno
-- Cold start < 2 s ověřeno
-- Memory leak test: 24 h běh, RAM growth < 50 MB
+Phase 1 ship:
+- 1 week of daily use by the author without crash / OOM
+- RAM idle < 150 MB verified
+- Cold start < 2 s verified
+- Memory leak test: 24 h run, RAM growth < 50 MB
 
-Fáze 2 ship:
-- Plně použitelný pro text komunikaci s rich obsahem (attachmenty, reactions, mentions)
+Phase 2 ship:
+- Fully usable for text communication with rich content (attachments, reactions, mentions)
 
-Fáze 3+ jsou nice-to-have, ne success blocker pro „daily driver" status.
+Phase 3+ are nice-to-have, not a success blocker for "daily driver" status.
 
 ## Anti-goals
 
-- Feature parity s oficiálním klientem **není cíl**. Některé Discord featury (Activity, Stage, Boosts UI, Shop) nebudou implementovány vůbec.
-- Customization framework / pluginy nejsou v plánu.
-- Server-side mirror / cache proxy / bridge na jiný protokol není v plánu.
+- Feature parity with the official client **is not the goal**. Some Discord features (Activity, Stage, Boosts UI, Shop) will not be implemented at all.
+- A customization framework / plugins are not planned.
+- A server-side mirror / cache proxy / bridge to another protocol is not planned.

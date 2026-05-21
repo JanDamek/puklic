@@ -24,6 +24,7 @@ The most consequential decisions:
 
 - **2026-05-21 r1** — original draft
 - **2026-05-21 r2** — revised per code-critic findings: fixed 3 blockers + 5 critical, MEDIUM/NIT deferred to implementation
+- **2026-05-21 r3** — full Czech-to-English translation of all repo docs (bulk remediation).
 
 ---
 
@@ -34,7 +35,7 @@ The most consequential decisions:
 | Module path | Gradle name | Targets | Purpose |
 |---|---|---|---|
 | `shared/ids/` | `:shared:ids` | JVM, Android, iosArm64, iosX64, iosSimulatorArm64 | Type-safe ID value classes (snowflake) |
-| `shared/domain/` | `:shared:domain` | JVM, Android, iOS* | Doménové typy: ChatMessage, Guild, Channel, RichTextDocument |
+| `shared/domain/` | `:shared:domain` | JVM, Android, iOS* | Domain types: ChatMessage, Guild, Channel, RichTextDocument |
 | `shared/platform-api/` | `:shared:platform-api` | JVM, Android, iOS* | Kotlin interface contracts: SecureStorage, NotificationService, PlatformPaths, etc. |
 | `shared/chat-parser/` | `:shared:chat-parser` | JVM, Android, iOS* | Pure function `parseRichText(String): RichTextDocument` |
 | `shared/protocol-discord/` | `:shared:protocol-discord` | JVM, Android, iOS* | Discord DTOs, mappers, Gateway client, REST client |
@@ -240,7 +241,7 @@ The `ChildPanels` component in Decompose 3.x (part of the `decompose` library, n
 This maps exactly to the window size class breakpoints in adaptive-layouts.md. Implementing the same behavior with Voyager or Compose Navigation would require a custom navigation coordinator of comparable complexity — at which point we have reinvented a worse Decompose.
 
 **Integration:**
-- Decompose `ComponentContext` is the owner of each screen's `CoroutineScope` — this aligns with ADR-0004 (`ViewModelScope` zaniká s navigací pryč z obrazovky).
+- Decompose `ComponentContext` is the owner of each screen's `CoroutineScope` — this aligns with ADR-0004 (`ViewModelScope` is disposed when navigating away from the screen).
 - `instanceKeeper` replaces ViewModel factory on Android and desktop: each Decompose component IS the ViewModel equivalent. ViewModels reside in `:shared:compose-ui` (presentation layer), not in `:shared:repositories` (data layer).
 - Koin provides dependencies to Decompose components via constructor injection (manual DI in component `init`).
 
@@ -403,7 +404,7 @@ internal val DiscordJsonStrict = Json {
 
 The architectural decision is documented in [ADR-0006](../../01_architecture/adr/0006-discord-json-leniency-exception.md).
 
-**Invariant:** The `:shared:protocol-discord` module boundary is the firewall. Discord DTO objects never escape into other modules (see CLAUDE.md rule 3: "Discord DTO nesmí proniknout do UI"). Mappers in `protocol-discord` convert DTOs to domain objects at the module boundary. Once converted, the domain objects have no unknown-field concerns.
+**Invariant:** The `:shared:protocol-discord` module boundary is the firewall. Discord DTO objects never escape into other modules (see CLAUDE.md rule 3: "Discord DTOs must not leak into the UI"). Mappers in `protocol-discord` convert DTOs to domain objects at the module boundary. Once converted, the domain objects have no unknown-field concerns.
 
 ---
 
@@ -830,7 +831,7 @@ All versions pinned in `gradle/libs.versions.toml`. Verify each version against 
 | Compose Multiplatform | **1.8.0** | JetBrains; includes Compose iOS stable track |
 | Android Gradle Plugin | **8.7.2** | matches targetSdk 35 |
 | Gradle | **8.12** | via wrapper |
-| JVM toolchain target | **21** | Zafixováno; Compose Desktop requires ≥17 |
+| JVM toolchain target | **21** | Fixed; Compose Desktop requires ≥17 |
 | Android minSdk | **26** | Oreo |
 | Android targetSdk | **35** | Latest stable |
 | iOS deployment target | **14.0** | set in KMP targets config |
