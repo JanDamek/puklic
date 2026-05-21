@@ -13,10 +13,17 @@ This document is the authoritative blueprint for initializing the Puklic Gradle 
 
 The most consequential decisions:
 - **iOS stubs from day 1** — prevents Phase 2 refactor of all shared modules.
-- **`build-logic/` included build** — modern convention plugin pattern, better caching.
-- **Decompose 3.x navigation** — only library with production-ready KMP three-pane adaptive support.
+- **`build-logic/` included build** — modern convention plugin pattern, better classpath isolation.
+- **Decompose 3.x navigation** — only library with production-ready KMP three-pane adaptive support (see ADR-0005).
 - **Koin 4.x DI** — matches the scope hierarchy in ADR-0004 without manual wiring complexity.
-- **`ignoreUnknownKeys = true` scoped to Discord DTO parser only** — explicit exception for external API; all internal serialization uses strict mode.
+- **`ignoreUnknownKeys = true` scoped to Discord DTO parser only** — explicit exception for external API; all internal serialization uses strict mode (see ADR-0006).
+
+---
+
+## 1a. Revision history
+
+- **2026-05-21 r1** — original draft
+- **2026-05-21 r2** — revised per code-critic findings: fixed 3 blockers + 5 critical, MEDIUM/NIT deferred to implementation
 
 ---
 
@@ -33,17 +40,17 @@ The most consequential decisions:
 | `shared/protocol-discord/` | `:shared:protocol-discord` | JVM, Android, iOS* | Discord DTOs, mappers, Gateway client, REST client |
 | `shared/persistence-api/` | `:shared:persistence-api` | JVM, Android, iOS* | Repository interfaces + SQLDelight `.sq` schema files |
 | `shared/persistence-sqldelight/` | `:shared:persistence-sqldelight` | JVM, Android, iOS* | Generated SQLDelight code + per-platform driver wiring |
-| `shared/repositories/` | `:shared:repositories` | JVM, Android, iOS* | MessageRepository, GuildRepository, ViewModels, Resolvers |
+| `shared/repositories/` | `:shared:repositories` | JVM, Android, iOS* | MessageRepository, GuildRepository, ChannelRepository, UserRepository, EmojiRepository, OutboundMessageQueue, SessionCache, MentionResolver, EmojiResolver |
 | `shared/session/` | `:shared:session` | JVM, Android, iOS* | DiscordSession lifecycle, gateway connect/resume state machine |
-| `shared/compose-ui/` | `:shared:compose-ui` | JVM, Android, iOS* | All Compose Multiplatform UI components + scaffolds |
+| `shared/compose-ui/` | `:shared:compose-ui` | JVM, Android, iOS* | All Compose Multiplatform UI components + scaffolds; ViewModels per screen |
 | `desktop/app/` | `:desktop:app` | JVM | Entry point `main()`, DI wiring, Compose Desktop window |
 | `desktop/platform-linux/` | `:desktop:platform-linux` | JVM | Linux `actual` implementations: libsecret, D-Bus, libayatana |
 | `desktop/platform-macos/` | `:desktop:platform-macos` | JVM | Stub Phase 1 (clipboard + paths only) |
 | `desktop/platform-windows/` | `:desktop:platform-windows` | JVM | Stub Phase 1 (clipboard + paths only) |
 | `android/app/` | `:android:app` | Android | Stub: Application + MainActivity skeleton (compiles, no UI logic) |
-| `android/platform/` | `:android:platform` | Android | Stub: Android `actual` implementations (NotImplementedError bodies) |
+| `android/platform/` | `:android:platform` | Android | Stub: Android platform-api implementations (NotImplementedError bodies) |
 | `ios/app/` | `:ios:app` | iosArm64, iosX64, iosSimulatorArm64 | Stub: Kotlin/Native entry point (compiles, no UI logic) |
-| `ios/platform/` | `:ios:platform` | iosArm64, iosX64, iosSimulatorArm64 | Stub: iOS `actual` implementations (NotImplementedError bodies) |
+| `ios/platform/` | `:ios:platform` | iosArm64, iosX64, iosSimulatorArm64 | Stub: iOS platform-api implementations (NotImplementedError bodies) |
 | `tools/parser-fixtures-gen/` | `:tools:parser-fixtures-gen` | JVM | CLI for generating parser golden fixtures |
 
 *iOS* = iosArm64 + iosX64 + iosSimulatorArm64 targets, sharing `iosMain` source set.
@@ -97,6 +104,7 @@ Arrows mean "depends on". Read left → right for layering.
 :shared:repositories ──────────────────────────────────────────┐  │
     ▲  (depends: protocol-discord, persistence-api,             │  │
     │            chat-parser, domain, ids)                       │  │
+    │   repositories + resolvers only — no ViewModels           │  │
     │                                                            │  │
 :shared:session                                                  │  │
     ▲  (depends: protocol-discord, repositories, platform-api)  │  │
@@ -104,6 +112,7 @@ Arrows mean "depends on". Read left → right for layering.
 :shared:compose-ui ─────────────────────────────────────────────┘  │
     ▲  (depends: domain, repositories, session, platform-api,      │
     │            Compose Multiplatform, Decompose, Coil, Koin)      │
+    │   owns ViewModels (presentation layer)                        │
     │                                                               │
     ├─ :desktop:app  (depends: compose-ui, session, platform-linux/macos/windows, Koin)
     ├─ :android:app  (stub depends: compose-ui, android-platform, Koin)
@@ -134,7 +143,7 @@ The stub strategy:
 
 **Alternative rejected — "iOS only when Phase 2 starts":** Saves two hours up front but creates a multi-day refactor in Phase 2 just to add source sets. Does not respect the minimum-complexity principle applied across the project lifetime.
 
-**Implication:** Every convention plugin for `:shared:*` modules must include `iosArm64`, `iosX64`, `iosSimulatorArm64` targets from the start.
+**Implication:** Every convention plugin for `:shared:*` modules must include `iosArm64`, `iosX64`, `iosSimulatorArm64` targets from the start. The iOS-only app modules (`:ios:app`, `:ios:platform`) use the separate `puklic.ios-library` convention plugin — see Q2.
 
 ---
 
@@ -146,12 +155,12 @@ The stub strategy:
 
 | Criterion | `buildSrc/` | `build-logic/` |
 |---|---|---|
+| Classpath isolation | `buildSrc` output is automatically on the classpath of every subproject — risk of accidental dependency leakage | Explicit: subprojects only get what `plugins { id("puklic.xxx") }` imports |
 | Gradle cache | Not cached separately — any change invalidates the entire main build configuration cache | Cached as a separate included build; only rebuilds when plugin source changes |
-| Classpath isolation | `buildSrc` output is automatically on the classpath of every subproject — potential for accidental dependency leakage | Explicit: subprojects only get what `plugins { id("puklic.xxx") }` imports |
 | Version catalog access | Requires explicit wiring (`libs` alias works since Gradle 8.1+) | Same — requires `files("../gradle/libs.versions.toml")` in `build-logic/settings.gradle.kts` |
 | IDE support | Well-understood by IntelliJ | Equally good |
 
-The configuration cache benefit is the deciding factor: Puklic targets < 30 s incremental builds (build.md). `buildSrc` invalidates the config cache on every plugin source change; `build-logic` does not.
+The decisive advantage of `build-logic/` is **classpath isolation**: subprojects only gain access to what they explicitly apply via `plugins { id("puklic.xxx") }`, preventing accidental dependency leakage that `buildSrc` allows.
 
 **`build-logic/` plugin inventory:**
 
@@ -159,14 +168,17 @@ The configuration cache benefit is the deciding factor: Puklic targets < 30 s in
 |---|---|---|
 | `puklic.kmp-library` | `puklic.kmp-library.gradle.kts` | All `:shared:*` multiplatform library modules |
 | `puklic.compose-library` | `puklic.compose-library.gradle.kts` | `:shared:compose-ui` (extends kmp-library, adds Compose MP plugin) |
+| `puklic.ios-library` | `puklic.ios-library.gradle.kts` | `:ios:app`, `:ios:platform` — iOS-only modules |
 | `puklic.jvm-library` | `puklic.jvm-library.gradle.kts` | JVM-only modules: `:desktop:platform-*`, `:tools:*` |
 | `puklic.android-library` | `puklic.android-library.gradle.kts` | `:android:platform` |
 | `puklic.android-app` | `puklic.android-app.gradle.kts` | `:android:app` |
 | `puklic.detekt` | `puklic.detekt.gradle.kts` | All modules (applied via root + each convention plugin) |
 
-The `puklic.kmp-library` plugin configures: Kotlin version, JVM toolchain (21), Android target SDK (35)/minSdk (26), iOS targets with default hierarchy template, common test dependencies (kotlin.test, Kotest), Kover coverage setup, and detekt. It is the single source of truth for the KMP build configuration.
+**`puklic.kmp-library` scope:** Configures Kotlin version, JVM toolchain (21), Android target SDK (35)/minSdk (26), iOS targets (iosArm64, iosX64, iosSimulatorArm64) with default hierarchy template, common test dependencies (kotlin.test, Kotest), Kover coverage setup, and detekt. Applied to all `:shared:*` modules. **NOT applied to `:ios:*` modules** — those use `puklic.ios-library` instead.
 
-**Alternative rejected — `buildSrc/`:** Simpler initial setup but suboptimal for CI performance. Kotlin KMP builds are already slow; we should not make the config cache situation worse.
+**`puklic.ios-library` scope:** Configures Kotlin/Native targets only — iosArm64, iosX64, iosSimulatorArm64 — with the default hierarchy template. Does NOT configure JVM toolchain and does NOT apply the Android Gradle Plugin. This plugin exists specifically for modules that are iOS-only and would fail Gradle sync if Android targets were configured on them.
+
+**Alternative rejected — `buildSrc/`:** Simpler initial setup but suboptimal for CI performance and classpath hygiene. Kotlin KMP builds are already slow; we should not make the config cache situation worse.
 
 ---
 
@@ -188,12 +200,12 @@ commonMain / commonTest
                             └── iosSimulatorArm64Main
 ```
 
-`iosMain` is the shared source set for all three iOS targets — this is exactly where iOS `actual` implementations live. There is no need for per-target source sets in `iosArm64Main` / `iosX64Main` / `iosSimulatorArm64Main` except for very rare cases (specific linker flags for hardware vs simulator, which we do not have).
+`iosMain` is the shared source set for all three iOS targets — this is exactly where iOS platform implementations live. There is no need for per-target source sets in `iosArm64Main` / `iosX64Main` / `iosSimulatorArm64Main` except for very rare cases (specific linker flags for hardware vs simulator, which we do not have).
 
 The `kotlin { applyDefaultHierarchyTemplate() }` call is redundant in Kotlin 2.x — the template is applied automatically. The convention plugin should NOT call it explicitly to avoid confusion.
 
 **What `iosMain` is used for:**
-- iOS `actual` implementations of platform-api interfaces (Keychain, UNUserNotificationCenter, etc.)
+- iOS platform-api implementations (Keychain, UNUserNotificationCenter, etc.)
 - `NativeSqliteDriver` instantiation in `:shared:persistence-sqldelight`
 - iOS-specific zlib decompression via `platform.zlib` (in `:shared:protocol-discord`)
 
@@ -205,7 +217,7 @@ The `kotlin { applyDefaultHierarchyTemplate() }` call is redundant in Kotlin 2.x
 
 ### Q4 — Navigation library
 
-**Decision: Decompose 3.x**
+**Decision: Decompose 3.x — formally recorded in ADR-0005.**
 
 **Rationale — why three-pane adaptive layout drives this decision:**
 
@@ -220,7 +232,7 @@ The adaptive-layouts.md mandates a three-pane Discord-style layout (guild rail |
 | Deep links (discord:// URLs) | ✅ `deepLinks` parameter | ⚠️ Manual | ✅ Native on Android |
 | iOS back gesture | ✅ Compose swipe back via `ChildStack` | ⚠️ Partial | ⚠️ Limited |
 
-The `ChildPanels` component in Decompose 3.x represents the three-pane layout as:
+The `ChildPanels` component in Decompose 3.x (part of the `decompose` library, not `compose-material3-adaptive`) represents the three-pane layout as:
 - `SINGLE` — Compact (one active pane at a time, back stack)
 - `DUAL` — Medium (two panes visible)
 - `TRIPLE` — Expanded (all three panes)
@@ -229,14 +241,16 @@ This maps exactly to the window size class breakpoints in adaptive-layouts.md. I
 
 **Integration:**
 - Decompose `ComponentContext` is the owner of each screen's `CoroutineScope` — this aligns with ADR-0004 (`ViewModelScope` zaniká s navigací pryč z obrazovky).
-- `instanceKeeper` replaces ViewModel factory on Android and desktop: each Decompose component IS the ViewModel equivalent.
-- Koin provides dependencies to Decompose components via constructor injection (Koin has native Decompose integration via `koin-compose-viewmodel` or manual DI in component `init`).
+- `instanceKeeper` replaces ViewModel factory on Android and desktop: each Decompose component IS the ViewModel equivalent. ViewModels reside in `:shared:compose-ui` (presentation layer), not in `:shared:repositories` (data layer).
+- Koin provides dependencies to Decompose components via constructor injection (manual DI in component `init`).
 
 **Alternative rejected — Voyager:** Simpler API, but `ChildPanels` equivalent does not exist. Three-pane layout would require manual state management that duplicates Decompose's core value.
 
 **Alternative rejected — Compose Navigation:** Primarily Android-origin. Multi-pane support in KMP is incomplete as of 2026. No `ChildPanels` equivalent.
 
 **Alternative rejected — Custom navigation:** Only valid if no library covers the need. Decompose covers it fully.
+
+**This decision is formally recorded in ADR-0005** (`docs/01_architecture/adr/0005-decompose-navigation.md`).
 
 ---
 
@@ -315,11 +329,17 @@ WebSocket support validation:
 - JVM/Android: `java.util.zip.Inflater` — built-in, no dependency
 - iOS: `platform.zlib.inflateInit` via Kotlin/Native CInterop — available in `iosMain`, no extra dependency
 
-The single `Inflater` instance per gateway connection lives in `:shared:protocol-discord`'s `GatewayConnection` class. The `expect/actual` boundary is NOT needed here — use an interface `ZlibInflater` with `jvmMain` using `java.util.zip.Inflater` and `iosMain` using a thin Kotlin wrapper around `platform.zlib`.
+The single `Inflater` instance per gateway connection lives in `:shared:protocol-discord`'s `GatewayConnection` class. The `ZlibInflater` interface uses the **interface + impl pattern** (NOT expect/actual). The choice is deliberate: an `interface` in `commonMain` with named implementations per source set avoids the strict constructor-signature constraint of `expect class` and produces cleaner Koin-injectable types.
+
+Pattern applied consistently:
+- `commonMain`: `interface ZlibInflater` — declares the inflation contract
+- `jvmMain`: `class JvmZlibInflater : ZlibInflater` — uses `java.util.zip.Inflater`
+- `androidMain`: `class AndroidZlibInflater : ZlibInflater` — uses `java.util.zip.Inflater` (same JVM runtime)
+- `iosMain`: `class IosZlibInflater : ZlibInflater` — uses `platform.zlib` CInterop
 
 **Ktor HttpClient factory pattern:**
 
-The `:shared:protocol-discord` module defines:
+The `:shared:protocol-discord` module uses **expect/actual** for the HTTP client factory (appropriate here: same function signature, platform-specific engine choice):
 - `expect fun createHttpClient(): HttpClient` in `commonMain`
 - `actual fun createHttpClient(): HttpClient` in `jvmMain` (uses CIO)
 - `actual fun createHttpClient(): HttpClient` in `androidMain` (uses OkHttp)
@@ -333,7 +353,7 @@ This factory is called once per session by Koin's `scoped { }` binding.
 
 ### Q8 — JSON serialization without ignoreUnknownKeys
 
-**Decision: `ignoreUnknownKeys = true` scoped exclusively to the Discord DTO `Json` instance in `:shared:protocol-discord`. All other `Json` instances in the project use strict mode (`ignoreUnknownKeys = false`, the default).**
+**Decision: Two `Json` instances — one lenient (production), one strict (tests). `ignoreUnknownKeys = true` scoped exclusively to the production Discord DTO `Json` instance in `:shared:protocol-discord`. All other `Json` instances use strict mode. All test fixtures use the strict instance.**
 
 **Justification for the exception:**
 
@@ -349,22 +369,39 @@ Discord's API is an external third-party service that adds new fields continuous
 | Deserialize to `JsonObject` then map manually | Defeats the purpose of kotlinx.serialization type safety |
 | Crash in production when Discord adds a field | Unacceptable for a daily-driver client |
 
-**Implementation:**
+**Implementation — two Json instances:**
 
 In `:shared:protocol-discord`, one file (`DiscordJson.kt`) provides:
 
 ```
+// Production instance — Discord external API exception (see ADR-0006)
 internal val DiscordJson = Json {
-    ignoreUnknownKeys = true          // Discord external API exception (see ADR-0005)
+    ignoreUnknownKeys = true          // Discord external API: new fields added without notice
     isLenient = false                 // strict value parsing
     coerceInputValues = false         // no silent null coercion
     encodeDefaults = false            // compact serialization
 }
 ```
 
-This `Json` instance is `internal` to `:shared:protocol-discord`. No other module may use it. Every other `Json` instance in the project (settings serialization, SQLite JSON columns, parser fixtures) must NOT set `ignoreUnknownKeys`.
+A second file (`DiscordJsonStrict.kt`) in the **`commonTest`** source set provides:
 
-The architectural decision is documented as ADR-0005 (to be created alongside this setup).
+```
+// Test-only strict instance — used by all mapper tests and fixture deserialization
+// When Discord adds a field and the test fixture contains it, CI fails → engineer
+// makes an explicit decision: add to DTO or document as intentionally ignored.
+internal val DiscordJsonStrict = Json {
+    ignoreUnknownKeys = false         // strict: unknown fields fail immediately in tests
+    isLenient = false
+    coerceInputValues = false
+    encodeDefaults = false
+}
+```
+
+**Test fixture rule:** All mapper unit tests and fixture-based deserialization use `DiscordJsonStrict`. When Discord adds a new field and a test fixture includes it, CI fails. The engineer then decides: add the field to the DTO (and mapper), or document the field as intentionally unmapped. No silent schema drift.
+
+**Production code rule:** `DiscordJson` is `internal` to `:shared:protocol-discord`. No other module may use it. Every other `Json` instance in the project (settings serialization, SQLite JSON columns, non-Discord fixtures) must NOT set `ignoreUnknownKeys`.
+
+The architectural decision is documented as ADR-0006 (to be created alongside this setup).
 
 **Invariant:** The `:shared:protocol-discord` module boundary is the firewall. Discord DTO objects never escape into other modules (see CLAUDE.md rule 3: "Discord DTO nesmí proniknout do UI"). Mappers in `protocol-discord` convert DTOs to domain objects at the module boundary. Once converted, the domain objects have no unknown-field concerns.
 
@@ -376,20 +413,22 @@ The architectural decision is documented as ADR-0005 (to be created alongside th
 
 | Target | Source set | Driver class | Additional dependency |
 |---|---|---|---|
-| JVM (desktop) | `jvmMain` | `JdbcSqliteDriver` | `org.xerial:sqlite-jdbc:3.47.x` |
+| JVM (desktop) | `jvmMain` | `JdbcSqliteDriver` | `org.xerial:sqlite-jdbc:3.47.0` |
 | Android | `androidMain` | `AndroidSqliteDriver` | None (uses Android system SQLite) |
 | iOS | `iosMain` | `NativeSqliteDriver` | None (uses iOS system SQLite) |
 
 **Kotlin 2.x compatibility:** SQLDelight 2.x migrated away from KAPT to its own codegen (`.sq` → generated Kotlin files). It is fully compatible with Kotlin 2.x and the K2 compiler. The SQLDelight Gradle plugin 2.x explicitly declares compatibility with Kotlin 2.x.
 
-**Driver wiring location:** `:shared:persistence-sqldelight` holds all three driver instantiations in their respective platform source sets. The driver factory is:
+**Driver wiring pattern — interface + impl (NOT expect/actual):**
 
-- `commonMain`: `interface DriverFactory { fun createDriver(): SqlDriver }`
-- `jvmMain`: `actual class DriverFactory(private val path: Path)` using `JdbcSqliteDriver`
-- `androidMain`: `actual class DriverFactory(private val context: Context)` using `AndroidSqliteDriver`
-- `iosMain`: `actual class DriverFactory` using `NativeSqliteDriver`
+`DriverFactory` uses the **interface + impl** pattern. The rationale: each platform implementation requires different constructor parameters (`Path` on JVM, `Context` on Android, no-arg on iOS), making `expect class` inappropriate — `expect class` requires the same constructor signature across all actuals. An `interface` with named per-platform implementations is clean and Koin-injectable.
 
-`PlatformPaths.databaseFile()` is injected into `DriverFactory` via Koin in each app's DI module. The database is initialized with all SQLite PRAGMAs from persistence-schema.md (WAL, foreign keys, mmap, etc.).
+- `commonMain`: `interface DriverFactory { fun createDriver(): SqlDriver }` — the contract
+- `jvmMain`: `class JvmDriverFactory(private val path: Path) : DriverFactory` — uses `JdbcSqliteDriver`
+- `androidMain`: `class AndroidDriverFactory(private val context: Context) : DriverFactory` — uses `AndroidSqliteDriver`
+- `iosMain`: `class IosDriverFactory : DriverFactory` — uses `NativeSqliteDriver`
+
+`PlatformPaths.databaseFile()` is injected into `JvmDriverFactory` via Koin in the desktop app's DI module. The database is initialized with all SQLite PRAGMAs from persistence-schema.md (WAL, foreign keys, mmap, etc.).
 
 **WAL mode on iOS:** `NativeSqliteDriver` supports WAL mode via pragma. iOS app sandbox allows WAL files alongside the main `.db`. No special handling needed.
 
@@ -433,7 +472,7 @@ Production builds: `Warning` level and above only.
 
 ### Q11 — Test stack
 
-**Decision: kotlin.test (base) + Kotest 5.9.x (assertions + property) + kotlinx.coroutines-test**
+**Decision: kotlin.test (base) + Kotest 5.9.1 (assertions + property) + kotlinx.coroutines-test**
 
 | Layer | Library | Applied to |
 |---|---|---|
@@ -466,13 +505,13 @@ Kotest's test engine (as distinct from its assertion and property modules) has l
 - Single `detekt.yml` at repo root
 - Applied via the `puklic.detekt` convention plugin (which all other convention plugins include)
 - Per-module override via `detekt { config.from(files("$rootDir/detekt.yml", "detekt-override.yml")) }` — only if genuinely needed for that module's context (e.g., `:shared:protocol-discord` might need relaxed `MagicNumber` rules for Discord opcode constants)
-- Compose rules: `io.nlopez.compose.rules:detekt:0.4.x` — enforces: no mutable state in composable parameters, `Composable` naming PascalCase, `modifier` parameter required on layout composables, no side effects outside `LaunchedEffect`/`SideEffect`
+- Compose rules: `io.nlopez.compose.rules:detekt:0.4.22` — enforces: no mutable state in composable parameters, `Composable` naming PascalCase, `modifier` parameter required on layout composables, no side effects outside `LaunchedEffect`/`SideEffect`
 
 **ktlint:**
 - Single `.editorconfig` at repo root
 - Applied via `jlleitschuh/gradle-ktlint` plugin in the `puklic.detekt` convention plugin (name is misleading — the convention plugin handles both)
 - Version: ktlint 1.3.x
-- Compose rules: `io.nlopez.compose.rules:ktlint:0.4.x`
+- Compose rules: `io.nlopez.compose.rules:ktlint:0.4.22`
 - 2-space indent (per build.md), max line length 120
 
 **Pre-commit hook:** `./gradlew ktlintCheck detekt` as documented in build.md. The hook is set up via Gradle task in the root `build.gradle.kts` that installs `.git/hooks/pre-commit` on `./gradlew tasks`.
@@ -507,8 +546,9 @@ detekt.yml                                  — detekt rule configuration (root)
 build-logic/settings.gradle.kts             — include this as standalone project, access libs.versions.toml
 build-logic/build.gradle.kts               — dependencies: kotlin-gradle-plugin, agp, compose-mp plugin
 build-logic/src/main/kotlin/
-    puklic.kmp-library.gradle.kts          — KMP lib convention: targets, JVM 21 toolchain, test deps, Kover
+    puklic.kmp-library.gradle.kts          — KMP lib convention: targets (JVM+Android+iOS), JVM 21 toolchain, test deps, Kover
     puklic.compose-library.gradle.kts      — extends kmp-library, adds Compose MP plugin + Coil + Decompose
+    puklic.ios-library.gradle.kts          — iOS-only convention: iosArm64/iosX64/iosSimulatorArm64 targets only; NO JVM toolchain; NO AGP
     puklic.jvm-library.gradle.kts          — JVM-only lib: toolchain 21, kotlin jvm plugin, test deps
     puklic.android-library.gradle.kts      — Android lib: minSdk 26, targetSdk 35, compileSdk 35
     puklic.android-app.gradle.kts          — Android app: same as android-library + applicationId + signing
@@ -554,22 +594,30 @@ shared/chat-parser/src/commonTest/resources/
 ```
 shared/protocol-discord/build.gradle.kts   — applies puklic.kmp-library; deps: domain, ids, Ktor-client, kotlinx-serialization, coroutines
 shared/protocol-discord/src/commonMain/kotlin/
-    DiscordJson.kt                          — internal Json instance with ignoreUnknownKeys=true (Discord exception)
+    DiscordJson.kt                          — internal production Json instance: ignoreUnknownKeys=true (Discord exception, see ADR-0006)
+    ZlibInflater.kt                         — interface ZlibInflater (interface+impl pattern, NOT expect/actual)
     dto/                                    — all Discord DTO data classes
     mapper/                                 — mapper extension functions (DiscordXxxDto.toDomain())
     rest/                                   — DiscordRestClient (rate limiter, endpoints)
     gateway/                                — GatewayConnection, GatewayEvent sealed hierarchy, Heartbeat
-    Capabilities.kt                         — Discord capabilities constant (~16381)
-shared/protocol-discord/src/commonMain/kotlin/
-    ZlibInflater.kt                         — interface (commonMain)
+    Capabilities.kt                         — CAPABILITIES_VERSION constant (currently 16381); see note below
+    HttpClientFactory.kt                    — expect fun createHttpClient(): HttpClient (expect/actual for Ktor engine selection)
 shared/protocol-discord/src/jvmMain/kotlin/
-    ZlibInflaterJvm.kt                      — actual using java.util.zip.Inflater; createHttpClient() with CIO engine
+    JvmZlibInflater.kt                      — class JvmZlibInflater : ZlibInflater using java.util.zip.Inflater
+    HttpClientFactoryJvm.kt                 — actual fun createHttpClient() with CIO engine
 shared/protocol-discord/src/androidMain/kotlin/
-    ZlibInflaterAndroid.kt                  — actual using java.util.zip.Inflater; createHttpClient() with OkHttp
+    AndroidZlibInflater.kt                  — class AndroidZlibInflater : ZlibInflater using java.util.zip.Inflater
+    HttpClientFactoryAndroid.kt             — actual fun createHttpClient() with OkHttp engine
 shared/protocol-discord/src/iosMain/kotlin/
-    ZlibInflaterIos.kt                      — actual using platform.zlib; createHttpClient() with Darwin engine
-shared/protocol-discord/src/commonTest/kotlin/ — mapper tests, gateway state machine tests
+    IosZlibInflater.kt                      — class IosZlibInflater : ZlibInflater using platform.zlib CInterop
+    HttpClientFactoryIos.kt                 — actual fun createHttpClient() with Darwin engine
+shared/protocol-discord/src/commonTest/kotlin/
+    DiscordJsonStrict.kt                    — internal val DiscordJsonStrict = Json { ignoreUnknownKeys = false }; used by ALL mapper tests
+    mapper/                                 — mapper tests using DiscordJsonStrict
+    gateway/                                — gateway state machine tests
 ```
+
+**Note on `Capabilities.kt`:** The file exposes `const val CAPABILITIES_VERSION = 16381` with a doc-comment referencing `docs/02_domain/discord-protocol.md` and the procedure for updating this value (see §9). The `GatewayConnection` `READY` event handler logs a `Warn`-level message if the response shape indicates an unexpected capabilities configuration (e.g., `READY_SUPPLEMENTAL` absent, guild count zero when guilds are expected). This is the signal that `CAPABILITIES_VERSION` may need updating. The update procedure is documented in `docs/02_domain/discord-protocol.md`.
 
 ### shared/persistence-api/
 
@@ -596,13 +644,13 @@ shared/persistence-api/src/commonTest/kotlin/ — SQL query tests with in-memory
 ```
 shared/persistence-sqldelight/build.gradle.kts — applies puklic.kmp-library; deps: persistence-api, platform-api, SQLDelight per-platform drivers
 shared/persistence-sqldelight/src/commonMain/kotlin/
-    DriverFactory.kt                        — interface DriverFactory { fun createDriver(): SqlDriver }
+    DriverFactory.kt                        — interface DriverFactory { fun createDriver(): SqlDriver } (interface+impl pattern, NOT expect/actual)
 shared/persistence-sqldelight/src/jvmMain/kotlin/
-    DriverFactoryJvm.kt                     — actual: JdbcSqliteDriver + sqlite-jdbc, applies WAL/PRAGMA
+    JvmDriverFactory.kt                     — class JvmDriverFactory(private val path: Path) : DriverFactory; uses JdbcSqliteDriver + sqlite-jdbc; applies WAL/PRAGMA
 shared/persistence-sqldelight/src/androidMain/kotlin/
-    DriverFactoryAndroid.kt                 — actual: AndroidSqliteDriver
+    AndroidDriverFactory.kt                 — class AndroidDriverFactory(private val context: Context) : DriverFactory; uses AndroidSqliteDriver
 shared/persistence-sqldelight/src/iosMain/kotlin/
-    DriverFactoryIos.kt                     — actual: NativeSqliteDriver
+    IosDriverFactory.kt                     — class IosDriverFactory : DriverFactory; uses NativeSqliteDriver
 shared/persistence-sqldelight/src/commonTest/kotlin/ — driver creation smoke test per platform
 ```
 
@@ -620,10 +668,6 @@ shared/repositories/src/commonMain/kotlin/
     SessionCache.kt                         — warm cache (LinkedHashMap LRU, 5 channels × 50 msgs)
     MentionResolver.kt                      — interface + impl, backed by UserRepository
     EmojiResolver.kt                        — interface + impl, backed by EmojiRepository
-    MessageListViewModel.kt                 — StateFlow<MessageListState>, coroutine lifecycle via Decompose ComponentContext
-    GuildListViewModel.kt
-    ChannelListViewModel.kt
-    SettingsViewModel.kt
 shared/repositories/src/commonTest/kotlin/  — repository unit tests with fake persistence + fake protocol
 ```
 
@@ -653,6 +697,11 @@ shared/compose-ui/src/commonMain/kotlin/
         ChannelListScreen.kt
         MessageListScreen.kt
         SettingsScreen.kt
+    viewmodels/
+        MessageListViewModel.kt             — StateFlow<MessageListState>; Decompose ComponentContext lifecycle owner
+        GuildListViewModel.kt
+        ChannelListViewModel.kt
+        SettingsViewModel.kt
     components/
         PuklicAvatar.kt
         RichTextView.kt
@@ -743,7 +792,7 @@ android/platform/src/main/kotlin/
 ### ios/app/ (stub)
 
 ```
-ios/app/build.gradle.kts                   — applies puklic.kmp-library (iOS targets only); deps: compose-ui, session, ios-platform, Koin
+ios/app/build.gradle.kts                   — applies puklic.ios-library; deps: compose-ui, session, ios-platform, Koin
 ios/app/src/iosMain/kotlin/
     Main.kt                                 — minimal Kotlin/Native entry point (stub)
 ```
@@ -751,7 +800,7 @@ ios/app/src/iosMain/kotlin/
 ### ios/platform/ (stub)
 
 ```
-ios/platform/build.gradle.kts              — applies puklic.kmp-library (iOS targets only); deps: platform-api
+ios/platform/build.gradle.kts              — applies puklic.ios-library; deps: platform-api
 ios/platform/src/iosMain/kotlin/
     IosSecureStorage.kt                     — stub (NotImplementedError, "Phase 2")
     IosNotificationService.kt              — stub
@@ -771,16 +820,16 @@ tools/parser-fixtures-gen/src/jvmMain/kotlin/
 
 ## 6. Library Version Constraints
 
-All versions pinned in `gradle/libs.versions.toml`. Versions marked (est.) are estimates for 2026-05-21 and MUST be verified against Maven Central / JetBrains releases before use.
+All versions pinned in `gradle/libs.versions.toml`. Verify each version against Maven Central / JetBrains releases before creating `libs.versions.toml` — versions below were current at 2026-05-21 and the ecosystem moves quickly. For Kotlin, Compose Multiplatform, and AGP, check JetBrains and Google release notes for the latest stable before project init.
 
 ### Core toolchain
 
 | Library | Version | Notes |
 |---|---|---|
-| Kotlin | **2.1.21** (est.) | Latest Kotlin 2.1.x stable |
-| Compose Multiplatform | **1.8.0** (est.) | JetBrains; includes Compose iOS stable track |
-| Android Gradle Plugin | **8.7.2** (est.) | matches targetSdk 35 |
-| Gradle | **8.12** (est.) | via wrapper |
+| Kotlin | **2.1.21** | Latest Kotlin 2.1.x stable |
+| Compose Multiplatform | **1.8.0** | JetBrains; includes Compose iOS stable track |
+| Android Gradle Plugin | **8.7.2** | matches targetSdk 35 |
+| Gradle | **8.12** | via wrapper |
 | JVM toolchain target | **21** | Zafixováno; Compose Desktop requires ≥17 |
 | Android minSdk | **26** | Oreo |
 | Android targetSdk | **35** | Latest stable |
@@ -790,15 +839,15 @@ All versions pinned in `gradle/libs.versions.toml`. Versions marked (est.) are e
 
 | Library | Version | Notes |
 |---|---|---|
-| `kotlinx.coroutines` | **1.10.1** (est.) | Must match `coroutines-test` version exactly |
-| `kotlinx.serialization` | **1.8.0** (est.) | JSON + CBOR |
-| `kotlinx.datetime` | **0.6.2** (est.) | KMP dates |
+| `kotlinx.coroutines` | **1.10.1** | Must match `coroutines-test` version exactly |
+| `kotlinx.serialization` | **1.8.0** | JSON + CBOR |
+| `kotlinx.datetime` | **0.6.2** | KMP dates |
 
 ### Networking
 
 | Library | Version | Notes |
 |---|---|---|
-| `ktor-client-core` | **3.1.3** (est.) | Ktor 3.x KMP |
+| `ktor-client-core` | **3.1.3** | Ktor 3.x KMP |
 | `ktor-client-cio` | **3.1.3** | Desktop engine |
 | `ktor-client-okhttp` | **3.1.3** | Android engine |
 | `ktor-client-darwin` | **3.1.3** | iOS engine |
@@ -810,12 +859,12 @@ All versions pinned in `gradle/libs.versions.toml`. Versions marked (est.) are e
 
 | Library | Version | Notes |
 |---|---|---|
-| `sqldelight-runtime` | **2.1.0** (est.) | KMP runtime |
+| `sqldelight-runtime` | **2.1.0** | KMP runtime |
 | `sqldelight-coroutines-extensions` | **2.1.0** | Flow queries |
 | `sqldelight-jdbc-driver` | **2.1.0** | JVM driver |
 | `sqldelight-android-driver` | **2.1.0** | Android driver |
 | `sqldelight-native-driver` | **2.1.0** | iOS driver |
-| `sqlite-jdbc` (xerial) | **3.47.0** (est.) | JVM SQLite binary |
+| `sqlite-jdbc` (xerial) | **3.47.0** | JVM SQLite binary |
 
 SQLDelight Gradle plugin version matches runtime version.
 
@@ -824,10 +873,10 @@ SQLDelight Gradle plugin version matches runtime version.
 | Library | Version | Notes |
 |---|---|---|
 | `compose-material3` | bundled with CMP 1.8.0 | Material 3 |
-| `compose-material3-adaptive` | **1.1.0** (est.) | WindowSizeClass, ChildPanels |
-| `decompose` | **3.3.0** (est.) | Navigation |
+| `compose-material3-adaptive` | **1.1.0** | Adaptive scaffold utilities: ThreePaneScaffold, ListDetailPaneScaffold, adaptive breakpoints — does NOT provide ChildPanels (that is Decompose's API) |
+| `decompose` | **3.3.0** | Navigation; ChildPanels multi-pane API; ComponentContext lifecycle |
 | `decompose-compose` | **3.3.0** | Compose integration |
-| `coil-core` | **3.1.0** (est.) | Image loading KMP |
+| `coil-core` | **3.1.0** | Image loading KMP |
 | `coil-compose` | **3.1.0** | Compose AsyncImage |
 | `coil-network-ktor3` | **3.1.0** | Ktor network backend |
 
@@ -835,7 +884,7 @@ SQLDelight Gradle plugin version matches runtime version.
 
 | Library | Version | Notes |
 |---|---|---|
-| `koin-core` | **4.1.0** (est.) | KMP DI |
+| `koin-core` | **4.1.0** | KMP DI |
 | `koin-compose` | **4.1.0** | Compose integration |
 | `koin-android` | **4.1.0** | Android |
 
@@ -843,7 +892,7 @@ SQLDelight Gradle plugin version matches runtime version.
 
 | Library | Version | Notes |
 |---|---|---|
-| `kermit` | **2.0.5** (est.) | KMP logging |
+| `kermit` | **2.0.5** | KMP logging |
 | `kermit-io` | **2.0.5** | File log writer |
 
 ### Testing
@@ -851,7 +900,7 @@ SQLDelight Gradle plugin version matches runtime version.
 | Library | Version | Notes |
 |---|---|---|
 | `kotlin-test` | bundled with Kotlin 2.1.21 | Base test framework |
-| `kotest-assertions-core` | **5.9.1** (est.) | Rich assertions (KMP) |
+| `kotest-assertions-core` | **5.9.1** | Rich assertions (KMP) |
 | `kotest-property` | **5.9.1** | Property-based (KMP) |
 | `kotest-runner-junit5` | **5.9.1** | JVM runner |
 | `kotlinx-coroutines-test` | **1.10.1** | Must = coroutines version |
@@ -861,20 +910,20 @@ SQLDelight Gradle plugin version matches runtime version.
 
 | Library | Version | Notes |
 |---|---|---|
-| `detekt` | **1.23.8** (est.) | Static analysis |
-| `detekt-compose-rules` (io.nlopez) | **0.4.x** (est.) | Compose-specific rules |
-| `ktlint` | **1.3.x** (est.) | Formatter |
-| `ktlint-compose-rules` (io.nlopez) | **0.4.x** | Compose ktlint rules |
-| `kover` | **0.9.x** (est.) | Coverage (JVM/Android) |
-| `gradle-versions-plugin` | **0.51.x** (est.) | `dependencyUpdates` task |
+| `detekt` | **1.23.8** | Static analysis |
+| `detekt-compose-rules` (io.nlopez) | **0.4.22** | Compose-specific rules |
+| `ktlint` | **1.3.1** | Formatter |
+| `ktlint-compose-rules` (io.nlopez) | **0.4.22** | Compose ktlint rules |
+| `kover` | **0.9.1** | Coverage (JVM/Android) |
+| `gradle-versions-plugin` | **0.51.0** | `dependencyUpdates` task |
 
 ### Platform-specific (desktop only)
 
 | Library | Version | Notes |
 |---|---|---|
-| `jna` | **5.16.0** (est.) | Linux native: libsecret, D-Bus |
+| `jna` | **5.16.0** | Linux native: libsecret, D-Bus |
 | `jna-platform` | **5.16.0** | JNA platform types |
-| `dbus-java-core` | **4.x** (est.) | D-Bus notifications (Linux) |
+| `dbus-java-core` | **4.3.1** | D-Bus notifications (Linux) |
 
 ---
 
@@ -884,19 +933,19 @@ The sequence below is the critical path for getting a running desktop app. Each 
 
 | Step | Action | Success criterion |
 |---|---|---|
-| 1 | Create `build-logic/` with all 6 convention plugins (no-op bodies) + `settings.gradle.kts` + root `build.gradle.kts` + `gradle/libs.versions.toml` + `gradle.properties` | `./gradlew help` succeeds |
+| 1 | Create `build-logic/` with all 7 convention plugins (no-op bodies) + `settings.gradle.kts` + root `build.gradle.kts` + `gradle/libs.versions.toml` + `gradle.properties` | `./gradlew help` succeeds |
 | 2 | Add all module `build.gradle.kts` to `settings.gradle.kts`. Create empty `src/` dirs. | `./gradlew projects` lists all modules |
 | 3 | Implement `:shared:ids` — value classes only | `:shared:ids:test` green |
 | 4 | Implement `:shared:domain` — data classes + sealed hierarchies | `:shared:domain:test` green |
 | 5 | Implement `:shared:platform-api` — interfaces + test doubles (FakeSecureStorage, etc.) | `:shared:platform-api:test` green |
 | 6 | Implement `:shared:persistence-api` — `.sq` files + SQLDelight codegen | `:shared:persistence-api:generateSqlDelightInterface` succeeds |
-| 7 | Implement `:shared:persistence-sqldelight` — DriverFactory per platform (actual stubs for iOS/Android, real JVM impl) | JVM driver creates DB + opens WAL |
+| 7 | Implement `:shared:persistence-sqldelight` — DriverFactory per platform (IosDriverFactory/AndroidDriverFactory stubs, real JvmDriverFactory) | JVM driver creates DB + opens WAL |
 | 8 | Implement `:shared:chat-parser` — parser core, golden tests fail → implement → green | `./gradlew :shared:chat-parser:test` 100% golden fixtures green |
-| 9 | Implement `:shared:protocol-discord` — DTOs + DiscordJson + mappers (no live network yet) | Mapper unit tests green |
+| 9 | Implement `:shared:protocol-discord` — DTOs + DiscordJson + DiscordJsonStrict + mappers (no live network yet) | Mapper unit tests using DiscordJsonStrict green |
 | 10 | Implement `:shared:repositories` — MessageRepository with fake protocol + fake persistence | Repository unit tests green; StateFlow emission verified |
 | 11 | Implement `:shared:session` — gateway state machine with fake WebSocket | Session lifecycle tests: connect → ready → disconnect → resume |
 | 12 | Implement `:desktop:platform-linux` — PlatformPaths (real), SecureStorage (libsecret), NotificationService (D-Bus) | Manual smoke test: token store/retrieve, notification appears |
-| 13 | Implement `:shared:compose-ui` — PuklicTheme + skeletons of all screen/component composables | `:desktop:app:run` shows empty window with correct theme |
+| 13 | Implement `:shared:compose-ui` — PuklicTheme + skeletons of all screen/component/viewmodel composables | `:desktop:app:run` shows empty window with correct theme |
 | 14 | Implement `:desktop:app` — main(), Koin wiring, real Compose Desktop window | App starts, shows LoginScreen |
 | 15 | Wire protocol-discord to real gateway (live Discord connection) | Connects, receives READY, guilds appear in UI |
 | 16 | Wire MessageRepository to live data + SQLite | Message list loads, persists, survives restart |
@@ -904,7 +953,7 @@ The sequence below is the critical path for getting a running desktop app. Each 
 | 18 | `:tools:parser-fixtures-gen` CLI | Generates valid fixture files |
 | 19 | Final Phase 1 check: `./gradlew build detekt ktlintCheck` | All green |
 
-**Test-first note:** Steps 3–11 follow the test-first principle: write the interface + test doubles + failing tests BEFORE implementing the production code. This is especially mandatory for `:shared:chat-parser` (deterministic pure function — test-first is trivial and high-value).
+**Test-first note:** Steps 3–4 (ids, domain) and Step 8 (chat-parser) follow TDD strictly: write failing tests first, then implement production code. Steps 5 (platform-api — interface-only module, no production code to drive) and Step 9 (protocol DTOs) use contract-first design: define interfaces and fixtures, then write tests against the implementations. Steps 10–11 (repositories, session) follow TDD.
 
 ---
 
@@ -918,7 +967,7 @@ The sequence below is the critical path for getting a running desktop app. Each 
 | R4 | **Desktop binary size** — target < 80 MB (build.md). JRE 21 stripped + Compose Desktop + all deps may exceed this | Medium | Low (nice-to-have target) | Use `jlink` to create minimal JRE image with only required modules. Profile with `jpackage --type image` + measure. |
 | R5 | **Decompose 3.x ChildPanels API** — adaptive three-pane is a newer Decompose feature; API may have rough edges on iOS and Desktop | Medium | Medium | Pin Decompose version. Test three-pane collapse on all window sizes in Phase 1. ChildPanels is the core navigation abstraction — do not assume stability until tested. |
 | R6 | **Coil 3 + coil-network-ktor3 on iOS** — Coil's Ktor network layer on iOS relies on Darwin engine; CDN redirect handling and TLS have not been officially benchmarked for Discord CDN | Medium | Low (images don't load) | Test avatar + attachment loading on iOS simulator in Phase 2. Fallback: `coil-network-okhttp` on JVM/Android only, no iOS images in Phase 1. |
-| R7 | **Discord schema additions break mapper tests** — explicit DTOs without ignoreUnknownKeys on test fixtures | Low | Low (only test failures, not production) | The DiscordJson instance has ignoreUnknownKeys=true in production. Test fixtures use the same Json instance so this is not a test risk. Update DTOs when new fields are needed. |
+| R7 | **Discord schema additions break mapper tests** — `DiscordJsonStrict` in tests will fail when Discord adds a new field present in a test fixture | Low | Low (CI failure, not production) | Intended behavior: CI failure prompts explicit DTO update decision. Update DTOs and/or fixtures when new fields appear. Do NOT switch test fixtures to the lenient `DiscordJson` instance. |
 | R8 | **Zlib-stream iOS** — `platform.zlib` K/N interop for continuous zlib stream is less tested than the JVM Inflater path | Medium | High (iOS gateway unusable without decompression) | Test zlib decompression with 50 MB of Discord gateway frames in a unit test targeting `iosSimulatorArm64`. Alternative: skip `compress=zlib-stream` on iOS (connect without `&compress=zlib-stream`), add extra bandwidth. |
 | R9 | **Koin 4.x + Decompose 3.x integration** — Koin's `koin-compose` scope integration assumes a ViewModel lifecycle that differs from Decompose's `instanceKeeper` | Low | Medium | Use constructor injection into Decompose components (no ViewModelScope/getViewModel in Compose). Koin provides dependencies; Decompose manages lifecycle. These are compatible patterns. |
 | R10 | **`gradle.properties` memory** — large KMP projects with multiple concurrent Kotlin compilations can exceed 2 GB heap | Low | Medium (CI OOM kills) | Set `org.gradle.jvmargs=-Xmx4g` in `gradle.properties`. Use `--parallel` with daemon. |
@@ -935,13 +984,14 @@ The following are explicitly outside the scope of this Gradle setup specificatio
 
 - **CI/CD pipeline definition** — GitHub Actions matrix, macOS runner for iOS builds, signing key management. See `docs/06_ops/build.md` (to be expanded).
 
-- **ADR-0005 (ignoreUnknownKeys exception)** — this spec recommends creating it; content is one paragraph. Left to the engineer.
+- **ADR-0006 (ignoreUnknownKeys exception)** — this spec recommends creating it; content is one paragraph based on Q8. Left to the engineer.
 
-- **Discord `capabilities` integer value** — currently `16381` per discord-protocol.md. Must be kept in sync with Discord's evolving expectation; tracked in `Capabilities.kt`.
+- **Discord `capabilities` integer value — update procedure:**
+  The `CAPABILITIES_VERSION` constant in `Capabilities.kt` is currently `16381` (per discord-protocol.md, May 2026). Discord changes this value as features ship. The update procedure must be documented in `docs/02_domain/discord-protocol.md` before Phase 1 code freeze. Minimum required documentation: (a) how to observe the current value from the official client's gateway traffic, (b) which `READY` / `READY_SUPPLEMENTAL` fields to check to detect a mismatch (the `Warn`-level log added to the READY handler serves as the runtime signal), (c) the Git commit message template to use when updating the constant so it's traceable. This documentation task is in-scope for Phase 1 but is not a Gradle setup task.
 
 - **Voice, screenshare, media** — Phases 3/4. No modules for these exist in Phase 1.
 
-- **macOS/Windows platform-linux actual implementations** — stubs only in Phase 1. Full implementations in Phase 2.
+- **macOS/Windows platform actual implementations** — stubs only in Phase 1. Full implementations in Phase 2.
 
 - **Release, signing, AppImage packaging** — post-Phase 1 concern. `jpackage` task is already mentioned in build.md.
 
@@ -980,4 +1030,4 @@ org.jetbrains.compose.experimental.ios.enabled=true
 
 ---
 
-*End of specification. This document represents the complete Gradle + KMP setup blueprint for Puklic Phase 1. All 12 open questions from `module-map.md` and `build.md` are resolved above.*
+*End of specification (r2). This document represents the complete Gradle + KMP setup blueprint for Puklic Phase 1. All 12 open questions from `module-map.md` and `build.md` are resolved above.*
