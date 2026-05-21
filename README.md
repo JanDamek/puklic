@@ -6,41 +6,41 @@
 
 > A lightweight Kotlin Multiplatform desktop chat client focused on native UI, low memory usage, coroutine-first architecture, and first-class Linux Wayland support.
 
-**Status:** early architecture / pre-MVP. Žádný code ještě není.
+**Status:** early architecture / pre-MVP. No code yet.
 
-## Název
+## Name
 
-**Puklic** je odvozeno od českého slova **puklík** — malý kryt / pukla / drobnost. Pojmenování záměrně **neobsahuje** „Discord" (trademark) a nechává prostor pro budoucí podporu jiných protokolů. Krátké, česky znějící, technicky neutrální.
+**Puklic** is derived from the Czech word *puklík* — a small cover / hub cap / trinket. The name deliberately **does not contain** "Discord" (trademark) and leaves room for future support of other protocols. Short, Czech-sounding, technically neutral.
 
 - **App name:** Puklic
 - **Package:** `cz.damek.puklic`
 - **Repository:** `puklic`
 
-## Co to je
+## What it is
 
-Nativní multiplatform Discord klient bez Electronu. Kotlin + Compose Multiplatform. Cíl: < 150 MB RAM idle, < 2 s cold start, jeden codebase pro Linux / macOS / Windows / Android / iOS.
+A native multiplatform Discord client without Electron. Kotlin + Compose Multiplatform. Target: < 150 MB RAM idle, < 2 s cold start, one codebase for Linux / macOS / Windows / Android / iOS.
 
-## Co to není
+## What it is not
 
-Puklic **není** bot, automatizace, AI agent ani plugin do oficiálního Discord klienta. Viz [docs/00_overview/product-vision.md](docs/00_overview/product-vision.md).
+Puklic is **not** a bot, automation, AI agent, or plugin for the official Discord client. See [docs/00_overview/product-vision.md](docs/00_overview/product-vision.md).
 
 ## ⚠️ Disclaimer
 
-Discord ToS zakazuje third-party user klienty. Použití Puklic je na vlastní riziko — Discord teoreticky může účet zabanovat. Puklic se chová jako reálný uživatel (neautomatizuje, žádné self-bot funkce), čímž se riziko minimalizuje, ale negarantuje.
+Discord ToS prohibits third-party user clients. Using Puklic is at your own risk — Discord could theoretically ban your account. Puklic behaves like a real user (no automation, no self-bot features), which minimizes the risk but does not guarantee anything.
 
-**Token tvého účtu = plný přístup ke všemu.** Nikdy ho nesdílej.
+**Your account token = full access to everything.** Never share it.
 
-## Dokumentace
+## Documentation
 
-Architektura a doménový model jsou v [`docs/`](docs/). Začni u [docs/README.md](docs/README.md).
+Architecture and the domain model live in [`docs/`](docs/). Start at [docs/README.md](docs/README.md).
 
 ## Roadmap
 
-Viz [docs/07_roadmap/phases.md](docs/07_roadmap/phases.md). Aktuálně před fází 1 (MVP).
+See [docs/07_roadmap/phases.md](docs/07_roadmap/phases.md). Currently before Phase 1 (MVP).
 
 ## Build
 
-TBD — Gradle multimodule skeleton ještě neexistuje. Bude k dispozici na konci kroku „Gradle multimodule setup" ve fázi 1.
+TBD — the Gradle multimodule scaffold is in place (Steps 1–2 landed). Run `./gradlew help` to validate. Application entry points (`:desktop:app`) come online in Phase 1 implementation steps.
 
 ## Contributing
 
