@@ -84,6 +84,9 @@ private val SAFE_READY_KEYS: Set<String> = setOf(
 private val SAFE_GUILD_KEYS: Set<String> = setOf(
     "id", "name", "unavailable", "owner_id", "icon", "features",
     "member_count", "channels", "threads", "roles", "joined_at",
+    // User-mode (web/desktop client) gateway nests metadata under `properties`. We log only the
+    // KEY NAME, never its contents, so token-safety is preserved.
+    "properties",
 )
 
 /**

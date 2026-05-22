@@ -17,15 +17,25 @@ private const val CHANNEL_TYPE_DM = 1
 private const val CHANNEL_TYPE_GROUP_DM = 3
 private const val CHANNEL_TYPE_GUILD_CATEGORY = 4
 
-/** Returns null when the DTO is an "unavailable guild" stub (no name) — caller skips it. */
+/**
+ * Returns null when the DTO is an "unavailable guild" stub (no resolvable name) — caller skips it.
+ *
+ * Discord ships two distinct guild payload shapes:
+ *  - Bot-mode / REST: name, owner_id, icon, features live at the top level.
+ *  - User-mode (web/desktop client gateway): the same fields are nested under `properties`.
+ *
+ * We resolve each field by preferring the top-level value and falling back to `properties`.
+ */
 internal fun DiscordGuildDto.toDomainOrNull(): Guild? {
-    val resolvedName = name ?: return null
+    val resolvedName = name ?: properties?.name ?: return null
     return Guild(
         id = GuildId(id.toLong()),
         name = resolvedName,
-        iconHash = icon,
-        ownerId = UserId((ownerId ?: "0").toLong()),
-        features = features.mapNotNull(::parseGuildFeature).toSet(),
+        iconHash = icon ?: properties?.icon,
+        ownerId = UserId((ownerId ?: properties?.ownerId ?: "0").toLong()),
+        features = (features.ifEmpty { properties?.features.orEmpty() })
+            .mapNotNull(::parseGuildFeature)
+            .toSet(),
         memberCount = memberCount,
     )
 }
@@ -33,10 +43,12 @@ internal fun DiscordGuildDto.toDomainOrNull(): Guild? {
 internal fun DiscordGuildDto.toDomain(): Guild =
     Guild(
         id = GuildId(id.toLong()),
-        name = name ?: "",
-        iconHash = icon,
-        ownerId = UserId((ownerId ?: "0").toLong()),
-        features = features.mapNotNull(::parseGuildFeature).toSet(),
+        name = name ?: properties?.name ?: "",
+        iconHash = icon ?: properties?.icon,
+        ownerId = UserId((ownerId ?: properties?.ownerId ?: "0").toLong()),
+        features = (features.ifEmpty { properties?.features.orEmpty() })
+            .mapNotNull(::parseGuildFeature)
+            .toSet(),
         memberCount = memberCount,
     )
 

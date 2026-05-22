@@ -71,6 +71,70 @@ class DiscordGatewayBridgeTest {
     }
 
     @Test
+    fun ready_with_user_account_guild_shape_decodes_all_guilds_into_GuildCreated_events() =
+        runTest(UnconfinedTestDispatcher()) {
+            val gw = TestGateway()
+            val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+            val bridge = DiscordGatewayBridge(gw.asPublicGateway(), bridgeScope)
+            val collected = mutableListOf<DiscordDomainEvent>()
+            val job = launch { bridge.events.collect { collected.add(it) } }
+
+            // User-mode (web/desktop client) READY shape: per-guild metadata under `properties`.
+            // Top level carries id, member_count, joined_at, channels, threads, roles — but NOT
+            // name/owner_id/icon/features; those are under `properties`.
+            val readyPayload = Json.parseToJsonElement(
+                """
+                {
+                  "session_id": "sess-99",
+                  "resume_gateway_url": "wss://gw.discord.gg",
+                  "user": {"id":"111","username":"me","discriminator":"0001"},
+                  "guilds": [
+                    {
+                      "id": "10",
+                      "member_count": 5,
+                      "joined_at": "2024-01-01T00:00:00Z",
+                      "channels": [{"id":"201","name":"general","type":0,"position":0}],
+                      "threads": [],
+                      "roles": [],
+                      "properties": {
+                        "name": "UserModeAlpha",
+                        "owner_id": "111",
+                        "icon": "abc",
+                        "features": ["COMMUNITY"]
+                      }
+                    },
+                    {
+                      "id": "20",
+                      "member_count": 7,
+                      "channels": [],
+                      "threads": [],
+                      "roles": [],
+                      "properties": {"name": "UserModeBeta", "owner_id": "111", "features": []}
+                    }
+                  ],
+                  "v": 10
+                }
+                """.trimIndent(),
+            )
+            gw.emit(GatewayDispatchEvent(type = "READY", sequence = 1, payload = readyPayload))
+
+            withTimeout(2_000) {
+                while (collected.count { it is DiscordDomainEvent.GuildCreated } < 2) {
+                    kotlinx.coroutines.yield()
+                }
+            }
+            job.cancel()
+            bridgeScope.cancel()
+
+            val guildEvents = collected.filterIsInstance<DiscordDomainEvent.GuildCreated>()
+            assertEquals(2, guildEvents.size)
+            assertEquals(setOf("UserModeAlpha", "UserModeBeta"), guildEvents.map { it.guild.name }.toSet())
+            val alpha = guildEvents.first { it.guild.name == "UserModeAlpha" }.guild
+            assertEquals("abc", alpha.iconHash)
+            assertEquals(111L, alpha.ownerId.value)
+        }
+
+    @Test
     fun guild_create_with_channels_emits_guild_plus_channels() = runTest(UnconfinedTestDispatcher()) {
         val gw = TestGateway()
         val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
