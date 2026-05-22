@@ -51,6 +51,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import java.nio.file.Paths
 
@@ -137,6 +138,16 @@ public class DependencyGraph private constructor(
             val ctx = DefaultComponentContext(lifecycle = lifecycle)
             lifecycle.resume()
             val root = RootComponent(ctx, sessionManager)
+
+            // Kick off auto-restore in the background. RootComponent observes
+            // sessionManager.bootstrap + activeSession and renders BootstrappingScreen
+            // while this is in flight, then routes to Main (valid token) or Login
+            // (no token / 401). Token validation errors are swallowed inside
+            // SessionManager.loadStoredSession — never log the token value.
+            applicationScope.launch {
+                runCatching { sessionManager.loadStoredSession() }
+                    .onFailure { ex -> Logger.w(LOG_TAG, ex) { "Auto-restore failed" } }
+            }
 
             return DependencyGraph(
                 applicationScope = applicationScope,

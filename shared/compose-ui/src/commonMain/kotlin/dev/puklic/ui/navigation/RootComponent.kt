@@ -6,6 +6,7 @@ import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.session.BootstrapPhase
 import dev.puklic.session.DiscordSession
 import dev.puklic.session.SessionManager
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -34,14 +36,16 @@ public class RootComponent(
     private val navState = MutableStateFlow(NavigationState())
     public val navigation: StateFlow<NavigationState> = navState.asStateFlow()
 
-    private val _routerState: MutableValue<RouterState> = MutableValue(deriveRoute(sessionManager.activeSession.value))
+    private val _routerState: MutableValue<RouterState> = MutableValue(
+        deriveRoute(sessionManager.activeSession.value, sessionManager.bootstrap.value),
+    )
     public val routerState: Value<RouterState> = _routerState
 
     init {
         scope.launch {
-            sessionManager.activeSession.collect { session ->
-                _routerState.value = deriveRoute(session)
-            }
+            combine(sessionManager.activeSession, sessionManager.bootstrap) { session, phase ->
+                deriveRoute(session, phase)
+            }.collect { state -> _routerState.value = state }
         }
     }
 
@@ -65,12 +69,21 @@ public class RootComponent(
         navState.update { it.copy(commandPaletteOpen = !it.commandPaletteOpen) }
     }
 
-    private fun deriveRoute(session: DiscordSession?): RouterState =
-        if (session == null) RouterState.Login else RouterState.Main
+    private fun deriveRoute(session: DiscordSession?, phase: BootstrapPhase): RouterState = when {
+        session != null -> RouterState.Main
+        phase == BootstrapPhase.Loading -> RouterState.Bootstrapping
+        else -> RouterState.Login
+    }
 }
 
-/** Top-level routing decision: either authenticated main UI or unauthenticated login. */
+/**
+ * Top-level routing decision.
+ *  - [Bootstrapping]: app just started and a stored token is being validated.
+ *  - [Login]: no stored token, or stored token rejected (401) — show the login form.
+ *  - [Main]: an authenticated session is active.
+ */
 public sealed interface RouterState {
+    public data object Bootstrapping : RouterState
     public data object Login : RouterState
     public data object Main : RouterState
 }

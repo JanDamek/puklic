@@ -24,6 +24,15 @@ public class SessionManager(
     private val _activeSession = MutableStateFlow<DiscordSession?>(null)
     public val activeSession: StateFlow<DiscordSession?> = _activeSession.asStateFlow()
 
+    private val _bootstrap = MutableStateFlow(BootstrapPhase.Idle)
+    /**
+     * Phase of the auto-restore flow triggered by [loadStoredSession].
+     *  - [BootstrapPhase.Idle]: never started (or no auto-restore in this process).
+     *  - [BootstrapPhase.Loading]: reading SecureStorage / validating token.
+     *  - [BootstrapPhase.Done]: finished — observe [activeSession] for the outcome.
+     */
+    public val bootstrap: StateFlow<BootstrapPhase> = _bootstrap.asStateFlow()
+
     public suspend fun startSessionWithToken(token: String): Result<Unit> {
         val session = sessionFactory(token)
         session.connect()
@@ -44,13 +53,18 @@ public class SessionManager(
 
     /** Returns true if a stored token was found and the session was started successfully. */
     public suspend fun loadStoredSession(): Boolean {
-        val token = secureStorage.get(TOKEN_KEY) ?: return false
-        val result = startSessionWithToken(token)
-        if (result.isFailure) {
-            secureStorage.remove(TOKEN_KEY)
-            return false
+        _bootstrap.value = BootstrapPhase.Loading
+        try {
+            val token = secureStorage.get(TOKEN_KEY) ?: return false
+            val result = startSessionWithToken(token)
+            if (result.isFailure) {
+                secureStorage.remove(TOKEN_KEY)
+                return false
+            }
+            return true
+        } finally {
+            _bootstrap.value = BootstrapPhase.Done
         }
-        return true
     }
 
     /**

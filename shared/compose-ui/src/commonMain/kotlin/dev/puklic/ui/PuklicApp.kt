@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.navigation.RouterState
+import dev.puklic.ui.screens.bootstrap.BootstrappingScreen
 import dev.puklic.ui.screens.login.LoginScreen
 import dev.puklic.ui.screens.login.LoginViewModel
 import dev.puklic.ui.screens.main.MainScreen
@@ -27,6 +28,7 @@ public fun PuklicApp(root: RootComponent) {
     PuklicTheme {
         Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
             when (routerState) {
+                RouterState.Bootstrapping -> BootstrappingScreen()
                 RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
                 RouterState.Main -> {
                     val activeSession by root.sessionManager.activeSession.collectAsState()
