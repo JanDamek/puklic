@@ -19,6 +19,7 @@ public class SessionManager(
     @Suppress("unused") private val applicationScope: CoroutineScope,
     private val secureStorage: SecureStorage,
     private val sessionFactory: (token: String) -> DiscordSession,
+    private val credentialsLogin: CredentialsLogin? = null,
 ) {
     private val _activeSession = MutableStateFlow<DiscordSession?>(null)
     public val activeSession: StateFlow<DiscordSession?> = _activeSession.asStateFlow()
@@ -51,6 +52,47 @@ public class SessionManager(
         }
         return true
     }
+
+    /**
+     * Sign in via email-or-username + password. On [LoginOutcome.Success] the resulting token
+     * is persisted and a session is started exactly as in [startSessionWithToken].
+     *
+     * Requires a [credentialsLogin] collaborator wired at construction; otherwise fails.
+     */
+    public suspend fun startSessionWithCredentials(
+        login: String,
+        password: String,
+    ): Result<LoginOutcome> {
+        val collaborator = credentialsLogin
+            ?: return Result.failure(IllegalStateException("Credentials login not configured"))
+        return when (val outcome = collaborator.login(login, password)) {
+            is CredentialsLoginResult.Success -> finalizeToken(outcome.token).map { LoginOutcome.Success }
+            is CredentialsLoginResult.MfaRequired -> Result.success(LoginOutcome.MfaRequired(outcome.ticket))
+            is CredentialsLoginResult.CaptchaRequired -> Result.success(LoginOutcome.CaptchaRequired)
+            is CredentialsLoginResult.Error -> Result.failure(IllegalArgumentException(outcome.message))
+            is CredentialsLoginResult.Transport -> Result.failure(IllegalStateException(outcome.message))
+        }
+    }
+
+    /**
+     * Complete the MFA challenge started by [startSessionWithCredentials]. On success the token
+     * is persisted and the session is started.
+     */
+    public suspend fun completeMfa(ticket: String, code: String): Result<Unit> {
+        val collaborator = credentialsLogin
+            ?: return Result.failure(IllegalStateException("Credentials login not configured"))
+        return when (val outcome = collaborator.completeMfa(ticket, code)) {
+            is CredentialsLoginResult.Success -> finalizeToken(outcome.token)
+            is CredentialsLoginResult.MfaRequired ->
+                Result.failure(IllegalStateException("Unexpected secondary MFA challenge"))
+            is CredentialsLoginResult.CaptchaRequired ->
+                Result.failure(IllegalStateException("Unexpected captcha after MFA"))
+            is CredentialsLoginResult.Error -> Result.failure(IllegalArgumentException(outcome.message))
+            is CredentialsLoginResult.Transport -> Result.failure(IllegalStateException(outcome.message))
+        }
+    }
+
+    private suspend fun finalizeToken(token: String): Result<Unit> = startSessionWithToken(token)
 
     public suspend fun endSession(wipeToken: Boolean = false) {
         _activeSession.value?.disconnect()

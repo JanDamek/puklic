@@ -25,6 +25,7 @@ import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.protocol.discord.DiscordSessionBridge
 import dev.puklic.protocol.discord.discordJson
 import dev.puklic.protocol.discord.gateway.GatewayConnection
+import dev.puklic.protocol.discord.rest.DiscordLoginClient
 import dev.puklic.protocol.discord.rest.DiscordRestClient
 import dev.puklic.repositories.ChannelOrchestrator
 import dev.puklic.repositories.GuildOrchestrator
@@ -36,6 +37,7 @@ import dev.puklic.repositories.TypingOrchestrator
 import dev.puklic.repositories.UserOrchestrator
 import dev.puklic.session.DiscordSession
 import dev.puklic.session.SessionManager
+import dev.puklic.session.adapter.DiscordCredentialsLoginAdapter
 import dev.puklic.session.adapter.GatewayEventSourceAdapter
 import dev.puklic.session.adapter.MessageGatewayAdapter
 import dev.puklic.session.adapter.SessionTransportImpl
@@ -122,10 +124,13 @@ public class DependencyGraph private constructor(
                 )
             }
 
+            val credentialsLogin = DiscordCredentialsLoginAdapter(DiscordLoginClient(httpClient))
+
             val sessionManager = SessionManager(
                 applicationScope = applicationScope,
                 secureStorage = storage,
                 sessionFactory = sessionFactory,
+                credentialsLogin = credentialsLogin,
             )
 
             val lifecycle = LifecycleRegistry()
