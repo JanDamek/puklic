@@ -1,6 +1,6 @@
 # CLAUDE.md — Puklic (repo-level)
 
-This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE #0 K8s subagents, HARD RULE #1 TEST-FIRST pipeline, minimum-complexity, SOLID) apply in full.
+This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE #0 **LOCAL ONLY** since 2026-05-22 — no K8s subagent dispatches, HARD RULE #1 TEST-FIRST pipeline, minimum-complexity, SOLID) apply in full.
 
 ---
 
