@@ -108,6 +108,18 @@ public class MessageOrchestrator(
             storage.delete(messageId)
         }
 
+    /**
+     * Fetch the most recent page from REST and merge into storage. Intended to be called when a
+     * channel is first opened so the observer has data. Returns the number of messages merged.
+     */
+    public suspend fun loadInitial(
+        channelId: ChannelId,
+        pageSize: Int = DEFAULT_PAGE,
+    ): Result<Int> = messageGateway.loadInitial(channelId, pageSize).map { messages ->
+        storage.persistAll(messages)
+        messages.size
+    }
+
     /** Fetch older messages from REST and merge into storage. Returns count merged. */
     public suspend fun loadOlder(
         channelId: ChannelId,

@@ -305,6 +305,12 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
         limit: Int,
     ): Result<List<ChatMessage>> =
         rest.getMessages(channelId, limit = limit, before = beforeId).map { list -> list.map { it.toDomain() } }
+
+    public suspend fun loadInitial(
+        channelId: ChannelId,
+        limit: Int,
+    ): Result<List<ChatMessage>> =
+        rest.getMessages(channelId, limit = limit, before = null).map { list -> list.map { it.toDomain() } }
 }
 
 /**

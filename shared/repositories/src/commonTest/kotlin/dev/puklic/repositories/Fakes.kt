@@ -186,6 +186,8 @@ internal class FakeMessageGateway : MessageGateway {
     var deleteResponse: (ChannelId, MessageId) -> Result<Unit> = { _, _ -> Result.success(Unit) }
     var loadOlderResponse: (ChannelId, MessageId, Int) -> Result<List<ChatMessage>> =
         { _, _, _ -> Result.success(emptyList()) }
+    var loadInitialResponse: (ChannelId, Int) -> Result<List<ChatMessage>> =
+        { _, _ -> Result.success(emptyList()) }
 
     val sentCalls = mutableListOf<Triple<ChannelId, String, String>>()
     val editCalls = mutableListOf<Triple<ChannelId, MessageId, String>>()
@@ -220,4 +222,9 @@ internal class FakeMessageGateway : MessageGateway {
         beforeId: MessageId,
         limit: Int,
     ): Result<List<ChatMessage>> = loadOlderResponse(channelId, beforeId, limit)
+
+    override suspend fun loadInitial(
+        channelId: ChannelId,
+        limit: Int,
+    ): Result<List<ChatMessage>> = loadInitialResponse(channelId, limit)
 }

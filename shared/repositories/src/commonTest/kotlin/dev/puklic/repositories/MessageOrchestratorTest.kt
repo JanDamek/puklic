@@ -109,6 +109,22 @@ class MessageOrchestratorTest {
     }
 
     @Test
+    fun loadInitial_fetches_from_rest_and_persists() = runTest {
+        val s = setup(this)
+        s.rest.loadInitialResponse = { _, _ ->
+            Result.success(listOf(
+                message(id = 200L, channelId = channelA, ts = 30L),
+                message(id = 201L, channelId = channelA, ts = 40L),
+            ))
+        }
+        val count = s.orchestrator.loadInitial(channelA).getOrThrow()
+        count shouldBe 2
+        val observed = s.orchestrator.observeCommitted(channelA).first()
+        observed.map { it.id.value } shouldContainExactly listOf(200L, 201L)
+        s.cleanup()
+    }
+
+    @Test
     fun loadOlder_merges_into_storage_and_returns_count() = runTest {
         val s = setup(this)
         s.rest.loadOlderResponse = { _, _, _ ->

@@ -43,8 +43,10 @@ public class MessageListViewModel(
     public val state: StateFlow<MessageListState> = _state.asStateFlow()
 
     private var observerJob: Job? = null
+    private var initialFetchTriggered: Boolean = false
 
     init {
+        orchestrator.setActiveChannel(channelId)
         startObserving()
     }
 
@@ -52,13 +54,40 @@ public class MessageListViewModel(
         observerJob?.cancel()
         observerJob = scope.launch {
             orchestrator.observeCommitted(channelId).collect { messages ->
-                _state.value = if (messages.isEmpty()) {
-                    MessageListState.Empty
+                if (messages.isEmpty()) {
+                    if (!initialFetchTriggered) {
+                        initialFetchTriggered = true
+                        triggerInitialFetch()
+                    } else {
+                        _state.value = MessageListState.Empty
+                    }
                 } else {
-                    MessageListState.Loaded(messages = messages)
+                    initialFetchTriggered = true
+                    _state.value = MessageListState.Loaded(messages = messages)
                 }
             }
         }
+    }
+
+    private fun triggerInitialFetch() {
+        _state.value = MessageListState.Loading
+        scope.launch {
+            val result = orchestrator.loadInitial(channelId)
+            // On success, the storage Flow will re-emit and flip state to Loaded / Empty.
+            // On failure, surface an error if no messages have arrived yet.
+            if (result.isFailure && _state.value is MessageListState.Loading) {
+                _state.value = MessageListState.Error(
+                    result.exceptionOrNull()?.message ?: "Failed to load messages.",
+                )
+            } else if (result.isSuccess && result.getOrNull() == 0 && _state.value is MessageListState.Loading) {
+                _state.value = MessageListState.Empty
+            }
+        }
+    }
+
+    public fun sendMessage(content: String) {
+        if (content.isBlank()) return
+        scope.launch { orchestrator.send(channelId, content) }
     }
 
     public fun loadOlder() {

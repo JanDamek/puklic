@@ -35,4 +35,10 @@ public interface MessageGateway {
         beforeId: MessageId,
         limit: Int,
     ): Result<List<ChatMessage>>
+
+    /** Load the most recent [limit] messages for [channelId] (no `before` cursor). */
+    public suspend fun loadInitial(
+        channelId: ChannelId,
+        limit: Int,
+    ): Result<List<ChatMessage>>
 }

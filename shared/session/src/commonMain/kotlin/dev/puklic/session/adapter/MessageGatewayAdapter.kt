@@ -34,4 +34,9 @@ public class MessageGatewayAdapter(private val bridge: DiscordMessageBridge) : M
         beforeId: MessageId,
         limit: Int,
     ): Result<List<ChatMessage>> = bridge.loadOlder(channelId, beforeId, limit)
+
+    override suspend fun loadInitial(
+        channelId: ChannelId,
+        limit: Int,
+    ): Result<List<ChatMessage>> = bridge.loadInitial(channelId, limit)
 }

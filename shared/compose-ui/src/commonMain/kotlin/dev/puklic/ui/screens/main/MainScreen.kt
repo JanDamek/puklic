@@ -18,8 +18,19 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import com.arkivanov.decompose.DefaultComponentContext
+import com.arkivanov.essenty.lifecycle.LifecycleRegistry
+import com.arkivanov.essenty.lifecycle.resume
+import com.arkivanov.essenty.lifecycle.destroy
+import dev.puklic.repositories.MessageOrchestrator
+import dev.puklic.ui.components.Composer
+import dev.puklic.ui.components.MessageList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -59,7 +70,8 @@ public fun MainScreen(viewModel: MainViewModel) {
         )
         VerticalDivider()
         MessagePane(
-            hasChannelSelected = state.selectedChannelId != null,
+            selectedChannelId = state.selectedChannelId,
+            messageOrchestrator = viewModel.orchestrators?.messages,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
@@ -132,18 +144,81 @@ private fun ChannelListPane(
 }
 
 @Composable
-private fun MessagePane(hasChannelSelected: Boolean, modifier: Modifier = Modifier) {
+private fun MessagePane(
+    selectedChannelId: ChannelId?,
+    messageOrchestrator: MessageOrchestrator?,
+    modifier: Modifier = Modifier,
+) {
     Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
-        if (hasChannelSelected) {
-            EmptyState(
-                title = "Messages will appear here",
-                body = "Live message rendering arrives in the next step.",
-            )
-        } else {
-            EmptyState(
+        when {
+            selectedChannelId == null -> EmptyState(
                 title = "Select a channel to start chatting",
                 body = "Channels appear here once you join a server.",
+            )
+            messageOrchestrator == null -> EmptyState(
+                title = "No active session",
+                body = "Sign in to start receiving messages.",
+            )
+            else -> ChannelMessages(
+                channelId = selectedChannelId,
+                orchestrator = messageOrchestrator,
             )
         }
     }
 }
+
+@Composable
+private fun ChannelMessages(
+    channelId: ChannelId,
+    orchestrator: MessageOrchestrator,
+) {
+    // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
+    // resumed for the lifetime of this composition and destroyed in onDispose.
+    val viewModel = remember(channelId, orchestrator) {
+        val lifecycle = LifecycleRegistry()
+        val ctx = DefaultComponentContext(lifecycle = lifecycle)
+        lifecycle.resume()
+        ChannelMessagesHolder(
+            viewModel = MessageListViewModel(ctx, orchestrator, channelId),
+            lifecycle = lifecycle,
+        )
+    }
+    DisposableEffect(viewModel) {
+        onDispose { viewModel.lifecycle.destroy() }
+    }
+    val state by viewModel.viewModel.state.collectAsState()
+    var draft by remember(channelId) { mutableStateOf("") }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text("#${channelId.value}", style = MaterialTheme.typography.titleMedium)
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            MessageList(
+                state = state,
+                onLoadOlder = viewModel.viewModel::loadOlder,
+                onMessageAction = {},
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Composer(
+            draft = draft,
+            placeholder = "Message #${channelId.value}",
+            onDraftChange = { draft = it },
+            onSubmit = {
+                val toSend = draft.trim()
+                if (toSend.isNotEmpty()) {
+                    viewModel.viewModel.sendMessage(toSend)
+                    draft = ""
+                }
+            },
+        )
+    }
+}
+
+private class ChannelMessagesHolder(
+    val viewModel: MessageListViewModel,
+    val lifecycle: LifecycleRegistry,
+)
