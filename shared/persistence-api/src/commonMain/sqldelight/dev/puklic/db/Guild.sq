@@ -1,0 +1,22 @@
+CREATE TABLE guild (
+    id INTEGER NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    icon_hash TEXT,
+    owner_id INTEGER NOT NULL,
+    features TEXT NOT NULL,
+    member_count INTEGER,
+    updated_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM guild ORDER BY name;
+
+selectById:
+SELECT * FROM guild WHERE id = ?;
+
+upsert:
+INSERT OR REPLACE INTO guild(id, name, icon_hash, owner_id, features, member_count, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM guild WHERE id = ?;

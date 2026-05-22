@@ -1,0 +1,53 @@
+CREATE TABLE message (
+    id INTEGER NOT NULL PRIMARY KEY,
+    channel_id INTEGER NOT NULL,
+    author_id INTEGER NOT NULL,
+    raw_content TEXT NOT NULL,
+    timestamp INTEGER NOT NULL,
+    edited_timestamp INTEGER,
+    flags INTEGER NOT NULL DEFAULT 0,
+    reference_message_id INTEGER,
+    reference_channel_id INTEGER,
+    reference_type INTEGER,
+    mentions_everyone INTEGER DEFAULT 0,
+    attachments_json TEXT NOT NULL DEFAULT '[]',
+    embeds_json TEXT NOT NULL DEFAULT '[]',
+    reactions_json TEXT NOT NULL DEFAULT '[]',
+    mentions_users_json TEXT NOT NULL DEFAULT '[]',
+    mentions_roles_json TEXT NOT NULL DEFAULT '[]',
+    mentions_channels_json TEXT NOT NULL DEFAULT '[]',
+    FOREIGN KEY (channel_id) REFERENCES channel(id) ON DELETE CASCADE,
+    FOREIGN KEY (author_id) REFERENCES user(id)
+);
+
+CREATE INDEX message_channel_timestamp_idx ON message(channel_id, timestamp DESC);
+CREATE INDEX message_author_idx ON message(author_id);
+
+messagesByChannel:
+SELECT * FROM message
+WHERE channel_id = ?
+ORDER BY timestamp DESC
+LIMIT ?;
+
+messagesByChannelBefore:
+SELECT * FROM message
+WHERE channel_id = ? AND timestamp < ?
+ORDER BY timestamp DESC
+LIMIT ?;
+
+selectById:
+SELECT * FROM message WHERE id = ?;
+
+upsert:
+INSERT OR REPLACE INTO message(
+    id, channel_id, author_id, raw_content, timestamp, edited_timestamp, flags,
+    reference_message_id, reference_channel_id, reference_type, mentions_everyone,
+    attachments_json, embeds_json, reactions_json,
+    mentions_users_json, mentions_roles_json, mentions_channels_json
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM message WHERE id = ?;
+
+clearChannel:
+DELETE FROM message WHERE channel_id = ?;

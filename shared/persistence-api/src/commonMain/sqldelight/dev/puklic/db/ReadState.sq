@@ -1,0 +1,20 @@
+CREATE TABLE read_state (
+    channel_id INTEGER NOT NULL PRIMARY KEY,
+    last_message_id INTEGER,
+    mention_count INTEGER DEFAULT 0,
+    last_viewed_at INTEGER,
+    FOREIGN KEY (channel_id) REFERENCES channel(id) ON DELETE CASCADE
+);
+
+selectByChannel:
+SELECT * FROM read_state WHERE channel_id = ?;
+
+selectAll:
+SELECT * FROM read_state;
+
+upsert:
+INSERT OR REPLACE INTO read_state(channel_id, last_message_id, mention_count, last_viewed_at)
+VALUES (?, ?, ?, ?);
+
+delete:
+DELETE FROM read_state WHERE channel_id = ?;

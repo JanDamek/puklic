@@ -1,0 +1,36 @@
+CREATE TABLE channel (
+    id INTEGER NOT NULL PRIMARY KEY,
+    guild_id INTEGER,
+    parent_id INTEGER,
+    type INTEGER NOT NULL,
+    name TEXT,
+    topic TEXT,
+    position INTEGER,
+    rate_limit_per_user INTEGER DEFAULT 0,
+    nsfw INTEGER DEFAULT 0,
+    last_message_id INTEGER,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE
+);
+
+CREATE INDEX channel_guild_idx ON channel(guild_id);
+CREATE INDEX channel_parent_idx ON channel(parent_id);
+
+selectAll:
+SELECT * FROM channel ORDER BY position;
+
+selectById:
+SELECT * FROM channel WHERE id = ?;
+
+selectByGuild:
+SELECT * FROM channel WHERE guild_id = ? ORDER BY position;
+
+upsert:
+INSERT OR REPLACE INTO channel(id, guild_id, parent_id, type, name, topic, position, rate_limit_per_user, nsfw, last_message_id, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+updateLastMessage:
+UPDATE channel SET last_message_id = ?, updated_at = ? WHERE id = ?;
+
+delete:
+DELETE FROM channel WHERE id = ?;

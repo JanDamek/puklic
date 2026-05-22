@@ -1,0 +1,30 @@
+CREATE TABLE attachment_cache_index (
+    attachment_id INTEGER NOT NULL PRIMARY KEY,
+    url TEXT NOT NULL,
+    local_path TEXT NOT NULL,
+    size_bytes INTEGER NOT NULL,
+    content_type TEXT,
+    cached_at INTEGER NOT NULL,
+    last_accessed_at INTEGER NOT NULL
+);
+
+CREATE INDEX attachment_cache_lru_idx ON attachment_cache_index(last_accessed_at);
+
+selectById:
+SELECT * FROM attachment_cache_index WHERE attachment_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO attachment_cache_index(attachment_id, url, local_path, size_bytes, content_type, cached_at, last_accessed_at)
+VALUES (?, ?, ?, ?, ?, ?, ?);
+
+touch:
+UPDATE attachment_cache_index SET last_accessed_at = ? WHERE attachment_id = ?;
+
+totalSize:
+SELECT COALESCE(SUM(size_bytes), 0) AS total FROM attachment_cache_index;
+
+selectLru:
+SELECT * FROM attachment_cache_index ORDER BY last_accessed_at ASC LIMIT ?;
+
+delete:
+DELETE FROM attachment_cache_index WHERE attachment_id = ?;

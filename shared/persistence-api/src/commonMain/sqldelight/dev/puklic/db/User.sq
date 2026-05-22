@@ -1,0 +1,23 @@
+CREATE TABLE user (
+    id INTEGER NOT NULL PRIMARY KEY,
+    username TEXT NOT NULL,
+    global_name TEXT,
+    discriminator TEXT,
+    avatar_hash TEXT,
+    bot INTEGER DEFAULT 0,
+    system INTEGER DEFAULT 0,
+    updated_at INTEGER NOT NULL
+);
+
+selectById:
+SELECT * FROM user WHERE id = ?;
+
+selectByIds:
+SELECT * FROM user WHERE id IN ?;
+
+upsert:
+INSERT OR REPLACE INTO user(id, username, global_name, discriminator, avatar_hash, bot, system, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM user WHERE id = ?;

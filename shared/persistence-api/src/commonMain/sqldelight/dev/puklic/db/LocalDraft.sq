@@ -1,0 +1,15 @@
+CREATE TABLE local_draft (
+    channel_id INTEGER NOT NULL PRIMARY KEY,
+    content TEXT NOT NULL,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (channel_id) REFERENCES channel(id) ON DELETE CASCADE
+);
+
+selectByChannel:
+SELECT * FROM local_draft WHERE channel_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO local_draft(channel_id, content, updated_at) VALUES (?, ?, ?);
+
+delete:
+DELETE FROM local_draft WHERE channel_id = ?;

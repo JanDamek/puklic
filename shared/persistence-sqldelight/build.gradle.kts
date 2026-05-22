@@ -1,5 +1,6 @@
 plugins {
     id("puklic.kmp-library")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -7,11 +8,17 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.shared.persistenceApi)
             implementation(projects.shared.platformApi)
+            implementation(projects.shared.domain)
+            implementation(projects.shared.ids)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
         }
         jvmMain.dependencies {
             implementation(libs.sqldelight.jdbc.driver)
+            implementation(libs.sqldelight.sqlite.driver)
             implementation(libs.sqlite.jdbc)
         }
         androidMain.dependencies {
@@ -30,6 +37,9 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
+            implementation(libs.sqldelight.jdbc.driver)
+            implementation(libs.sqldelight.sqlite.driver)
+            implementation(libs.sqlite.jdbc)
         }
     }
 }

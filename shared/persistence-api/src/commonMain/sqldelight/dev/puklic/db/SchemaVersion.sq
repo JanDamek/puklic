@@ -1,0 +1,10 @@
+CREATE TABLE schema_version (
+    version INTEGER NOT NULL PRIMARY KEY,
+    applied_at INTEGER NOT NULL
+);
+
+selectCurrent:
+SELECT * FROM schema_version ORDER BY version DESC LIMIT 1;
+
+insert:
+INSERT OR REPLACE INTO schema_version(version, applied_at) VALUES (?, ?);

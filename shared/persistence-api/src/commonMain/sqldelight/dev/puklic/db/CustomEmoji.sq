@@ -1,0 +1,25 @@
+CREATE TABLE custom_emoji (
+    id INTEGER NOT NULL PRIMARY KEY,
+    guild_id INTEGER NOT NULL,
+    name TEXT NOT NULL,
+    animated INTEGER DEFAULT 0,
+    available INTEGER DEFAULT 1,
+    updated_at INTEGER NOT NULL,
+    FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE
+);
+
+CREATE INDEX custom_emoji_guild_idx ON custom_emoji(guild_id);
+CREATE INDEX custom_emoji_name_idx ON custom_emoji(name);
+
+selectByGuild:
+SELECT * FROM custom_emoji WHERE guild_id = ?;
+
+selectById:
+SELECT * FROM custom_emoji WHERE id = ?;
+
+upsert:
+INSERT OR REPLACE INTO custom_emoji(id, guild_id, name, animated, available, updated_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM custom_emoji WHERE id = ?;

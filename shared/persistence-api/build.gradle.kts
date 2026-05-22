@@ -9,6 +9,7 @@ kotlin {
             implementation(projects.shared.domain)
             implementation(projects.shared.ids)
             implementation(libs.kotlinx.coroutines.core)
+            api(libs.kotlinx.datetime)
             implementation(libs.sqldelight.runtime)
             implementation(libs.sqldelight.coroutines.extensions)
         }

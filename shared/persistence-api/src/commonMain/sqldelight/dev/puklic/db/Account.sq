@@ -1,0 +1,21 @@
+CREATE TABLE account (
+    user_id INTEGER NOT NULL PRIMARY KEY,
+    username TEXT NOT NULL,
+    global_name TEXT,
+    discriminator TEXT,
+    avatar_hash TEXT,
+    last_login_at INTEGER NOT NULL
+);
+
+selectAll:
+SELECT * FROM account ORDER BY last_login_at DESC;
+
+selectById:
+SELECT * FROM account WHERE user_id = ?;
+
+upsert:
+INSERT OR REPLACE INTO account(user_id, username, global_name, discriminator, avatar_hash, last_login_at)
+VALUES (?, ?, ?, ?, ?, ?);
+
+delete:
+DELETE FROM account WHERE user_id = ?;
