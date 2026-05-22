@@ -15,7 +15,8 @@ detekt {
 }
 
 ktlint {
-    version.set("1.3.1")
+    val catalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+    version.set(catalog.findVersion("ktlint").get().requiredVersion)
     android.set(false)
     outputToConsole.set(true)
     ignoreFailures.set(false)
@@ -23,4 +24,10 @@ ktlint {
         exclude("**/generated/**")
         exclude("**/build/**")
     }
+}
+
+dependencies {
+    val catalog = extensions.getByType<VersionCatalogsExtension>().named("libs")
+    detektPlugins(catalog.findLibrary("detekt-compose-rules").get())
+    add("ktlintRuleset", catalog.findLibrary("ktlint-compose-rules").get())
 }
