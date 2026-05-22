@@ -75,7 +75,7 @@ public class ChannelOrchestrator(
         totalSeen += 1
         val kind = channel::class.simpleName ?: "Unknown"
         perTypeSeen[kind] = (perTypeSeen[kind] ?: 0) + 1
-        if (channel is GuildTextChannel || channel is GuildCategoryChannel) {
+        if (channel is GuildTextChannel || channel is GuildCategoryChannel || channel is DmChannel) {
             try {
                 storage.persist(channel)
                 totalPersisted += 1
@@ -98,9 +98,8 @@ public class ChannelOrchestrator(
                 }
             }
         } else {
-            val isDm = channel is DmChannel
             Logger.i(CHANNEL_ORCH_TAG) {
-                "channel orchestrator: skipping non-guild channel kind=$kind isDm=$isDm seen=$totalSeen"
+                "channel orchestrator: skipping non-persistable channel kind=$kind seen=$totalSeen"
             }
         }
     }
