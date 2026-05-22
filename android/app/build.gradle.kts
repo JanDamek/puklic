@@ -7,6 +7,10 @@ android {
 }
 
 dependencies {
+    implementation(compose.runtime)
+    implementation(compose.foundation)
+    implementation(compose.material3)
+    implementation(compose.ui)
     implementation(projects.shared.composeUi)
     implementation(projects.shared.session)
     implementation(projects.android.platform)
