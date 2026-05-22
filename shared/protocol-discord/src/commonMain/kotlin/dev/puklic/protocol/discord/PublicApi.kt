@@ -246,6 +246,26 @@ public class DiscordGatewayBridge(
             events += DiscordDomainEvent.GuildCreated(guild)
             events += extractGuildChannels(guildElement, guild.id.value)
         }
+        // DM + Group-DM channels live under `private_channels`. They have no guild_id; the
+        // DiscordChannelDto -> DmChannel mapper already handles this when type ∈ {1, 3}.
+        val privateChannels = obj["private_channels"] as? kotlinx.serialization.json.JsonArray
+        if (privateChannels != null) {
+            Logger.i(BRIDGE_TAG) { "bridge: READY private_channels size=${privateChannels.size}" }
+            for ((index, dmElement) in privateChannels.withIndex()) {
+                val channel = runCatching {
+                    DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
+                        dmElement,
+                    ).toDomain()
+                }.onFailure { t ->
+                    Logger.i(BRIDGE_TAG) {
+                        "bridge: READY private_channels[$index] decode-failed " +
+                            "cause=${t::class.simpleName} msg=${t.message}"
+                    }
+                }.getOrNull() ?: continue
+                events += DiscordDomainEvent.ChannelCreated(channel)
+            }
+        }
         return events
     }
 

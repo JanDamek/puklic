@@ -104,11 +104,18 @@ public class DiscordRestClient(
                         JsonElement.serializer(),
                         buildJsonObject {
                             put("content", content)
+                            // Match Acheron / official client: flags=0 and mobile_network_type
+                            // on every send. Without these Discord may downgrade response.
+                            put("flags", 0)
+                            put("mobile_network_type", "unknown")
                             nonce?.let { put("nonce", it) }
                             replyTo?.let {
                                 put(
                                     "message_reference",
-                                    buildJsonObject { put("message_id", it.value.toString()) },
+                                    buildJsonObject {
+                                        put("channel_id", channelId.value.toString())
+                                        put("message_id", it.value.toString())
+                                    },
                                 )
                             }
                         },

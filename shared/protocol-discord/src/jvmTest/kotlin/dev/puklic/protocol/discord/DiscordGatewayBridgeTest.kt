@@ -135,6 +135,44 @@ class DiscordGatewayBridgeTest {
         }
 
     @Test
+    fun ready_with_private_channels_emits_dm_channel_created() = runTest(UnconfinedTestDispatcher()) {
+        val gw = TestGateway()
+        val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        val bridge = DiscordGatewayBridge(gw.asPublicGateway(), bridgeScope)
+        val collected = mutableListOf<DiscordDomainEvent>()
+        val job = launch { bridge.events.collect { collected.add(it) } }
+
+        val readyPayload = Json.parseToJsonElement(
+            """
+            {
+              "session_id": "sess-DM",
+              "resume_gateway_url": "wss://gw.discord.gg",
+              "user": {"id":"111","username":"me"},
+              "guilds": [],
+              "private_channels": [
+                {"id":"5001","type":1,"recipients":[{"id":"42","username":"alice"}]},
+                {"id":"5002","type":3,"recipients":[{"id":"43","username":"bob"},{"id":"44","username":"carol"}],"name":null}
+              ],
+              "v": 10
+            }
+            """.trimIndent(),
+        )
+        gw.emit(GatewayDispatchEvent(type = "READY", sequence = 1, payload = readyPayload))
+
+        withTimeout(2_000) {
+            while (collected.count { it is DiscordDomainEvent.ChannelCreated } < 2) {
+                kotlinx.coroutines.yield()
+            }
+        }
+        job.cancel()
+        bridgeScope.cancel()
+
+        val dmEvents = collected.filterIsInstance<DiscordDomainEvent.ChannelCreated>()
+        assertEquals(2, dmEvents.size, "both DM and Group-DM must produce ChannelCreated")
+        assertTrue(dmEvents.all { it.channel is dev.puklic.domain.DmChannel }, "channels must be DmChannel")
+    }
+
+    @Test
     fun guild_create_with_channels_emits_guild_plus_channels() = runTest(UnconfinedTestDispatcher()) {
         val gw = TestGateway()
         val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))

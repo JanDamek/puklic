@@ -107,7 +107,7 @@ class GatewayConnectionTest {
     }
 
     @Test
-    fun lazy_request_guild_emits_op14_with_expected_shape() = runTest(UnconfinedTestDispatcher()) {
+    fun guild_subscriptions_bulk_emits_op37_with_expected_shape() = runTest(UnconfinedTestDispatcher()) {
         val transport = FakeTransport()
         val gw = newGateway(transport)
         gw.connect("wss://test")
@@ -117,20 +117,61 @@ class GatewayConnectionTest {
         waitFor { transport.sent.isNotEmpty() } // IDENTIFY frame sent
 
         val before = transport.sent.size
-        gw.lazyRequestGuild(
-            guildId = dev.puklic.ids.GuildId(42L),
-            channelIds = listOf(dev.puklic.ids.ChannelId(7L), dev.puklic.ids.ChannelId(9L)),
+        gw.guildSubscriptionsBulk(
+            mapOf(
+                dev.puklic.ids.GuildId(42L) to listOf(
+                    dev.puklic.ids.ChannelId(7L),
+                    dev.puklic.ids.ChannelId(9L),
+                ),
+                dev.puklic.ids.GuildId(43L) to listOf(dev.puklic.ids.ChannelId(11L)),
+            ),
         )
         waitFor { transport.sent.size > before }
         val frame = transport.sent.last()
-        // Op 14 + d shape: guild_id string, channels map keyed by channel id strings, range [0,99].
-        assertTrue(frame.contains("\"op\":14"), "expected op:14 frame, got: $frame")
-        assertTrue(frame.contains("\"guild_id\":\"42\""), frame)
+        // Op 37 BULK shape: subscriptions map keyed by guild_id strings, each with channels map.
+        assertTrue(frame.contains("\"op\":37"), "expected op:37 frame, got: $frame")
+        assertTrue(frame.contains("\"subscriptions\""), frame)
+        assertTrue(frame.contains("\"42\""), frame)
+        assertTrue(frame.contains("\"43\""), frame)
         assertTrue(frame.contains("\"typing\":true"), frame)
         assertTrue(frame.contains("\"threads\":true"), frame)
         assertTrue(frame.contains("\"activities\":true"), frame)
         assertTrue(frame.contains("\"7\":[[0,99]]"), frame)
         assertTrue(frame.contains("\"9\":[[0,99]]"), frame)
+        assertTrue(frame.contains("\"11\":[[0,99]]"), frame)
+        gw.disconnect()
+    }
+
+    @Test
+    fun lazy_request_guild_delegates_to_op37_for_back_compat() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val gw = newGateway(transport)
+        gw.connect("wss://test")
+        transport.deliver(GatewayFrameIn.Text("""{"op":10,"d":{"heartbeat_interval":45000}}"""))
+        waitFor { transport.sent.isNotEmpty() }
+        val before = transport.sent.size
+        gw.lazyRequestGuild(dev.puklic.ids.GuildId(1L), listOf(dev.puklic.ids.ChannelId(2L)))
+        waitFor { transport.sent.size > before }
+        val frame = transport.sent.last()
+        assertTrue(frame.contains("\"op\":37"), frame)
+        assertTrue(frame.contains("\"1\""), frame)
+        assertTrue(frame.contains("\"2\":[[0,99]]"), frame)
+        gw.disconnect()
+    }
+
+    @Test
+    fun identify_payload_includes_presence_and_client_state() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val gw = newGateway(transport)
+        gw.connect("wss://test")
+        transport.deliver(GatewayFrameIn.Text("""{"op":10,"d":{"heartbeat_interval":45000}}"""))
+        waitFor { transport.sent.isNotEmpty() }
+        val identify = transport.sent.first()
+        assertTrue(identify.contains("\"op\":2"), identify)
+        assertTrue(identify.contains("\"presence\""), "IDENTIFY must include presence: $identify")
+        assertTrue(identify.contains("\"status\":\"unknown\""), identify)
+        assertTrue(identify.contains("\"client_state\""), "IDENTIFY must include client_state: $identify")
+        assertTrue(identify.contains("\"capabilities\":1734653"), "modern capabilities expected: $identify")
         gw.disconnect()
     }
 

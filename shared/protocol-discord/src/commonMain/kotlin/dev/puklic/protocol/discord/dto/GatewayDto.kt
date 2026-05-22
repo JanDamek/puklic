@@ -1,5 +1,7 @@
 package dev.puklic.protocol.discord.dto
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -37,6 +39,7 @@ internal data class GatewayHello(
     @SerialName("heartbeat_interval") val heartbeatInterval: Long,
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 internal data class GatewayIdentify(
     val token: String,
@@ -44,6 +47,36 @@ internal data class GatewayIdentify(
     val capabilities: Int,
     val compress: Boolean = false,
     @SerialName("large_threshold") val largeThreshold: Int = 50,
+    @EncodeDefault val presence: IdentifyPresence = IdentifyPresence(),
+    @EncodeDefault @SerialName("client_state") val clientState: IdentifyClientState = IdentifyClientState(),
+)
+
+/**
+ * Initial presence sent inside IDENTIFY. Matches Acheron's UpdatePresence shape.
+ * `status = "unknown"` so Discord preserves the user's previous status across reconnects.
+ */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+internal data class IdentifyPresence(
+    @EncodeDefault val status: String = "unknown",
+    @EncodeDefault val since: Long = 0,
+    @EncodeDefault val activities: List<String> = emptyList(),
+    @EncodeDefault val afk: Boolean = false,
+)
+
+/**
+ * Client state snapshot — minimum fields required by Discord's user-mode gateway. Sending
+ * defaults of -1 / "0" / 0 tells Discord we have no cached state and to ship full payloads.
+ */
+@Serializable
+internal data class IdentifyClientState(
+    @SerialName("guild_versions") val guildVersions: Map<String, Int> = emptyMap(),
+    @SerialName("highest_last_message_id") val highestLastMessageId: String = "0",
+    @SerialName("read_state_version") val readStateVersion: Int = 0,
+    @SerialName("user_guild_settings_version") val userGuildSettingsVersion: Int = -1,
+    @SerialName("user_settings_version") val userSettingsVersion: Int = -1,
+    @SerialName("private_channels_version") val privateChannelsVersion: String = "0",
+    @SerialName("api_code_version") val apiCodeVersion: Int = 0,
 )
 
 @Serializable

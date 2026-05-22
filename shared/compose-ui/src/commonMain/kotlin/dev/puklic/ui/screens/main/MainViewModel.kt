@@ -4,6 +4,7 @@ import co.touchlab.kermit.Logger
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.domain.Channel
+import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
@@ -30,12 +31,26 @@ import kotlinx.coroutines.launch
  * Snapshot of the main screen's guild + channel state. Backed by the live orchestrators
  * (when available); falls back to empty placeholder when no session is active (e.g. tests).
  */
+/**
+ * Top-level navigation scope. The user is either viewing a guild (selectedGuildId set) or the
+ * DM "Home" landing (dmHomeSelected = true). Mutually exclusive; default is [Empty].
+ */
+public sealed interface NavigationScope {
+    public data object Empty : NavigationScope
+    public data class GuildSelected(val id: GuildId) : NavigationScope
+    public data object DmHome : NavigationScope
+}
+
 public data class MainScreenState(
     val guilds: List<Guild> = emptyList(),
     val channelsForSelectedGuild: List<Channel> = emptyList(),
-    val selectedGuildId: GuildId? = null,
+    val dmChannels: List<DmChannel> = emptyList(),
+    val scope: NavigationScope = NavigationScope.Empty,
     val selectedChannelId: ChannelId? = null,
-)
+) {
+    val selectedGuildId: GuildId? get() = (scope as? NavigationScope.GuildSelected)?.id
+    val isDmHome: Boolean get() = scope is NavigationScope.DmHome
+}
 
 /**
  * Decompose-style ViewModel for the three-pane authenticated UI. When [orchestrators] is non-null,
@@ -51,6 +66,7 @@ public class MainViewModel(
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)
 
+    private val navScope = MutableStateFlow<NavigationScope>(NavigationScope.Empty)
     private val selectedGuild = MutableStateFlow<GuildId?>(null)
     private val selectedChannel = MutableStateFlow<ChannelId?>(null)
 
@@ -62,17 +78,27 @@ public class MainViewModel(
         val channelFlow = selectedGuild.flatMapLatest { gid ->
             if (gid == null) flowOf(emptyList()) else orchestrators.channel.channelsForGuild(gid)
         }
-        combine(guilds, channelFlow, selectedGuild, selectedChannel) { gs, chs, gid, cid ->
+        val dmFlow = orchestrators.dms.dms
+        combine(guilds, channelFlow, dmFlow, navScope, selectedChannel) { gs, chs, dms, sc, cid ->
             MainScreenState(
                 guilds = gs,
                 channelsForSelectedGuild = chs,
-                selectedGuildId = gid,
+                dmChannels = dms,
+                scope = sc,
                 selectedChannelId = cid,
             )
         }.stateIn(scope, SharingStarted.Eagerly, MainScreenState())
     }
 
+    /** Switch to the DM "Home" view — clears guild selection. */
+    public fun selectDmHome() {
+        navScope.value = NavigationScope.DmHome
+        selectedGuild.value = null
+        selectedChannel.value = null
+    }
+
     public fun selectGuild(id: GuildId) {
+        navScope.value = NavigationScope.GuildSelected(id)
         selectedGuild.value = id
         selectedChannel.value = null
         // Lazy-subscribe to the first text channels of this guild. Required by Discord user-mode

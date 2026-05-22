@@ -12,4 +12,5 @@ public data class Orchestrators(
     val guild: GuildOrchestrator,
     val channel: ChannelOrchestrator,
     val user: UserOrchestrator,
+    val dms: DmListOrchestrator,
 )

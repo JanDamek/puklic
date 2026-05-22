@@ -1,6 +1,8 @@
 package dev.puklic.ui.screens.main
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
+import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
@@ -60,22 +63,40 @@ public fun MainScreen(viewModel: MainViewModel) {
         GuildRail(
             guilds = state.guilds,
             selectedGuildId = state.selectedGuildId,
+            isDmHomeSelected = state.isDmHome,
+            onSelectDmHome = viewModel::selectDmHome,
             onSelectGuild = viewModel::selectGuild,
             modifier = Modifier.width(56.dp).fillMaxHeight(),
         )
         VerticalDivider()
-        ChannelListPane(
-            channels = state.channelsForSelectedGuild,
-            selectedChannelId = state.selectedChannelId,
-            onSelectChannel = viewModel::selectChannel,
-            modifier = Modifier.width(240.dp).fillMaxHeight(),
-        )
+        if (state.isDmHome) {
+            DmListPane(
+                dms = state.dmChannels,
+                selectedChannelId = state.selectedChannelId,
+                onSelectChannel = viewModel::selectChannel,
+                modifier = Modifier.width(240.dp).fillMaxHeight(),
+            )
+        } else {
+            ChannelListPane(
+                channels = state.channelsForSelectedGuild,
+                selectedChannelId = state.selectedChannelId,
+                onSelectChannel = viewModel::selectChannel,
+                modifier = Modifier.width(240.dp).fillMaxHeight(),
+            )
+        }
         VerticalDivider()
-        val selectedChannel = state.channelsForSelectedGuild
-            .firstOrNull { it.id == state.selectedChannelId }
+        val selectedChannel: Channel? = if (state.isDmHome) {
+            state.dmChannels.firstOrNull { it.id == state.selectedChannelId }
+        } else {
+            state.channelsForSelectedGuild.firstOrNull { it.id == state.selectedChannelId }
+        }
+        val displayName = when (selectedChannel) {
+            is DmChannel -> selectedChannel.recipients.firstOrNull()?.let { "@${it.globalName ?: it.username}" }
+            else -> selectedChannel?.name
+        }
         MessagePane(
             selectedChannelId = state.selectedChannelId,
-            selectedChannelName = selectedChannel?.name,
+            selectedChannelName = displayName,
             messageOrchestrator = viewModel.orchestrators?.messages,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
@@ -96,6 +117,8 @@ private fun VerticalDivider() {
 private fun GuildRail(
     guilds: List<Guild>,
     selectedGuildId: GuildId?,
+    isDmHomeSelected: Boolean,
+    onSelectDmHome: () -> Unit,
     onSelectGuild: (GuildId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -104,6 +127,11 @@ private fun GuildRail(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        HomeRailItem(isSelected = isDmHomeSelected, onClick = onSelectDmHome)
+        HorizontalDivider(
+            color = MaterialTheme.colorScheme.outlineVariant,
+            modifier = Modifier.width(32.dp),
+        )
         guilds.forEach { g ->
             GuildRailItem(
                 guild = g,
@@ -111,6 +139,76 @@ private fun GuildRail(
                 onClick = { onSelectGuild(g.id) },
             )
         }
+    }
+}
+
+@Composable
+private fun HomeRailItem(isSelected: Boolean, onClick: () -> Unit) {
+    val bg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+    val fg = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+    Box(
+        modifier = Modifier
+            .width(40.dp)
+            .height(40.dp)
+            .background(bg, shape = CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text("DM", style = MaterialTheme.typography.labelSmall, color = fg)
+    }
+}
+
+@Composable
+private fun DmListPane(
+    dms: List<DmChannel>,
+    selectedChannelId: ChannelId?,
+    onSelectChannel: (ChannelId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val spacing = LocalPuklicSpacing.current
+    Column(modifier = modifier.background(MaterialTheme.colorScheme.surface).padding(spacing.space4)) {
+        Text("Direct Messages", style = MaterialTheme.typography.titleMedium)
+        Spacer(Modifier.height(spacing.space4))
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Spacer(Modifier.height(spacing.space4))
+        if (dms.isEmpty()) {
+            Text(
+                "No direct messages yet",
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            // Discord doesn't return ordering inside private_channels; sorting by lastMessageId
+            // would require persisting that field. For now we render in insertion order.
+            LazyColumn {
+                items(dms, key = { "dm-${it.id.value}" }) { dm ->
+                    val label = dm.recipients.firstOrNull()
+                        ?.let { it.globalName ?: it.username }
+                        ?: "Unknown"
+                    DmRow(
+                        label = "@$label",
+                        isSelected = dm.id == selectedChannelId,
+                        onClick = { onSelectChannel(dm.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DmRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
+    val bg = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(36.dp)
+            .background(bg)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp),
+        contentAlignment = Alignment.CenterStart,
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
 

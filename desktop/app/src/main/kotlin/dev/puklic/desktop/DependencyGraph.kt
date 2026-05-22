@@ -211,6 +211,7 @@ public class DependencyGraph private constructor(
             val guildOrch = GuildOrchestrator(sessionScope, gatewayEventSource, guildStore)
             val channelOrch = ChannelOrchestrator(sessionScope, gatewayEventSource, channelStore)
             val userOrch = UserOrchestrator(sessionScope, gatewayEventSource, userStore)
+            val dmListOrch = dev.puklic.repositories.DmListOrchestrator(sessionScope, gatewayEventSource)
             val orchestrators = Orchestrators(
                 messages = messageOrchestrator,
                 outboundWorker = outboundWorker,
@@ -219,6 +220,7 @@ public class DependencyGraph private constructor(
                 guild = guildOrch,
                 channel = channelOrch,
                 user = userOrch,
+                dms = dmListOrch,
             )
             outboundWorker.start()
 

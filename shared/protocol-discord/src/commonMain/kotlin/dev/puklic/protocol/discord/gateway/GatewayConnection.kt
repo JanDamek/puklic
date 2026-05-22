@@ -120,41 +120,47 @@ public class GatewayConnection(
     }
 
     /**
-     * Send an OP 14 `lazy_guild_subscribe` frame. Discord's user-mode client uses this to subscribe
-     * to GUILD_MEMBER_LIST_UPDATE events and to unlock REST access for member-list-gated channels
-     * (which would otherwise return 50001).
+     * Send an OP 37 `GUILD_SUBSCRIPTIONS_BULK` frame — modern replacement for the now-legacy
+     * OP 14 `lazy_guild_subscribe`. Discord's current user-mode client (and Acheron) use this
+     * to subscribe to one or more guilds in a single frame.
      *
-     * Per the unofficial lazy-guilds doc, the payload shape is:
-     *   { "op": 14, "d": { "guild_id": "...", "typing": true, "threads": true,
-     *                      "activities": true, "channels": { "<chId>": [[0,99]] } } }
+     * JSON shape:
+     *   {"op": 37, "d": {"subscriptions": {"<gid>": {"typing": true, "activities": true,
+     *                    "threads": true, "channels": {"<chId>": [[0,99]]}}}}}
      *
-     * Caller MUST keep [channelIds] small (≤5) — Discord rate-limits OP 14.
-     * No-ops if the gateway is not currently READY (no transport bound).
+     * No-ops if the gateway is not currently READY.
      */
-    public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
+    public suspend fun guildSubscriptionsBulk(subscriptions: Map<GuildId, List<ChannelId>>) {
         val transport = activeTransport
         if (transport == null) {
             Logger.w("GatewayConnection") {
-                "OP14 skipped: no active transport (guild=${guildId.value}, channels=${channelIds.size})"
+                "OP37 skipped: no active transport (guilds=${subscriptions.keys.map { it.value }})"
             }
             return
         }
+        if (subscriptions.isEmpty()) return
         Logger.i("GatewayConnection") {
-            "OP14 sending guild=${guildId.value} channels=${channelIds.map { it.value }}"
+            "OP37 sending guilds=${subscriptions.keys.map { it.value }} " +
+                "channelCounts=${subscriptions.mapValues { it.value.size }.values}"
         }
         val payload = buildJsonObject {
-            put("op", JsonPrimitive(LAZY_GUILD_SUBSCRIBE_OPCODE))
+            put("op", JsonPrimitive(GUILD_SUBSCRIPTIONS_BULK_OPCODE))
             putJsonObject("d") {
-                put("guild_id", JsonPrimitive(guildId.value.toString()))
-                put("typing", JsonPrimitive(true))
-                put("threads", JsonPrimitive(true))
-                put("activities", JsonPrimitive(true))
-                putJsonObject("channels") {
-                    channelIds.forEach { channelId ->
-                        putJsonArray(channelId.value.toString()) {
-                            addJsonArray {
-                                add(JsonPrimitive(LAZY_RANGE_START))
-                                add(JsonPrimitive(LAZY_RANGE_END))
+                putJsonObject("subscriptions") {
+                    subscriptions.forEach { (gid, channelIds) ->
+                        putJsonObject(gid.value.toString()) {
+                            put("typing", JsonPrimitive(true))
+                            put("activities", JsonPrimitive(true))
+                            put("threads", JsonPrimitive(true))
+                            putJsonObject("channels") {
+                                channelIds.forEach { channelId ->
+                                    putJsonArray(channelId.value.toString()) {
+                                        addJsonArray {
+                                            add(JsonPrimitive(LAZY_RANGE_START))
+                                            add(JsonPrimitive(LAZY_RANGE_END))
+                                        }
+                                    }
+                                }
                             }
                         }
                     }
@@ -162,7 +168,15 @@ public class GatewayConnection(
             }
         }
         transport.sendText(DiscordJson.encodeToString(JsonElement.serializer(), payload))
-        Logger.i("GatewayConnection") { "OP14 sent (guild=${guildId.value})" }
+        Logger.i("GatewayConnection") { "OP37 sent" }
+    }
+
+    /**
+     * Back-compat shim — delegates to [guildSubscriptionsBulk] with a single-guild entry. Existing
+     * call sites (e.g. `MainViewModel.selectGuild` / `selectChannel`) keep working without change.
+     */
+    public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
+        guildSubscriptionsBulk(mapOf(guildId to channelIds))
     }
 
     private suspend fun handleText(transport: GatewayTransport, text: String) {
@@ -275,7 +289,7 @@ public class GatewayConnection(
 
     private companion object {
         const val EVENT_BUFFER = 64
-        const val LAZY_GUILD_SUBSCRIBE_OPCODE = 14
+        const val GUILD_SUBSCRIPTIONS_BULK_OPCODE = 37
         const val LAZY_RANGE_START = 0
         const val LAZY_RANGE_END = 99
     }
