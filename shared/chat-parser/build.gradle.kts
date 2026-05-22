@@ -7,6 +7,7 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.shared.domain)
             implementation(projects.shared.ids)
+            implementation(libs.kotlinx.datetime)
         }
         commonTest.dependencies {
             implementation(libs.kotest.assertions.core)
