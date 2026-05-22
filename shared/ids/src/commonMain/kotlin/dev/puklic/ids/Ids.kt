@@ -1,5 +1,7 @@
 package dev.puklic.ids
 
+import kotlin.jvm.JvmInline
+
 @JvmInline value class UserId(val value: Long)
 @JvmInline value class GuildId(val value: Long)
 @JvmInline value class ChannelId(val value: Long)

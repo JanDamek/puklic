@@ -4,13 +4,6 @@ plugins {
     alias(libs.plugins.kotlin.compose.compiler)
 }
 
-// See :shared:compose-ui — same Google Maven repo workaround for Compose 1.8.0 transitives.
-repositories {
-    google()
-    mavenCentral()
-    maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
-}
-
 dependencies {
     implementation(projects.shared.composeUi)
     implementation(projects.shared.session)

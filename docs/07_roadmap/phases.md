@@ -10,24 +10,24 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done · `[-]` skip / out of sco
 
 Goal: a usable read+write client for everyday text communication.
 
-- [ ] Gradle multimodule setup
-- [ ] Compose Desktop app skeleton
-- [ ] Ktor REST client (Discord API v10)
-- [ ] WebSocket gateway (connect, identify, heartbeat, dispatch)
-- [ ] Login screen (token paste) + secure storage
-- [ ] Session persistence (resume vs identify)
-- [ ] Guild list
-- [ ] Channel list (text channels only)
-- [ ] Message list (lazy load, scroll-back)
-- [ ] Send message (plain text)
-- [ ] Local SQLite cache (SQLDelight)
-- [ ] StateFlow architecture wired end-to-end
-- [ ] Basic RichText AST (paragraph, text run, inline code, code block)
-- [ ] Basic parser (markdown subset)
-- [ ] Basic Compose RichText renderer
-- [ ] Unicode emoji support
-- [ ] Desktop notifications (libnotify / xdg-notification)
-- [ ] Settings screen (account info, cache limits, logout)
+- [x] Gradle multimodule setup
+- [x] Compose Desktop app skeleton
+- [x] Ktor REST client (Discord API v10)
+- [x] WebSocket gateway (connect, identify, heartbeat, dispatch)
+- [x] Login screen (token paste) + secure storage
+- [x] Session persistence (resume vs identify)
+- [x] Guild list
+- [x] Channel list (text channels only)
+- [x] Message list (lazy load, scroll-back)
+- [x] Send message (plain text)
+- [x] Local SQLite cache (SQLDelight)
+- [x] StateFlow architecture wired end-to-end
+- [x] Basic RichText AST (paragraph, text run, inline code, code block)
+- [x] Basic parser (markdown subset)
+- [x] Basic Compose RichText renderer
+- [x] Unicode emoji support
+- [x] Desktop notifications (libnotify / xdg-notification)
+- [x] Settings screen (account info, cache limits, logout)
 
 ## Phase 2 — Rich content
 
