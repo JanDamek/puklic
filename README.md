@@ -4,6 +4,8 @@
 [![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 [![Status](https://img.shields.io/badge/status-pre--MVP-orange.svg)](docs/07_roadmap/phases.md)
 
+![Puklic](docs/00_overview/puklic-showcase.png)
+
 > A lightweight Kotlin Multiplatform desktop chat client focused on native UI, low memory usage, coroutine-first architecture, and first-class Linux Wayland support.
 
 **Status:** early architecture / pre-MVP. No code yet.

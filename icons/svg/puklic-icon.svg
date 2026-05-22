@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" role="img">
+  <title>Puklic chat client icon</title>
+  <desc>Chat bubble with tilted Pk monogram referencing the Public to Puklic typo origin</desc>
+  <rect x="0" y="0" width="1024" height="1024" rx="200" fill="#0EA5E9"/>
+  <path d="M 161 307 Q 161 219 248 219 L 775 219 Q 862 219 862 307 L 862 658 Q 862 746 775 746 L 395 746 L 263 862 L 292 746 L 248 746 Q 161 746 161 658 Z" fill="#FFFFFF"/>
+  <text x="305" y="575" font-family="DejaVu Sans, Inter, system-ui, sans-serif" font-size="290" font-weight="700" fill="#0EA5E9">P</text>
+  <g transform="rotate(-22, 660, 480)">
+    <text x="565" y="575" font-family="DejaVu Sans, Inter, system-ui, sans-serif" font-size="290" font-weight="700" fill="#0EA5E9">k</text>
+  </g>
+</svg>
