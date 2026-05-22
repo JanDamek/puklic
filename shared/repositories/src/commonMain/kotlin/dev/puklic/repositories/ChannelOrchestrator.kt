@@ -8,10 +8,12 @@ import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.GuildId
 import dev.puklic.persistence.repository.ChannelRepository
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
@@ -20,72 +22,59 @@ private const val CHANNEL_ORCH_TAG = "ChannelOrchestrator"
 /**
  * Subscribes to [GatewayEventSource] channel lifecycle events and mirrors them into [storage].
  * Exposes per-guild reactive Flow via [channelsForGuild].
+ *
+ * Implementation is fully Flow-first: declarative operator chain (filterIsInstance → onEach →
+ * catch → flowOn → launchIn). The `catch` operator ensures that a single persistence error
+ * logs and the upstream Flow keeps emitting — no inner try/catch, no SupervisorJob gymnastics,
+ * no `tryEmit` drops.
  */
 public class ChannelOrchestrator(
-    private val sessionScope: CoroutineScope,
+    sessionScope: CoroutineScope,
     private val gatewaySource: GatewayEventSource,
     private val storage: ChannelRepository,
     persistenceContext: CoroutineContext = EmptyCoroutineContext,
 ) {
-    // Use a SupervisorJob so a failure in one child collector does not cancel siblings
-    // (or the parent session scope). Persistence runs on [persistenceContext] (default
-    // is the inherited dispatcher; production wiring should pass Dispatchers.IO).
-    private val collectContext: CoroutineContext = SupervisorJob() + persistenceContext
     /** Reactive channel list for [guildId], backed by SQLite. */
     public fun channelsForGuild(guildId: GuildId): Flow<List<Channel>> =
-        kotlinx.coroutines.flow.flow {
-            storage.observeByGuild(guildId).collect { list ->
+        storage.observeByGuild(guildId)
+            .onEach { list ->
                 Logger.i(CHANNEL_ORCH_TAG) {
                     "channel orchestrator: observeByGuild(${guildId.value}) emit size=${list.size} " +
                         "byType=${list.groupBy { it::class.simpleName }.mapValues { it.value.size }}"
                 }
-                emit(list)
             }
-        }
 
-    // Diagnostic counters — incremented for every observed ChannelCreated, regardless of type.
-    // Reset is not implemented (READY brings a single burst; subsequent CHANNEL_CREATE events trickle).
+    // Diagnostic counters — single-threaded by virtue of running on the same Flow collector.
     private var totalSeen: Int = 0
     private var totalPersisted: Int = 0
     private val perTypeSeen: MutableMap<String, Int> = mutableMapOf()
     private val perGuildPersisted: MutableMap<Long, Int> = mutableMapOf()
 
     init {
-        sessionScope.launch(collectContext) {
-            gatewaySource.events.collect { event ->
-                // Per-event try/catch: any failure mapping/persisting a single event MUST NOT
-                // tear down the collect block, otherwise we lose every subsequent event. The
-                // observed live-bug was the collector dying after 100 events (Unicorn/Junie
-                // channels never reaching SQLite). CancellationException is rethrown so the
-                // session scope can still cancel us cleanly.
-                try {
-                    when (event) {
-                        is GatewayDomainEvent.ChannelCreated ->
-                            handleChannelArrival(event.channel, isCreate = true)
-                        is GatewayDomainEvent.ChannelUpdated ->
-                            handleChannelArrival(event.channel, isCreate = false)
-                        is GatewayDomainEvent.ChannelDeleted -> storage.delete(event.channelId)
-                        else -> Unit
-                    }
-                } catch (ce: CancellationException) {
-                    throw ce
-                } catch (t: Throwable) {
-                    Logger.w(CHANNEL_ORCH_TAG) {
-                        "channel orchestrator: event handler FAILED but collector kept alive " +
-                            "event=${event::class.simpleName} " +
-                            "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
-                    }
+        gatewaySource.events
+            .filterIsInstance<GatewayDomainEvent>()
+            .onEach { event ->
+                when (event) {
+                    is GatewayDomainEvent.ChannelCreated -> handleArrival(event.channel, isCreate = true)
+                    is GatewayDomainEvent.ChannelUpdated -> handleArrival(event.channel, isCreate = false)
+                    is GatewayDomainEvent.ChannelDeleted -> storage.delete(event.channelId)
+                    else -> Unit
                 }
             }
-        }
+            .catch { t ->
+                Logger.w(CHANNEL_ORCH_TAG) {
+                    "channel orchestrator: flow error caught, will not propagate " +
+                        "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                }
+            }
+            .flowOn(persistenceContext)
+            .launchIn(sessionScope)
     }
 
-    private suspend fun handleChannelArrival(channel: Channel, isCreate: Boolean) {
+    private suspend fun handleArrival(channel: Channel, isCreate: Boolean) {
         totalSeen += 1
         val kind = channel::class.simpleName ?: "Unknown"
         perTypeSeen[kind] = (perTypeSeen[kind] ?: 0) + 1
-        // Only guild-scoped channels go through ChannelRepository; DM channels are not part of
-        // the per-guild list and are handled separately by DmListOrchestrator.
         if (channel is GuildTextChannel || channel is GuildCategoryChannel) {
             try {
                 storage.persist(channel)
@@ -109,7 +98,6 @@ public class ChannelOrchestrator(
                 }
             }
         } else {
-            // DM and unsupported types — ignored here but counted for visibility.
             val isDm = channel is DmChannel
             Logger.i(CHANNEL_ORCH_TAG) {
                 "channel orchestrator: skipping non-guild channel kind=$kind isDm=$isDm seen=$totalSeen"

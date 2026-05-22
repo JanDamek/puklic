@@ -8,12 +8,16 @@ import dev.puklic.persistence.repository.OutboundQueue
 import dev.puklic.persistence.repository.OutboundMessageRecord
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.onEach
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
@@ -45,8 +49,9 @@ public class MessageOrchestrator(
     private val activeChannelState = MutableStateFlow<ChannelId?>(null)
 
     init {
-        sessionScope.launch {
-            gatewaySource.events.collect { event ->
+        gatewaySource.events
+            .filterIsInstance<GatewayDomainEvent>()
+            .onEach { event ->
                 when (event) {
                     is GatewayDomainEvent.MessageCreated -> storage.persist(event.message)
                     is GatewayDomainEvent.MessageUpdated -> storage.persist(event.message)
@@ -54,7 +59,13 @@ public class MessageOrchestrator(
                     else -> Unit
                 }
             }
-        }
+            .catch { t ->
+                Logger.w("MessageOrchestrator") {
+                    "message orchestrator: flow error caught, will not propagate " +
+                        "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                }
+            }
+            .launchIn(sessionScope)
     }
 
     /** Promote [channelId] to the hot slot. */

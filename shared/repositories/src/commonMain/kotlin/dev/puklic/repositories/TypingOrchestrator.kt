@@ -1,15 +1,21 @@
 package dev.puklic.repositories
 
+import co.touchlab.kermit.Logger
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.UserId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
+
+private const val TYPING_TAG = "TypingOrchestrator"
 
 /**
  * Tracks per-channel typing indicators in RAM. Ephemeral — never persisted (ADR-0003).
@@ -19,8 +25,8 @@ import kotlinx.coroutines.launch
  * the orchestrator does not own a timer to avoid pinning the dispatcher when no UI subscribes.
  */
 public class TypingOrchestrator(
-    private val sessionScope: CoroutineScope,
-    private val gatewaySource: GatewayEventSource,
+    sessionScope: CoroutineScope,
+    gatewaySource: GatewayEventSource,
     private val nowEpochSeconds: () -> Long,
 ) {
     private data class TypingEntry(val expiresAtEpochSeconds: Long)
@@ -34,18 +40,23 @@ public class TypingOrchestrator(
             .stateIn(sessionScope, SharingStarted.Eagerly, emptyMap())
 
     init {
-        sessionScope.launch {
-            gatewaySource.events.collect { event ->
-                if (event is GatewayDomainEvent.TypingStarted) {
-                    val expiresAt = event.timestampEpochSeconds + TYPING_TTL_SECONDS
-                    internalState.update { current ->
-                        val perChannel = current[event.channelId].orEmpty() +
-                            (event.userId to TypingEntry(expiresAt))
-                        current + (event.channelId to perChannel)
-                    }
+        gatewaySource.events
+            .filterIsInstance<GatewayDomainEvent.TypingStarted>()
+            .onEach { event ->
+                val expiresAt = event.timestampEpochSeconds + TYPING_TTL_SECONDS
+                internalState.update { current ->
+                    val perChannel = current[event.channelId].orEmpty() +
+                        (event.userId to TypingEntry(expiresAt))
+                    current + (event.channelId to perChannel)
                 }
             }
-        }
+            .catch { t ->
+                Logger.w(TYPING_TAG) {
+                    "typing orchestrator: flow error caught " +
+                        "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                }
+            }
+            .launchIn(sessionScope)
     }
 
     /** Evict typing entries whose TTL has expired relative to [nowEpochSeconds]. */

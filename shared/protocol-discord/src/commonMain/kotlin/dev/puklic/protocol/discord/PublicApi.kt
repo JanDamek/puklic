@@ -17,10 +17,13 @@ import dev.puklic.protocol.discord.mapper.toDomain
 import dev.puklic.protocol.discord.mapper.toDomainOrNull
 import dev.puklic.protocol.discord.rest.DiscordRestClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
@@ -67,7 +70,14 @@ public sealed interface DiscordDomainEvent {
     public data class Ready(val selfUser: UserSummary, val sessionId: String) : DiscordDomainEvent
 }
 
-private const val EVENT_BUFFER = 64
+/**
+ * Discord's READY event for user accounts can synthesize 200+ events in a single emission burst
+ * (one Ready + N GuildCreated + M ChannelCreated across all guilds + DMs). The previous buffer
+ * of 64 caused `tryEmit` to silently drop the tail — root cause of the live bug where
+ * ChannelOrchestrator stopped persisting after ~50 channels. Size the buffer well above any
+ * realistic burst, and use suspending `emit` to honor back-pressure end-to-end.
+ */
+private const val EVENT_BUFFER = 1024
 private const val BRIDGE_TAG = "DiscordGatewayBridge"
 
 /**
@@ -99,21 +109,33 @@ public class DiscordGatewayBridge(
     scope: CoroutineScope,
     onUnknown: (type: String) -> Unit = {},
 ) {
-    private val _events = MutableSharedFlow<DiscordDomainEvent>(extraBufferCapacity = EVENT_BUFFER)
+    private val _events = MutableSharedFlow<DiscordDomainEvent>(
+        replay = 0,
+        extraBufferCapacity = EVENT_BUFFER,
+        onBufferOverflow = BufferOverflow.SUSPEND,
+    )
     public val events: SharedFlow<DiscordDomainEvent> = _events.asSharedFlow()
 
     init {
-        scope.launch {
-            gateway.events.collect { dispatch ->
+        gateway.events
+            .onEach { dispatch ->
                 Logger.i(BRIDGE_TAG) { "bridge: received raw event type=${dispatch.type}" }
                 val mapped = mapDispatch(dispatch, onUnknown)
                 Logger.i(BRIDGE_TAG) {
                     "bridge: ${dispatch.type} mapped -> emitting ${mapped.size} events: " +
                         mapped.joinToString(",") { it::class.simpleName ?: "?" }
                 }
-                mapped.forEach { _events.tryEmit(it) }
+                // Use suspending emit (not tryEmit) so a slow subscriber back-pressures the
+                // bridge instead of silently dropping events. The buffer is sized large enough
+                // that READY bursts complete without suspending; this is the safety net.
+                mapped.forEach { _events.emit(it) }
             }
-        }
+            .catch { t ->
+                Logger.w(BRIDGE_TAG) {
+                    "bridge: flow error caught cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                }
+            }
+            .launchIn(scope)
     }
 
     @Suppress("LongMethod", "CyclomaticComplexMethod")

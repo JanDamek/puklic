@@ -7,8 +7,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 
 /**
  * Subscribes to [GatewayEventSource] guild lifecycle events and mirrors them into [storage].
@@ -17,7 +20,7 @@ import kotlinx.coroutines.launch
 private const val LOG_TAG = "GuildOrchestrator"
 
 public class GuildOrchestrator(
-    private val sessionScope: CoroutineScope,
+    sessionScope: CoroutineScope,
     private val gatewaySource: GatewayEventSource,
     private val storage: GuildRepository,
 ) {
@@ -27,48 +30,33 @@ public class GuildOrchestrator(
     public val all: Flow<List<Guild>> get() = storage.observeAll()
 
     init {
-        sessionScope.launch {
-            gatewaySource.events.collect { event ->
-                Logger.i(LOG_TAG) { "guild orchestrator: received event = ${event::class.simpleName}" }
+        gatewaySource.events
+            .filterIsInstance<GatewayDomainEvent>()
+            .onEach { event ->
                 when (event) {
-                    is GatewayDomainEvent.GuildCreated -> {
-                        Logger.i(LOG_TAG) {
-                            "guild orchestrator: persisting guild id=${event.guild.id.value} name=${event.guild.name}"
-                        }
-                        try {
-                            storage.persist(event.guild)
-                            Logger.i(LOG_TAG) {
-                                "guild orchestrator: persisted OK guild id=${event.guild.id.value}"
-                            }
-                        } catch (t: Throwable) {
-                            Logger.w(LOG_TAG) {
-                                "guild orchestrator: persist FAILED guild id=${event.guild.id.value} " +
-                                    "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
-                            }
-                        }
-                    }
-                    is GatewayDomainEvent.GuildUpdated -> {
-                        Logger.i(LOG_TAG) {
-                            "guild orchestrator: updating guild id=${event.guild.id.value} name=${event.guild.name}"
-                        }
-                        try {
-                            storage.persist(event.guild)
-                            Logger.i(LOG_TAG) {
-                                "guild orchestrator: updated OK guild id=${event.guild.id.value}"
-                            }
-                        } catch (t: Throwable) {
-                            Logger.w(LOG_TAG) {
-                                "guild orchestrator: update FAILED guild id=${event.guild.id.value} " +
-                                    "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
-                            }
-                        }
-                    }
-                    is GatewayDomainEvent.GuildDeleted -> {
-                        Logger.i(LOG_TAG) { "guild orchestrator: deleting guild id=${event.guildId.value}" }
-                        storage.delete(event.guildId)
-                    }
+                    is GatewayDomainEvent.GuildCreated -> persist(event.guild, op = "create")
+                    is GatewayDomainEvent.GuildUpdated -> persist(event.guild, op = "update")
+                    is GatewayDomainEvent.GuildDeleted -> storage.delete(event.guildId)
                     else -> Unit
                 }
+            }
+            .catch { t ->
+                Logger.w(LOG_TAG) {
+                    "guild orchestrator: flow error caught, will not propagate " +
+                        "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                }
+            }
+            .launchIn(sessionScope)
+    }
+
+    private suspend fun persist(guild: Guild, op: String) {
+        try {
+            storage.persist(guild)
+            Logger.i(LOG_TAG) { "guild orchestrator: $op OK guild id=${guild.id.value} name=${guild.name}" }
+        } catch (t: Throwable) {
+            Logger.w(LOG_TAG) {
+                "guild orchestrator: $op FAILED guild id=${guild.id.value} " +
+                    "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
             }
         }
     }
