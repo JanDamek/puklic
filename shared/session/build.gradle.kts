@@ -10,6 +10,7 @@ kotlin {
             implementation(projects.shared.protocolDiscord)
             implementation(projects.shared.repositories)
             implementation(projects.shared.platformApi)
+            implementation(projects.shared.persistenceApi)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.core)
             implementation(libs.kermit)

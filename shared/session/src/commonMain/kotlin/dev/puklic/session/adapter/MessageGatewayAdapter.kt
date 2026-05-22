@@ -1,8 +1,11 @@
 package dev.puklic.session.adapter
 
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
+import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
+import dev.puklic.persistence.repository.ChannelRepository
 import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.repositories.MessageGateway
 
@@ -11,7 +14,13 @@ import dev.puklic.repositories.MessageGateway
  * repositories-layer [MessageGateway] interface consumed by [dev.puklic.repositories.MessageOrchestrator]
  * and [dev.puklic.repositories.OutboundMessageWorker]. Pure delegation — no mapping logic here.
  */
-public class MessageGatewayAdapter(private val bridge: DiscordMessageBridge) : MessageGateway {
+public class MessageGatewayAdapter(
+    private val bridge: DiscordMessageBridge,
+    private val channelRepository: ChannelRepository? = null,
+) : MessageGateway {
+
+    private suspend fun resolveGuildId(channelId: ChannelId): GuildId? =
+        (channelRepository?.findById(channelId) as? GuildTextChannel)?.guildId
 
     override suspend fun sendMessage(
         channelId: ChannelId,
@@ -38,5 +47,5 @@ public class MessageGatewayAdapter(private val bridge: DiscordMessageBridge) : M
     override suspend fun loadInitial(
         channelId: ChannelId,
         limit: Int,
-    ): Result<List<ChatMessage>> = bridge.loadInitial(channelId, limit)
+    ): Result<List<ChatMessage>> = bridge.loadInitial(channelId, limit, resolveGuildId(channelId))
 }

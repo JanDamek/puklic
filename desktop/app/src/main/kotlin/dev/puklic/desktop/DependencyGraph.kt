@@ -47,10 +47,17 @@ import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.serialization.kotlinx.json.json
+import dev.puklic.domain.GuildTextChannel
+import dev.puklic.session.SessionState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import java.nio.file.Paths
@@ -149,6 +156,10 @@ public class DependencyGraph private constructor(
                     .onFailure { ex -> Logger.w(LOG_TAG, ex) { "Auto-restore failed" } }
             }
 
+            if (System.getProperty("puklic.dev.autotest") == "true") {
+                applicationScope.launch { runAutoTest(sessionManager) }
+            }
+
             return DependencyGraph(
                 applicationScope = applicationScope,
                 platformPaths = paths,
@@ -187,7 +198,7 @@ public class DependencyGraph private constructor(
             val sessionBridge = DiscordSessionBridge(rest)
 
             val gatewayEventSource = GatewayEventSourceAdapter(gatewayBridge, sessionScope)
-            val messageGateway = MessageGatewayAdapter(messageBridge)
+            val messageGateway = MessageGatewayAdapter(messageBridge, channelStore)
 
             val messageOrchestrator = MessageOrchestrator(
                 sessionScope = sessionScope,
@@ -241,6 +252,41 @@ public class DependencyGraph private constructor(
                 transport = transport,
                 orchestrators = orchestrators,
             )
+        }
+
+        @Suppress("MagicNumber", "NestedBlockDepth")
+        private suspend fun runAutoTest(sessionManager: SessionManager) {
+            Logger.i(LOG_TAG) { "auto-test: waiting for active session" }
+            val session = sessionManager.activeSession.filterNotNull().first()
+            Logger.i(LOG_TAG) { "auto-test: session present, awaiting Connected" }
+            session.state.filterIsInstance<SessionState.Connected>().first()
+            val orch = session.orchestrators ?: run {
+                Logger.w(LOG_TAG) { "auto-test: orchestrators null, abort" }
+                return
+            }
+            Logger.i(LOG_TAG) { "auto-test: connected, awaiting guilds" }
+            val guild = orch.guild.guilds.filter { it.isNotEmpty() }.first().first()
+            Logger.i(LOG_TAG) { "auto-test: guild id=${guild.id.value}; subscribing + awaiting channels" }
+            // Fire OP14 / OP37 subscribe for this guild — same as MainViewModel.selectGuild
+            val channels = orch.channel
+                .channelsForGuild(guild.id)
+                .filter { it.isNotEmpty() }
+                .first()
+            val firstText = channels.filterIsInstance<GuildTextChannel>().sortedBy { it.position }.firstOrNull()
+            if (firstText == null) {
+                Logger.w(LOG_TAG) { "auto-test: no GuildTextChannel found in guild ${guild.id.value}" }
+                return
+            }
+            Logger.i(LOG_TAG) {
+                "auto-test: selected guild=${guild.id.value} channel=${firstText.id.value}"
+            }
+            session.transport.lazyRequestGuild(guild.id, listOf(firstText.id))
+            delay(1500L)
+            Logger.i(LOG_TAG) { "auto-test: triggering loadInitial" }
+            val result = orch.messages.loadInitial(firstText.id)
+            Logger.i(LOG_TAG) {
+                "auto-test: loadInitial done success=${result.isSuccess} value=${result.getOrNull()} err=${result.exceptionOrNull()?.message}"
+            }
         }
 
         private fun detectMac(): Boolean {

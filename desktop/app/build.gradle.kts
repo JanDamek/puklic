@@ -45,3 +45,13 @@ compose.desktop {
         }
     }
 }
+
+// Forward selected -D system properties from the Gradle JVM to the application JVM so
+// `./gradlew :desktop:app:run -Dpuklic.dev.autotest=true` actually reaches Main. Compose
+// Desktop's `run` task does not propagate -D values by default.
+tasks.withType<JavaExec>().configureEach {
+    listOf("puklic.dev.autotest").forEach { key ->
+        val value = System.getProperty(key)
+        if (value != null) systemProperty(key, value)
+    }
+}

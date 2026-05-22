@@ -35,6 +35,8 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.serializer
+import kotlin.io.encoding.Base64
+import kotlin.io.encoding.ExperimentalEncodingApi
 
 private const val BASE_URL = "https://discord.com/api/v10"
 private const val MAX_RETRIES = 3
@@ -78,14 +80,16 @@ public class DiscordRestClient(
         limit: Int = MESSAGE_LIMIT_DEFAULT,
         before: MessageId? = null,
         after: MessageId? = null,
+        guildId: GuildId? = null,
     ): Result<List<DiscordMessageDto>> = runCatching {
         val url = "$baseUrl/channels/${channelId.value}/messages"
         Logger.i(REST_TAG) {
-            "getMessages url=$url limit=$limit before=${before?.value} after=${after?.value}"
+            "getMessages url=$url limit=$limit before=${before?.value} after=${after?.value} guild=${guildId?.value}"
         }
         executeWithRetry {
             httpClient.get(url) {
                 applyAuth()
+                applyChannelContextProperties(channelId, guildId)
                 parameter("limit", limit)
                 before?.let { parameter("before", it.value.toString()) }
                 after?.let { parameter("after", it.value.toString()) }
@@ -284,6 +288,35 @@ public class DiscordRestClient(
             append("X-Debug-Options", "bugReporterEnabled")
             append(HttpHeaders.Referrer, "https://discord.com/channels/@me")
         }
+    }
+
+    /**
+     * Discord's official desktop client sends an `X-Context-Properties` header on channel reads
+     * declaring the in-app "location" of the user. Without it, some guild text channels return
+     * 50001 Missing Access even when the token has read permission. Body shape per Discord web
+     * client reverse-engineering: `{ "location": "Guild Channel List", "location_guild_id":...,
+     * "location_channel_id":..., "location_channel_type": 0 }`. For DM channels (no guildId) we
+     * fall back to `{ "location": "Channel" }`.
+     */
+    @OptIn(ExperimentalEncodingApi::class)
+    private fun io.ktor.client.request.HttpRequestBuilder.applyChannelContextProperties(
+        channelId: ChannelId,
+        guildId: GuildId?,
+    ) {
+        val json = if (guildId != null) {
+            buildJsonObject {
+                put("location", "Guild Channel List")
+                put("location_guild_id", guildId.value.toString())
+                put("location_channel_id", channelId.value.toString())
+                put("location_channel_type", 0)
+            }
+        } else {
+            buildJsonObject { put("location", "Channel") }
+        }
+        val encoded = Base64.encode(
+            DiscordJson.encodeToString(JsonElement.serializer(), json).encodeToByteArray(),
+        )
+        headers { append("X-Context-Properties", encoded) }
     }
 
     private fun HttpStatusCode.isSuccess(): Boolean = value in SUCCESS_RANGE

@@ -445,8 +445,10 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
     public suspend fun loadInitial(
         channelId: ChannelId,
         limit: Int,
+        guildId: GuildId? = null,
     ): Result<List<ChatMessage>> =
-        rest.getMessages(channelId, limit = limit, before = null).map { list -> list.map { it.toDomain() } }
+        rest.getMessages(channelId, limit = limit, before = null, guildId = guildId)
+            .map { list -> list.map { it.toDomain() } }
 }
 
 /**
