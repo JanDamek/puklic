@@ -8,8 +8,12 @@ import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.GuildId
 import dev.puklic.persistence.repository.ChannelRepository
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.EmptyCoroutineContext
 
 private const val CHANNEL_ORCH_TAG = "ChannelOrchestrator"
 
@@ -21,7 +25,12 @@ public class ChannelOrchestrator(
     private val sessionScope: CoroutineScope,
     private val gatewaySource: GatewayEventSource,
     private val storage: ChannelRepository,
+    persistenceContext: CoroutineContext = EmptyCoroutineContext,
 ) {
+    // Use a SupervisorJob so a failure in one child collector does not cancel siblings
+    // (or the parent session scope). Persistence runs on [persistenceContext] (default
+    // is the inherited dispatcher; production wiring should pass Dispatchers.IO).
+    private val collectContext: CoroutineContext = SupervisorJob() + persistenceContext
     /** Reactive channel list for [guildId], backed by SQLite. */
     public fun channelsForGuild(guildId: GuildId): Flow<List<Channel>> =
         kotlinx.coroutines.flow.flow {
@@ -42,13 +51,30 @@ public class ChannelOrchestrator(
     private val perGuildPersisted: MutableMap<Long, Int> = mutableMapOf()
 
     init {
-        sessionScope.launch {
+        sessionScope.launch(collectContext) {
             gatewaySource.events.collect { event ->
-                when (event) {
-                    is GatewayDomainEvent.ChannelCreated -> handleChannelArrival(event.channel, isCreate = true)
-                    is GatewayDomainEvent.ChannelUpdated -> handleChannelArrival(event.channel, isCreate = false)
-                    is GatewayDomainEvent.ChannelDeleted -> storage.delete(event.channelId)
-                    else -> Unit
+                // Per-event try/catch: any failure mapping/persisting a single event MUST NOT
+                // tear down the collect block, otherwise we lose every subsequent event. The
+                // observed live-bug was the collector dying after 100 events (Unicorn/Junie
+                // channels never reaching SQLite). CancellationException is rethrown so the
+                // session scope can still cancel us cleanly.
+                try {
+                    when (event) {
+                        is GatewayDomainEvent.ChannelCreated ->
+                            handleChannelArrival(event.channel, isCreate = true)
+                        is GatewayDomainEvent.ChannelUpdated ->
+                            handleChannelArrival(event.channel, isCreate = false)
+                        is GatewayDomainEvent.ChannelDeleted -> storage.delete(event.channelId)
+                        else -> Unit
+                    }
+                } catch (ce: CancellationException) {
+                    throw ce
+                } catch (t: Throwable) {
+                    Logger.w(CHANNEL_ORCH_TAG) {
+                        "channel orchestrator: event handler FAILED but collector kept alive " +
+                            "event=${event::class.simpleName} " +
+                            "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                    }
                 }
             }
         }

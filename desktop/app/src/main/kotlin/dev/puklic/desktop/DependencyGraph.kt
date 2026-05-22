@@ -209,7 +209,12 @@ public class DependencyGraph private constructor(
                 nowEpochSeconds = { Clock.System.now().epochSeconds },
             )
             val guildOrch = GuildOrchestrator(sessionScope, gatewayEventSource, guildStore)
-            val channelOrch = ChannelOrchestrator(sessionScope, gatewayEventSource, channelStore)
+            val channelOrch = ChannelOrchestrator(
+                sessionScope = sessionScope,
+                gatewaySource = gatewayEventSource,
+                storage = channelStore,
+                persistenceContext = kotlinx.coroutines.Dispatchers.IO,
+            )
             val userOrch = UserOrchestrator(sessionScope, gatewayEventSource, userStore)
             val dmListOrch = dev.puklic.repositories.DmListOrchestrator(sessionScope, gatewayEventSource)
             val orchestrators = Orchestrators(

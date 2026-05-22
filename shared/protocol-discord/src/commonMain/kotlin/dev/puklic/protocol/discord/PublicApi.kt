@@ -25,6 +25,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -248,14 +249,28 @@ public class DiscordGatewayBridge(
         }
         // DM + Group-DM channels live under `private_channels`. They have no guild_id; the
         // DiscordChannelDto -> DmChannel mapper already handles this when type ∈ {1, 3}.
+        //
+        // User-mode READY puts only `recipient_ids` on each private_channel; the actual user
+        // records live in a top-level `users` array. Decode that into a lookup map first,
+        // then for each private_channel rewrite the JSON to inject the resolved `recipients`
+        // before decoding the DTO (so the existing mapper continues to work uniformly).
+        val usersById: Map<String, JsonElement> = (obj["users"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { el ->
+                val userObj = el as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+                val uid = userObj["id"]?.jsonPrimitive?.contentOrNull ?: return@mapNotNull null
+                uid to el
+            }?.toMap().orEmpty()
+        Logger.i(BRIDGE_TAG) { "bridge: READY top-level users.size=${usersById.size}" }
+
         val privateChannels = obj["private_channels"] as? kotlinx.serialization.json.JsonArray
         if (privateChannels != null) {
             Logger.i(BRIDGE_TAG) { "bridge: READY private_channels size=${privateChannels.size}" }
             for ((index, dmElement) in privateChannels.withIndex()) {
+                val enriched = enrichPrivateChannelWithRecipients(dmElement, usersById)
                 val dto = runCatching {
                     DiscordJson.decodeFromJsonElement(
                         dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
-                        dmElement,
+                        enriched,
                     )
                 }.onFailure { t ->
                     Logger.i(BRIDGE_TAG) {
@@ -265,7 +280,8 @@ public class DiscordGatewayBridge(
                 }.getOrNull() ?: continue
                 Logger.i(BRIDGE_TAG) {
                     "bridge: READY private_channels[$index] decoded type=${dto.type} " +
-                        "id=${dto.id} recipients=${dto.recipients.size}"
+                        "id=${dto.id} recipients=${dto.recipients.size} " +
+                        "recipient_ids=${dto.recipientIds.size}"
                 }
                 val channel = dto.toDomain()
                 if (channel == null) {
@@ -278,6 +294,36 @@ public class DiscordGatewayBridge(
             }
         }
         return events
+    }
+
+    /**
+     * If a private-channel JSON object exposes `recipient_ids` but an empty `recipients` array
+     * (user-mode READY shape), rewrite it to inject the resolved full user records from the
+     * top-level `users` lookup. Channels that already carry `recipients` are returned as-is.
+     */
+    private fun enrichPrivateChannelWithRecipients(
+        dmElement: JsonElement,
+        usersById: Map<String, JsonElement>,
+    ): JsonElement {
+        val dmObj = dmElement as? kotlinx.serialization.json.JsonObject ?: return dmElement
+        val existingRecipients = dmObj["recipients"] as? kotlinx.serialization.json.JsonArray
+        if (existingRecipients != null && existingRecipients.isNotEmpty()) return dmElement
+        val recipientIds = dmObj["recipient_ids"] as? kotlinx.serialization.json.JsonArray
+            ?: return dmElement
+        if (recipientIds.isEmpty()) return dmElement
+        if (usersById.isEmpty()) return dmElement
+        val resolved = kotlinx.serialization.json.buildJsonArray {
+            for (idEl in recipientIds) {
+                val uid = (idEl as? JsonPrimitive)?.content ?: continue
+                val userEl = usersById[uid] ?: continue
+                add(userEl)
+            }
+        }
+        if (resolved.isEmpty()) return dmElement
+        return kotlinx.serialization.json.buildJsonObject {
+            dmObj.forEach { (k, v) -> put(k, v) }
+            put("recipients", resolved)
+        }
     }
 
     /**
