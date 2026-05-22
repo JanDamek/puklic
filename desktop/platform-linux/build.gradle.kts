@@ -4,9 +4,7 @@ plugins {
 
 dependencies {
     implementation(projects.shared.platformApi)
-    implementation(libs.jna)
-    implementation(libs.jna.platform)
-    implementation(libs.dbus.java.core)
+    implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kermit)
     testImplementation(libs.kotest.assertions.core)
     testImplementation(libs.kotest.runner.junit5)

@@ -44,6 +44,49 @@ Known XWayland limitations:
 
 Alternative to jpackage — JetBrains-friendly, standalone auto-update mechanism. Evaluation deferred.
 
+## Phase 1 actuals — `:desktop:platform-linux`
+
+Phase 1 implementation deliberately avoids JNA / native FFI. All OS integrations
+shell out to standard CLI tools via `ProcessBuilder` (exec form, no shell). Trade-off:
+~20–50 ms per call (acceptable for token retrieve at startup; not used in hot paths).
+
+| Interface                | Backend (Phase 1) | Required package |
+|---|---|---|
+| `SecureStorage`          | `secret-tool` (libsecret CLI) | `libsecret-tools` (Debian/Ubuntu) / `libsecret` (Fedora) |
+| `NotificationService`    | `notify-send` (libnotify) | `libnotify-bin` / `libnotify` |
+| `PlatformOpen`           | `xdg-open` | `xdg-utils` |
+| `PlatformClipboard`      | `wl-copy` / `wl-paste` (Wayland), `xclip` fallback (X11) | `wl-clipboard` / `xclip` |
+| `PlatformPaths`          | Pure JVM (`File`), XDG-aware | — |
+| `TrayService` / `PlatformPresence` / `PlatformAutoStart` | Phase 1 stubs | Phase 2 |
+
+If a CLI is missing the implementation throws `PlatformUnavailable` with the install hint.
+
+### Manual smoke procedure (Linux dev box)
+
+```kotlin
+import dev.puklic.platform.Notification
+import dev.puklic.platform.linux.*
+import kotlinx.coroutines.runBlocking
+
+fun main() = runBlocking {
+    val s = LinuxSecureStorage(serviceName = "puklic-smoke")
+    s.put("test-token", "abc123")
+    check(s.get("test-token") == "abc123")
+    s.remove("test-token")
+
+    LinuxNotificationService().show(
+        Notification("Puklic", "Smoke OK", null, emptyList(), null, false)
+    )
+
+    val clip = LinuxPlatformClipboard()
+    clip.setText("hello from puklic")
+    println(clip.getText())
+}
+```
+
+Phase 2 will swap shell-out for direct D-Bus + libsecret JNA bindings where the
+extra latency or feature gap (notification actions, tray icon, idle detection) matters.
+
 ## System dependencies
 
 | Lib | Purpose | Optional? |
