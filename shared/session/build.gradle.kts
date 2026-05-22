@@ -5,6 +5,8 @@ plugins {
 kotlin {
     sourceSets {
         commonMain.dependencies {
+            implementation(projects.shared.domain)
+            implementation(projects.shared.ids)
             implementation(projects.shared.protocolDiscord)
             implementation(projects.shared.repositories)
             implementation(projects.shared.platformApi)
