@@ -194,6 +194,7 @@ public class DependencyGraph private constructor(
                 gatewaySource = gatewayEventSource,
                 messageGateway = messageGateway,
                 storage = messageStore,
+                userStorage = userStore,
                 outboundQueue = outboundQueue,
             )
             val outboundWorker = OutboundMessageWorker(

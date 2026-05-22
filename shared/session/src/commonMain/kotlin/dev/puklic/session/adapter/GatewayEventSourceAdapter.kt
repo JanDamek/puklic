@@ -81,7 +81,7 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.ChannelUpdated -> GatewayDomainEvent.ChannelUpdated(ev.channel)
         is DiscordDomainEvent.ChannelDeleted -> GatewayDomainEvent.ChannelDeleted(ev.channelId)
         is DiscordDomainEvent.UserUpdated -> GatewayDomainEvent.UserUpdated(ev.user)
-        is DiscordDomainEvent.Ready -> GatewayDomainEvent.Ready(ev.selfUser, ev.sessionId)
+        is DiscordDomainEvent.Ready -> GatewayDomainEvent.Ready(ev.selfUser, ev.sessionId, ev.users)
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {

@@ -138,6 +138,27 @@ class UserOrchestratorTest {
     }
 
     @Test
+    fun ready_event_persists_top_level_users_array() = runTest {
+        val gw = FakeGatewayEventSource()
+        val storage = FakeUserRepository()
+        val job = Job()
+        val scope = CoroutineScope(coroutineContext + job)
+        UserOrchestrator(scope, gw, storage)
+        testScheduler.runCurrent()
+
+        val bulk = listOf(user(2L, "alice"), user(3L, "bob"), user(1L, "me-dup"))
+        gw.emit(GatewayDomainEvent.Ready(selfUser = user(1L, "me"), sessionId = "sess", users = bulk))
+        testScheduler.runCurrent()
+
+        storage.findById(UserId(1L))?.username shouldBe "me"
+        storage.findById(UserId(2L))?.username shouldBe "alice"
+        storage.findById(UserId(3L))?.username shouldBe "bob"
+        // self user not duplicated via persistAll
+        storage.persistedAll.flatten().none { it.id == UserId(1L) } shouldBe true
+        job.cancel()
+    }
+
+    @Test
     fun user_updated_event_refreshes_self_user_when_id_matches() = runTest {
         val gw = FakeGatewayEventSource()
         val storage = FakeUserRepository()

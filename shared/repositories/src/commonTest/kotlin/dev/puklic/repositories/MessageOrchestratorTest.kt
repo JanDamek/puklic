@@ -20,6 +20,7 @@ class MessageOrchestratorTest {
     private data class Bundle(
         val orchestrator: MessageOrchestrator,
         val storage: FakeMessageStorage,
+        val users: FakeUserRepository,
         val queue: FakeOutboundQueue,
         val gateway: FakeGatewayEventSource,
         val rest: FakeMessageGateway,
@@ -30,6 +31,7 @@ class MessageOrchestratorTest {
 
     private fun setup(scope: TestScope): Bundle {
         val storage = FakeMessageStorage()
+        val users = FakeUserRepository()
         val queue = FakeOutboundQueue()
         val gateway = FakeGatewayEventSource()
         val rest = FakeMessageGateway()
@@ -40,12 +42,13 @@ class MessageOrchestratorTest {
             gatewaySource = gateway,
             messageGateway = rest,
             storage = storage,
+            userStorage = users,
             outboundQueue = queue,
             nonceGenerator = { "fixed-nonce" },
             nowProvider = { Instant.fromEpochMilliseconds(123L) },
         )
         scope.testScheduler.runCurrent()
-        return Bundle(orchestrator, storage, queue, gateway, rest, job)
+        return Bundle(orchestrator, storage, users, queue, gateway, rest, job)
     }
 
     @Test
@@ -65,6 +68,30 @@ class MessageOrchestratorTest {
         s.gateway.emit(GatewayDomainEvent.MessageCreated(message(id = 5L, channelId = channelA, ts = 500L)))
         testScheduler.runCurrent()
         s.storage.findById(MessageId(5L))?.id?.value shouldBe 5L
+        s.cleanup()
+    }
+
+    @Test
+    fun gateway_message_created_upserts_author_before_persisting_message() = runTest {
+        val s = setup(this)
+        // Author id 77 is not present in users storage; the orchestrator must upsert it
+        // before persisting the message so SQLite FK message.author_id -> users.id holds.
+        val msg = message(id = 8L, channelId = channelA, ts = 1L, authorId = 77L)
+        s.gateway.emit(GatewayDomainEvent.MessageCreated(msg))
+        testScheduler.runCurrent()
+        s.users.findById(dev.puklic.ids.UserId(77L))?.id?.value shouldBe 77L
+        s.storage.findById(MessageId(8L))?.author?.id?.value shouldBe 77L
+        s.cleanup()
+    }
+
+    @Test
+    fun gateway_message_updated_upserts_author_before_persisting_message() = runTest {
+        val s = setup(this)
+        val msg = message(id = 9L, channelId = channelA, ts = 2L, authorId = 88L, content = "edited")
+        s.gateway.emit(GatewayDomainEvent.MessageUpdated(msg))
+        testScheduler.runCurrent()
+        s.users.findById(dev.puklic.ids.UserId(88L))?.id?.value shouldBe 88L
+        s.storage.findById(MessageId(9L))?.rawContent shouldBe "edited"
         s.cleanup()
     }
 

@@ -40,7 +40,11 @@ public sealed interface GatewayDomainEvent {
     public data class ChannelUpdated(val channel: Channel) : GatewayDomainEvent
     public data class ChannelDeleted(val channelId: ChannelId) : GatewayDomainEvent
     public data class UserUpdated(val user: UserSummary) : GatewayDomainEvent
-    public data class Ready(val selfUser: UserSummary, val sessionId: String) : GatewayDomainEvent
+    public data class Ready(
+        val selfUser: UserSummary,
+        val sessionId: String,
+        val users: List<UserSummary> = emptyList(),
+    ) : GatewayDomainEvent
 }
 
 /** Source of domain-level gateway events. Wraps the protocol-discord SharedFlow. */

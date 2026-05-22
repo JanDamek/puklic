@@ -67,7 +67,11 @@ public sealed interface DiscordDomainEvent {
     public data class ChannelUpdated(val channel: Channel) : DiscordDomainEvent
     public data class ChannelDeleted(val channelId: ChannelId) : DiscordDomainEvent
     public data class UserUpdated(val user: UserSummary) : DiscordDomainEvent
-    public data class Ready(val selfUser: UserSummary, val sessionId: String) : DiscordDomainEvent
+    public data class Ready(
+        val selfUser: UserSummary,
+        val sessionId: String,
+        val users: List<UserSummary> = emptyList(),
+    ) : DiscordDomainEvent
 }
 
 /**
@@ -239,7 +243,20 @@ public class DiscordGatewayBridge(
             DiscordUserDto.serializer(),
             obj.getValue("user"),
         ).toDomain()
-        val events = mutableListOf<DiscordDomainEvent>(DiscordDomainEvent.Ready(self, sessionId))
+        // Extract the top-level READY `users` array (user-mode payload). Each entry is a full
+        // user record referenced by DMs / messages / mentions; persisting these up-front avoids
+        // FK violations on subsequent MESSAGE_CREATE (author_id -> users.id).
+        val readyUsers: List<UserSummary> = (obj["users"] as? kotlinx.serialization.json.JsonArray)
+            ?.mapNotNull { el ->
+                runCatching {
+                    DiscordJson.decodeFromJsonElement(DiscordUserDto.serializer(), el).toDomain()
+                }.getOrNull()
+            }
+            .orEmpty()
+        Logger.i(BRIDGE_TAG) { "bridge: READY parsed users.size=${readyUsers.size}" }
+        val events = mutableListOf<DiscordDomainEvent>(
+            DiscordDomainEvent.Ready(self, sessionId, readyUsers),
+        )
         val guildsArray = obj["guilds"]?.let { it as? kotlinx.serialization.json.JsonArray } ?: return events
         for ((index, guildElement) in guildsArray.withIndex()) {
             val dto = runCatching {

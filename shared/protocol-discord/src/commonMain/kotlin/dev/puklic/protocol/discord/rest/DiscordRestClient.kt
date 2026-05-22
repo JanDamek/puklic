@@ -27,6 +27,7 @@ import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
+import co.touchlab.kermit.Logger
 import kotlinx.coroutines.delay
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
@@ -39,6 +40,8 @@ private const val BASE_URL = "https://discord.com/api/v10"
 private const val MAX_RETRIES = 3
 private const val INITIAL_BACKOFF_MS = 1_000L
 private const val MESSAGE_LIMIT_DEFAULT = 50
+private const val REST_TAG = "DiscordRestClient"
+private const val LOG_BODY_PREVIEW = 256
 
 /**
  * Thin REST client over Discord API v10. Stateless wrt rate limits beyond honoring
@@ -76,12 +79,27 @@ public class DiscordRestClient(
         before: MessageId? = null,
         after: MessageId? = null,
     ): Result<List<DiscordMessageDto>> = runCatching {
+        val url = "$baseUrl/channels/${channelId.value}/messages"
+        Logger.i(REST_TAG) {
+            "getMessages url=$url limit=$limit before=${before?.value} after=${after?.value}"
+        }
         executeWithRetry {
-            httpClient.get("$baseUrl/channels/${channelId.value}/messages") {
+            httpClient.get(url) {
                 applyAuth()
                 parameter("limit", limit)
                 before?.let { parameter("before", it.value.toString()) }
                 after?.let { parameter("after", it.value.toString()) }
+            }
+        }.also { response ->
+            if (!response.status.isSuccess()) {
+                val preview = runCatching { response.bodyAsText().take(LOG_BODY_PREVIEW) }.getOrNull()
+                Logger.w(REST_TAG) {
+                    "getMessages non-OK status=${response.status.value} channel=${channelId.value} body=$preview"
+                }
+            } else {
+                Logger.i(REST_TAG) {
+                    "getMessages ok status=${response.status.value} channel=${channelId.value}"
+                }
             }
         }
     }.fold(

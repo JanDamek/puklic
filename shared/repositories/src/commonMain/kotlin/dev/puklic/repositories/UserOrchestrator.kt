@@ -33,7 +33,18 @@ public class UserOrchestrator(
                 when (event) {
                     is GatewayDomainEvent.Ready -> {
                         _selfUser.value = event.selfUser
+                        // Persist self first (cheap) and the bulk top-level READY users array.
+                        // De-dup the self entry — bulk users array typically contains it too.
                         storage.persist(event.selfUser)
+                        if (event.users.isNotEmpty()) {
+                            val others = event.users.filter { it.id != event.selfUser.id }
+                            if (others.isNotEmpty()) {
+                                storage.persistAll(others)
+                                Logger.i(USER_ORCH_TAG) {
+                                    "user orchestrator: persisted ${others.size} users from Ready"
+                                }
+                            }
+                        }
                     }
                     is GatewayDomainEvent.UserUpdated -> {
                         storage.persist(event.user)

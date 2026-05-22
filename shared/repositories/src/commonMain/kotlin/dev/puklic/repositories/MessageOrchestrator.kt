@@ -6,6 +6,7 @@ import dev.puklic.ids.MessageId
 import dev.puklic.persistence.repository.MessageRepository
 import dev.puklic.persistence.repository.OutboundQueue
 import dev.puklic.persistence.repository.OutboundMessageRecord
+import dev.puklic.persistence.repository.UserRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import co.touchlab.kermit.Logger
@@ -42,6 +43,7 @@ public class MessageOrchestrator(
     private val gatewaySource: GatewayEventSource,
     private val messageGateway: MessageGateway,
     private val storage: MessageRepository,
+    private val userStorage: UserRepository,
     private val outboundQueue: OutboundQueue,
     private val nonceGenerator: () -> String = { defaultNonce() },
     private val nowProvider: () -> Instant = { Clock.System.now() },
@@ -53,8 +55,8 @@ public class MessageOrchestrator(
             .filterIsInstance<GatewayDomainEvent>()
             .onEach { event ->
                 when (event) {
-                    is GatewayDomainEvent.MessageCreated -> storage.persist(event.message)
-                    is GatewayDomainEvent.MessageUpdated -> storage.persist(event.message)
+                    is GatewayDomainEvent.MessageCreated -> persistWithAuthor(event.message)
+                    is GatewayDomainEvent.MessageUpdated -> persistWithAuthor(event.message)
                     is GatewayDomainEvent.MessageDeleted -> storage.delete(event.messageId)
                     else -> Unit
                 }
@@ -66,6 +68,16 @@ public class MessageOrchestrator(
                 }
             }
             .launchIn(sessionScope)
+    }
+
+    /**
+     * Persist [message] after ensuring its author exists in the users table. The DB schema
+     * declares `message.author_id` as FK -> users.id; without this upsert MESSAGE_CREATE events
+     * for previously unseen authors fail with SQLITE_CONSTRAINT_FOREIGNKEY.
+     */
+    private suspend fun persistWithAuthor(message: dev.puklic.domain.ChatMessage) {
+        userStorage.persist(message.author)
+        storage.persist(message)
     }
 
     /** Promote [channelId] to the hot slot. */
