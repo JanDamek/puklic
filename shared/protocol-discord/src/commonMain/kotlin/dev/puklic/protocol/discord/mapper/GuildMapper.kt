@@ -17,10 +17,23 @@ private const val CHANNEL_TYPE_DM = 1
 private const val CHANNEL_TYPE_GROUP_DM = 3
 private const val CHANNEL_TYPE_GUILD_CATEGORY = 4
 
+/** Returns null when the DTO is an "unavailable guild" stub (no name) — caller skips it. */
+internal fun DiscordGuildDto.toDomainOrNull(): Guild? {
+    val resolvedName = name ?: return null
+    return Guild(
+        id = GuildId(id.toLong()),
+        name = resolvedName,
+        iconHash = icon,
+        ownerId = UserId((ownerId ?: "0").toLong()),
+        features = features.mapNotNull(::parseGuildFeature).toSet(),
+        memberCount = memberCount,
+    )
+}
+
 internal fun DiscordGuildDto.toDomain(): Guild =
     Guild(
         id = GuildId(id.toLong()),
-        name = name,
+        name = name ?: "",
         iconHash = icon,
         ownerId = UserId((ownerId ?: "0").toLong()),
         features = features.mapNotNull(::parseGuildFeature).toSet(),

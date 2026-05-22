@@ -13,6 +13,7 @@ import dev.puklic.protocol.discord.dto.DiscordUserDto
 import dev.puklic.protocol.discord.gateway.GatewayConnection
 import dev.puklic.protocol.discord.gateway.GatewayDispatchEvent
 import dev.puklic.protocol.discord.mapper.toDomain
+import dev.puklic.protocol.discord.mapper.toDomainOrNull
 import dev.puklic.protocol.discord.rest.DiscordRestClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -81,89 +82,138 @@ public class DiscordGatewayBridge(
     init {
         scope.launch {
             gateway.events.collect { dispatch ->
-                val mapped = mapDispatch(dispatch, onUnknown) ?: return@collect
-                _events.tryEmit(mapped)
+                val mapped = mapDispatch(dispatch, onUnknown)
+                mapped.forEach { _events.tryEmit(it) }
             }
         }
     }
 
-    private fun mapDispatch(event: GatewayDispatchEvent, onUnknown: (String) -> Unit): DiscordDomainEvent? {
+    @Suppress("LongMethod", "CyclomaticComplexMethod")
+    private fun mapDispatch(event: GatewayDispatchEvent, onUnknown: (String) -> Unit): List<DiscordDomainEvent> {
         val payload = event.payload
         return runCatching {
             when (event.type) {
-                "MESSAGE_CREATE" -> DiscordDomainEvent.MessageCreated(
+                "MESSAGE_CREATE" -> listOf(DiscordDomainEvent.MessageCreated(
                     DiscordJson.decodeFromJsonElement(DiscordMessageDto.serializer(), payload).toDomain(),
-                )
-                "MESSAGE_UPDATE" -> DiscordDomainEvent.MessageUpdated(
+                ))
+                "MESSAGE_UPDATE" -> listOf(DiscordDomainEvent.MessageUpdated(
                     DiscordJson.decodeFromJsonElement(DiscordMessageDto.serializer(), payload).toDomain(),
-                )
+                ))
                 "MESSAGE_DELETE" -> {
                     val obj = payload.jsonObject
-                    DiscordDomainEvent.MessageDeleted(
+                    listOf(DiscordDomainEvent.MessageDeleted(
                         channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
                         messageId = MessageId(obj.getValue("id").jsonPrimitive.content.toLong()),
-                    )
+                    ))
                 }
                 "PRESENCE_UPDATE" -> {
                     val obj = payload.jsonObject
                     val userObj = obj.getValue("user").jsonObject
                     val userId = UserId(userObj.getValue("id").jsonPrimitive.content.toLong())
                     val status = obj["status"]?.jsonPrimitive?.content ?: "offline"
-                    DiscordDomainEvent.PresenceUpdated(userId, status)
+                    listOf(DiscordDomainEvent.PresenceUpdated(userId, status))
                 }
                 "TYPING_START" -> {
                     val obj = payload.jsonObject
-                    DiscordDomainEvent.TypingStarted(
+                    listOf(DiscordDomainEvent.TypingStarted(
                         channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
                         userId = UserId(obj.getValue("user_id").jsonPrimitive.content.toLong()),
                         timestampEpochSeconds = obj["timestamp"]?.jsonPrimitive?.content?.toLongOrNull() ?: 0L,
-                    )
+                    ))
                 }
                 "GUILD_CREATE", "GUILD_UPDATE" -> {
-                    val guild = DiscordJson.decodeFromJsonElement(
+                    val dto = DiscordJson.decodeFromJsonElement(
                         dev.puklic.protocol.discord.dto.DiscordGuildDto.serializer(),
                         payload,
-                    ).toDomain()
-                    if (event.type == "GUILD_CREATE") DiscordDomainEvent.GuildCreated(guild)
+                    )
+                    val guild = dto.toDomainOrNull() ?: return@runCatching emptyList()
+                    val guildEvent = if (event.type == "GUILD_CREATE") DiscordDomainEvent.GuildCreated(guild)
                     else DiscordDomainEvent.GuildUpdated(guild)
+                    listOf<DiscordDomainEvent>(guildEvent) + extractGuildChannels(payload, guild.id.value)
                 }
                 "GUILD_DELETE" -> {
                     val id = payload.jsonObject.getValue("id").jsonPrimitive.content.toLong()
-                    DiscordDomainEvent.GuildDeleted(GuildId(id))
+                    listOf(DiscordDomainEvent.GuildDeleted(GuildId(id)))
                 }
                 "CHANNEL_CREATE", "CHANNEL_UPDATE" -> {
                     val channel = DiscordJson.decodeFromJsonElement(
                         dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
                         payload,
-                    ).toDomain() ?: return@runCatching null
-                    if (event.type == "CHANNEL_CREATE") DiscordDomainEvent.ChannelCreated(channel)
+                    ).toDomain() ?: return@runCatching emptyList()
+                    val ev = if (event.type == "CHANNEL_CREATE") DiscordDomainEvent.ChannelCreated(channel)
                     else DiscordDomainEvent.ChannelUpdated(channel)
+                    listOf(ev)
                 }
                 "CHANNEL_DELETE" -> {
                     val id = payload.jsonObject.getValue("id").jsonPrimitive.content.toLong()
-                    DiscordDomainEvent.ChannelDeleted(ChannelId(id))
+                    listOf(DiscordDomainEvent.ChannelDeleted(ChannelId(id)))
                 }
-                "USER_UPDATE" -> DiscordDomainEvent.UserUpdated(
+                "USER_UPDATE" -> listOf(DiscordDomainEvent.UserUpdated(
                     DiscordJson.decodeFromJsonElement(DiscordUserDto.serializer(), payload).toDomain(),
-                )
-                "READY" -> {
-                    val obj = payload.jsonObject
-                    val sessionId = obj.getValue("session_id").jsonPrimitive.content
-                    val self = DiscordJson.decodeFromJsonElement(
-                        DiscordUserDto.serializer(),
-                        obj.getValue("user"),
-                    ).toDomain()
-                    DiscordDomainEvent.Ready(self, sessionId)
-                }
+                ))
+                "READY" -> mapReady(payload)
                 else -> {
                     onUnknown(event.type)
-                    null
+                    emptyList()
                 }
             }
         }.onFailure {
             // Malformed payload — drop silently so the gateway keeps flowing.
             onUnknown("${event.type}:decode-failed")
-        }.getOrNull()
+        }.getOrDefault(emptyList())
+    }
+
+    /**
+     * READY for user accounts ships the full initial guild list inline (per Discord's user-mode
+     * gateway). Bots receive empty/unavailable stubs in READY and full guild data in subsequent
+     * GUILD_CREATE events. To support both, we emit Ready + a GuildCreated for every guild with
+     * a non-null name (full payload) and skip unavailable stubs (name == null).
+     */
+    private fun mapReady(payload: JsonElement): List<DiscordDomainEvent> {
+        val obj = payload.jsonObject
+        val sessionId = obj.getValue("session_id").jsonPrimitive.content
+        val self = DiscordJson.decodeFromJsonElement(
+            DiscordUserDto.serializer(),
+            obj.getValue("user"),
+        ).toDomain()
+        val events = mutableListOf<DiscordDomainEvent>(DiscordDomainEvent.Ready(self, sessionId))
+        val guildsArray = obj["guilds"]?.let { it as? kotlinx.serialization.json.JsonArray } ?: return events
+        for (guildElement in guildsArray) {
+            val dto = runCatching {
+                DiscordJson.decodeFromJsonElement(
+                    dev.puklic.protocol.discord.dto.DiscordGuildDto.serializer(),
+                    guildElement,
+                )
+            }.getOrNull() ?: continue
+            val guild = dto.toDomainOrNull() ?: continue
+            events += DiscordDomainEvent.GuildCreated(guild)
+            events += extractGuildChannels(guildElement, guild.id.value)
+        }
+        return events
+    }
+
+    /**
+     * Extracts the `channels` array embedded in a GUILD_CREATE / READY-guild payload and maps
+     * each to a [DiscordDomainEvent.ChannelCreated]. Channels inside a guild payload do NOT have
+     * a `guild_id` field set; we inject it from the parent guild before decoding.
+     */
+    private fun extractGuildChannels(guildPayload: JsonElement, guildId: Long): List<DiscordDomainEvent> {
+        val channelsArray = (guildPayload as? kotlinx.serialization.json.JsonObject)
+            ?.get("channels") as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        return channelsArray.mapNotNull { channelElement ->
+            val channelObj = channelElement as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val withGuild = kotlinx.serialization.json.buildJsonObject {
+                channelObj.forEach { (k, v) -> put(k, v) }
+                put("guild_id", JsonPrimitive(guildId.toString()))
+            }
+            val channel = runCatching {
+                DiscordJson.decodeFromJsonElement(
+                    dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
+                    withGuild,
+                ).toDomain()
+            }.getOrNull() ?: return@mapNotNull null
+            DiscordDomainEvent.ChannelCreated(channel)
+        }
     }
 
     @Suppress("unused")

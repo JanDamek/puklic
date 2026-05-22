@@ -1,5 +1,6 @@
 package dev.puklic.repositories
 
+import co.touchlab.kermit.Logger
 import dev.puklic.domain.Guild
 import dev.puklic.persistence.repository.GuildRepository
 import kotlinx.coroutines.CoroutineScope
@@ -13,6 +14,8 @@ import kotlinx.coroutines.launch
  * Subscribes to [GatewayEventSource] guild lifecycle events and mirrors them into [storage].
  * Exposes a reactive [guilds] StateFlow backed by [GuildRepository.observeAll] for the UI.
  */
+private const val LOG_TAG = "GuildOrchestrator"
+
 public class GuildOrchestrator(
     private val sessionScope: CoroutineScope,
     private val gatewaySource: GatewayEventSource,
@@ -27,7 +30,10 @@ public class GuildOrchestrator(
         sessionScope.launch {
             gatewaySource.events.collect { event ->
                 when (event) {
-                    is GatewayDomainEvent.GuildCreated -> storage.persist(event.guild)
+                    is GatewayDomainEvent.GuildCreated -> {
+                        Logger.i(LOG_TAG) { "persist guild: id=${event.guild.id.value} name=${event.guild.name}" }
+                        storage.persist(event.guild)
+                    }
                     is GatewayDomainEvent.GuildUpdated -> storage.persist(event.guild)
                     is GatewayDomainEvent.GuildDeleted -> storage.delete(event.guildId)
                     else -> Unit
