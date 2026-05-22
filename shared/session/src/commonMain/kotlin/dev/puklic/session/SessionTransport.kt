@@ -1,6 +1,8 @@
 package dev.puklic.session
 
 import dev.puklic.domain.UserSummary
+import dev.puklic.ids.ChannelId
+import dev.puklic.ids.GuildId
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
@@ -40,4 +42,12 @@ public interface SessionTransport {
 
     /** Gateway lifecycle stream. */
     public val lifecycle: SharedFlow<GatewayLifecycleEvent>
+
+    /**
+     * Send OP 14 `lazy_guild_subscribe`. Used to unlock REST access (50001) for member-list-gated
+     * channels and to subscribe to GUILD_MEMBER_LIST_UPDATE events.
+     *
+     * Default no-op so test/fake implementations don't need to override.
+     */
+    public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) { Unit }
 }

@@ -32,7 +32,13 @@ public fun PuklicApp(root: RootComponent) {
                 RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
                 RouterState.Main -> {
                     val activeSession by root.sessionManager.activeSession.collectAsState()
-                    MainScreen(viewModel = MainViewModel(root, activeSession?.orchestrators))
+                    MainScreen(
+                        viewModel = MainViewModel(
+                            componentContext = root,
+                            orchestrators = activeSession?.orchestrators,
+                            sessionTransport = activeSession?.transport,
+                        ),
+                    )
                 }
             }
         }

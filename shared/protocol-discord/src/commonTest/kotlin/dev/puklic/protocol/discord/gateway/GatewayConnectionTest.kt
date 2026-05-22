@@ -107,6 +107,34 @@ class GatewayConnectionTest {
     }
 
     @Test
+    fun lazy_request_guild_emits_op14_with_expected_shape() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val gw = newGateway(transport)
+        gw.connect("wss://test")
+
+        // Bring the gateway up to IDENTIFY so activeTransport is bound.
+        transport.deliver(GatewayFrameIn.Text("""{"op":10,"d":{"heartbeat_interval":45000}}"""))
+        waitFor { transport.sent.isNotEmpty() } // IDENTIFY frame sent
+
+        val before = transport.sent.size
+        gw.lazyRequestGuild(
+            guildId = dev.puklic.ids.GuildId(42L),
+            channelIds = listOf(dev.puklic.ids.ChannelId(7L), dev.puklic.ids.ChannelId(9L)),
+        )
+        waitFor { transport.sent.size > before }
+        val frame = transport.sent.last()
+        // Op 14 + d shape: guild_id string, channels map keyed by channel id strings, range [0,99].
+        assertTrue(frame.contains("\"op\":14"), "expected op:14 frame, got: $frame")
+        assertTrue(frame.contains("\"guild_id\":\"42\""), frame)
+        assertTrue(frame.contains("\"typing\":true"), frame)
+        assertTrue(frame.contains("\"threads\":true"), frame)
+        assertTrue(frame.contains("\"activities\":true"), frame)
+        assertTrue(frame.contains("\"7\":[[0,99]]"), frame)
+        assertTrue(frame.contains("\"9\":[[0,99]]"), frame)
+        gw.disconnect()
+    }
+
+    @Test
     fun server_heartbeat_request_is_answered() = runTest(UnconfinedTestDispatcher()) {
         val transport = FakeTransport()
         val gw = newGateway(transport)

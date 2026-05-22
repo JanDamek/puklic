@@ -5,9 +5,11 @@ import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.domain.Channel
 import dev.puklic.domain.Guild
+import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.repositories.Orchestrators
+import dev.puklic.session.SessionTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,11 +17,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 /**
  * Snapshot of the main screen's guild + channel state. Backed by the live orchestrators
@@ -40,6 +44,7 @@ public data class MainScreenState(
 public class MainViewModel(
     componentContext: ComponentContext,
     public val orchestrators: Orchestrators? = null,
+    public val sessionTransport: SessionTransport? = null,
     externalScope: CoroutineScope? = null,
 ) : ComponentContext by componentContext {
 
@@ -69,9 +74,34 @@ public class MainViewModel(
     public fun selectGuild(id: GuildId) {
         selectedGuild.value = id
         selectedChannel.value = null
+        // Lazy-subscribe to the first text channels of this guild. Required by Discord user-mode
+        // so REST `getMessages` stops returning 50001 on member-list-gated channels and so
+        // GUILD_MEMBER_LIST_UPDATE events flow.
+        val transport = sessionTransport ?: return
+        val orch = orchestrators ?: return
+        scope.launch {
+            val channels = orch.channel.channelsForGuild(id).first()
+            val textChannelIds = channels
+                .filterIsInstance<GuildTextChannel>()
+                .sortedBy { it.position }
+                .take(LAZY_SUBSCRIBE_BOOTSTRAP)
+                .map { it.id }
+            if (textChannelIds.isNotEmpty()) {
+                transport.lazyRequestGuild(id, textChannelIds)
+            }
+        }
     }
 
     public fun selectChannel(id: ChannelId) {
         selectedChannel.value = id
+        val transport = sessionTransport ?: return
+        val gid = selectedGuild.value ?: return
+        // Re-subscribe with the focused channel so Discord lifts the 50001 gate before the next
+        // REST `getMessages` issued by the messages orchestrator.
+        scope.launch { transport.lazyRequestGuild(gid, listOf(id)) }
+    }
+
+    private companion object {
+        const val LAZY_SUBSCRIBE_BOOTSTRAP = 5
     }
 }

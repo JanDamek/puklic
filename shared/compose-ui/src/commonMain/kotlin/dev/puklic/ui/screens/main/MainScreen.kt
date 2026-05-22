@@ -36,6 +36,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
 import dev.puklic.domain.Guild
+import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
@@ -132,14 +133,44 @@ private fun ChannelListPane(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            CategoryHeader(label = "Text Channels", isExpanded = true, onToggle = {})
+            // Phase 1 visible types: GUILD_TEXT (0) and GUILD_ANNOUNCEMENT (5) — both modelled as
+            // GuildTextChannel by the protocol mapper. GUILD_CATEGORY (4) renders as a header,
+            // never as a clickable row. Voice / stage / forum / thread types are filtered out.
+            val textChannels = channels
+                .filterIsInstance<GuildTextChannel>()
+                .sortedBy { it.position }
+            val categories = channels
+                .filterIsInstance<GuildCategoryChannel>()
+                .sortedBy { it.position }
+            val orphanText = textChannels.filter { it.parentId == null }
             LazyColumn {
-                items(channels.filterIsInstance<GuildTextChannel>(), key = { it.id.value }) { ch ->
-                    ChannelListItem(
-                        channel = ch,
-                        isSelected = ch.id == selectedChannelId,
-                        onClick = { onSelectChannel(ch.id) },
-                    )
+                if (orphanText.isNotEmpty()) {
+                    items(orphanText, key = { "txt-${it.id.value}" }) { ch ->
+                        ChannelListItem(
+                            channel = ch,
+                            isSelected = ch.id == selectedChannelId,
+                            onClick = { onSelectChannel(ch.id) },
+                        )
+                    }
+                }
+                categories.forEach { cat ->
+                    item(key = "cat-${cat.id.value}") {
+                        CategoryHeader(
+                            label = cat.name.orEmpty(),
+                            isExpanded = true,
+                            onToggle = {},
+                        )
+                    }
+                    val under = textChannels
+                        .filter { it.parentId == cat.id }
+                        .sortedBy { it.position }
+                    items(under, key = { "txt-${it.id.value}" }) { ch ->
+                        ChannelListItem(
+                            channel = ch,
+                            isSelected = ch.id == selectedChannelId,
+                            onClick = { onSelectChannel(ch.id) },
+                        )
+                    }
                 }
             }
         }

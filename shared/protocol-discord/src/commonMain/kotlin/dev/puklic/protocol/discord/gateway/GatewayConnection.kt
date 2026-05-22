@@ -23,11 +23,17 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.builtins.serializer
+import dev.puklic.ids.ChannelId
+import dev.puklic.ids.GuildId
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import kotlinx.serialization.json.putJsonObject
 
 internal const val GATEWAY_URL_DEFAULT = "wss://gateway.discord.gg/?v=10&encoding=json"
 
@@ -76,6 +82,7 @@ public class GatewayConnection(
     private var sequence: Int = 0
     private var sessionId: String? = null
     private var resumeGatewayUrl: String? = null
+    private var activeTransport: GatewayTransport? = null
 
     public fun connect(url: String = GATEWAY_URL_DEFAULT) {
         if (workerJob?.isActive == true) return
@@ -91,6 +98,7 @@ public class GatewayConnection(
     private suspend fun runLoop(url: String) {
         _state.value = GatewayState.Connecting(attemptCount = 1)
         val transport = transportFactory(url)
+        activeTransport = transport
         try {
             transport.incoming.collect { frame ->
                 when (frame) {
@@ -106,7 +114,44 @@ public class GatewayConnection(
             }
         } finally {
             // Coroutine ends; state stays whatever transition handleClose set
+            activeTransport = null
         }
+    }
+
+    /**
+     * Send an OP 14 `lazy_guild_subscribe` frame. Discord's user-mode client uses this to subscribe
+     * to GUILD_MEMBER_LIST_UPDATE events and to unlock REST access for member-list-gated channels
+     * (which would otherwise return 50001).
+     *
+     * Per the unofficial lazy-guilds doc, the payload shape is:
+     *   { "op": 14, "d": { "guild_id": "...", "typing": true, "threads": true,
+     *                      "activities": true, "channels": { "<chId>": [[0,99]] } } }
+     *
+     * Caller MUST keep [channelIds] small (≤5) — Discord rate-limits OP 14.
+     * No-ops if the gateway is not currently READY (no transport bound).
+     */
+    public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
+        val transport = activeTransport ?: return
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(LAZY_GUILD_SUBSCRIBE_OPCODE))
+            putJsonObject("d") {
+                put("guild_id", JsonPrimitive(guildId.value.toString()))
+                put("typing", JsonPrimitive(true))
+                put("threads", JsonPrimitive(true))
+                put("activities", JsonPrimitive(true))
+                putJsonObject("channels") {
+                    channelIds.forEach { channelId ->
+                        putJsonArray(channelId.value.toString()) {
+                            addJsonArray {
+                                add(JsonPrimitive(LAZY_RANGE_START))
+                                add(JsonPrimitive(LAZY_RANGE_END))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        transport.sendText(DiscordJson.encodeToString(JsonElement.serializer(), payload))
     }
 
     private suspend fun handleText(transport: GatewayTransport, text: String) {
@@ -219,6 +264,9 @@ public class GatewayConnection(
 
     private companion object {
         const val EVENT_BUFFER = 64
+        const val LAZY_GUILD_SUBSCRIBE_OPCODE = 14
+        const val LAZY_RANGE_START = 0
+        const val LAZY_RANGE_END = 99
     }
 }
 

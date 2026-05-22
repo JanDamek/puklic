@@ -29,7 +29,7 @@ import kotlin.coroutines.CoroutineContext
 public class DiscordSession(
     public val applicationScope: CoroutineScope,
     private val token: String,
-    private val transport: SessionTransport,
+    public val transport: SessionTransport,
     public val orchestrators: Orchestrators? = null,
 ) {
     private val sessionJob: Job = SupervisorJob(applicationScope.coroutineContext[Job])

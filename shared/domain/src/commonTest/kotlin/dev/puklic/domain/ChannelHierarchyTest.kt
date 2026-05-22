@@ -207,17 +207,24 @@ class ChannelHierarchyTest {
                 id = ChannelId(200L),
                 recipients = emptyList(),
             ),
+            GuildCategoryChannel(
+                id = ChannelId(300L),
+                name = "Start Here",
+                guildId = GuildId(100L),
+                position = 0,
+            ),
         )
 
         val labels = channels.map { channel ->
             // No `else` branch — compiler enforces exhaustiveness
             when (channel) {
-                is GuildTextChannel -> "guild_text"
-                is DmChannel        -> "dm"
+                is GuildTextChannel     -> "guild_text"
+                is DmChannel            -> "dm"
+                is GuildCategoryChannel -> "guild_category"
             }
         }
 
-        assertEquals(listOf("guild_text", "dm"), labels)
+        assertEquals(listOf("guild_text", "dm", "guild_category"), labels)
     }
 
     @Test

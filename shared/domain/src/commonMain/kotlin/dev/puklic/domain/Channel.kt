@@ -38,6 +38,15 @@ data class GuildTextChannel(
     override val type: ChannelType = ChannelType.GUILD_TEXT
 }
 
+data class GuildCategoryChannel(
+    override val id: ChannelId,
+    override val name: String?,
+    val guildId: GuildId,
+    val position: Int,
+) : Channel {
+    override val type: ChannelType = ChannelType.GUILD_CATEGORY
+}
+
 data class DmChannel(
     override val id: ChannelId,
     val recipients: List<UserSummary>,

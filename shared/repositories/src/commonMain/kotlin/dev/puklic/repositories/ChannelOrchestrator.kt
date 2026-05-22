@@ -1,6 +1,7 @@
 package dev.puklic.repositories
 
 import dev.puklic.domain.Channel
+import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.GuildId
 import dev.puklic.persistence.repository.ChannelRepository
@@ -37,6 +38,6 @@ public class ChannelOrchestrator(
     private suspend fun persistIfGuildChannel(channel: Channel) {
         // Only guild-scoped channels go through ChannelRepository; DM channels are not part of
         // the per-guild list and are handled separately (out of Phase 1 scope).
-        if (channel is GuildTextChannel) storage.persist(channel)
+        if (channel is GuildTextChannel || channel is GuildCategoryChannel) storage.persist(channel)
     }
 }

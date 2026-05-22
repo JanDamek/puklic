@@ -5,6 +5,7 @@ import dev.puklic.domain.ChannelType
 import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildFeature
+import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
@@ -16,6 +17,7 @@ private const val CHANNEL_TYPE_GUILD_TEXT = 0
 private const val CHANNEL_TYPE_DM = 1
 private const val CHANNEL_TYPE_GROUP_DM = 3
 private const val CHANNEL_TYPE_GUILD_CATEGORY = 4
+private const val CHANNEL_TYPE_GUILD_ANNOUNCEMENT = 5
 
 /**
  * Returns null when the DTO is an "unavailable guild" stub (no resolvable name) — caller skips it.
@@ -63,7 +65,7 @@ private fun parseGuildFeature(name: String): GuildFeature? =
 
 internal fun DiscordChannelDto.toDomain(): Channel? =
     when (type) {
-        CHANNEL_TYPE_GUILD_TEXT, CHANNEL_TYPE_GUILD_CATEGORY -> GuildTextChannel(
+        CHANNEL_TYPE_GUILD_TEXT, CHANNEL_TYPE_GUILD_ANNOUNCEMENT -> GuildTextChannel(
             id = ChannelId(id.toLong()),
             name = name,
             guildId = GuildId((guildId ?: "0").toLong()),
@@ -72,6 +74,12 @@ internal fun DiscordChannelDto.toDomain(): Channel? =
             position = position,
             rateLimitPerUser = rateLimitPerUser,
             nsfw = nsfw,
+        )
+        CHANNEL_TYPE_GUILD_CATEGORY -> GuildCategoryChannel(
+            id = ChannelId(id.toLong()),
+            name = name,
+            guildId = GuildId((guildId ?: "0").toLong()),
+            position = position,
         )
         CHANNEL_TYPE_DM, CHANNEL_TYPE_GROUP_DM -> DmChannel(
             id = ChannelId(id.toLong()),

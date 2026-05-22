@@ -5,6 +5,7 @@ import dev.puklic.db.PuklicDatabase
 import dev.puklic.domain.Channel
 import dev.puklic.domain.ChannelType
 import dev.puklic.domain.DmChannel
+import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
@@ -70,6 +71,19 @@ class ChannelRepositoryImpl(
                 last_message_id = null,
                 updated_at = nowEpochMs(),
             )
+            is GuildCategoryChannel -> db.channelQueries.upsert(
+                id = channel.id.value,
+                guild_id = channel.guildId.value,
+                parent_id = null,
+                type = channel.type.ordinal.toLong(),
+                name = channel.name,
+                topic = null,
+                position = channel.position.toLong(),
+                rate_limit_per_user = 0L,
+                nsfw = 0L,
+                last_message_id = null,
+                updated_at = nowEpochMs(),
+            )
             is DmChannel -> db.channelQueries.upsert(
                 id = channel.id.value,
                 guild_id = null,
@@ -94,6 +108,12 @@ class ChannelRepositoryImpl(
     private fun ChannelRow.toDomain(): Channel? {
         val ct = ChannelType.entries.getOrNull(type.toInt()) ?: return null
         return when (ct) {
+            ChannelType.GUILD_CATEGORY -> GuildCategoryChannel(
+                id = ChannelId(id),
+                name = name,
+                guildId = GuildId(guild_id ?: return null),
+                position = (position ?: 0L).toInt(),
+            )
             ChannelType.GUILD_TEXT, ChannelType.GUILD_ANNOUNCEMENT -> GuildTextChannel(
                 id = ChannelId(id),
                 name = name,
