@@ -254,7 +254,7 @@ public class DependencyGraph private constructor(
             )
         }
 
-        @Suppress("MagicNumber", "NestedBlockDepth")
+        @Suppress("MagicNumber", "NestedBlockDepth", "LongMethod")
         private suspend fun runAutoTest(sessionManager: SessionManager) {
             Logger.i(LOG_TAG) { "auto-test: waiting for active session" }
             val session = sessionManager.activeSession.filterNotNull().first()
@@ -265,28 +265,72 @@ public class DependencyGraph private constructor(
                 return
             }
             Logger.i(LOG_TAG) { "auto-test: connected, awaiting guilds" }
-            val guild = orch.guild.guilds.filter { it.isNotEmpty() }.first().first()
-            Logger.i(LOG_TAG) { "auto-test: guild id=${guild.id.value}; subscribing + awaiting channels" }
-            // Fire OP14 / OP37 subscribe for this guild — same as MainViewModel.selectGuild
-            val channels = orch.channel
-                .channelsForGuild(guild.id)
-                .filter { it.isNotEmpty() }
-                .first()
-            val firstText = channels.filterIsInstance<GuildTextChannel>().sortedBy { it.position }.firstOrNull()
-            if (firstText == null) {
-                Logger.w(LOG_TAG) { "auto-test: no GuildTextChannel found in guild ${guild.id.value}" }
-                return
+            val guilds = orch.guild.guilds.filter { it.isNotEmpty() }.first()
+            Logger.i(LOG_TAG) { "auto-test: iterating ${guilds.size} guild(s)" }
+            for (guild in guilds) {
+                runCatching {
+                    Logger.i(LOG_TAG) {
+                        "auto-test: testing guild id=${guild.id.value} name=${guild.name}"
+                    }
+                    session.transport.lazyRequestGuild(guild.id, emptyList())
+                    delay(200L)
+                    val channels = runCatching {
+                        orch.channel.channelsForGuild(guild.id).filter { it.isNotEmpty() }.first()
+                    }.getOrElse {
+                        Logger.w(LOG_TAG) { "auto-test: no channels for guild ${guild.name}: ${it.message}" }
+                        emptyList()
+                    }
+                    val textChannels = channels
+                        .filterIsInstance<GuildTextChannel>()
+                        .sortedBy { it.position }
+                        .take(5)
+                    Logger.i(LOG_TAG) {
+                        "auto-test: guild=${guild.name} testing ${textChannels.size} text channels"
+                    }
+                    for (channel in textChannels) {
+                        runCatching {
+                            val result = orch.messages.loadInitial(channel.id, pageSize = 50)
+                            val count = result.getOrNull() ?: -1
+                            val err = result.exceptionOrNull()?.message?.take(80)
+                            Logger.i(LOG_TAG) {
+                                "auto-test: guild=${guild.name} channel=${channel.name ?: channel.id.value} loaded=$count err=$err"
+                            }
+                        }.onFailure {
+                            Logger.w(LOG_TAG) {
+                                "auto-test: loadInitial threw for ${channel.id.value}: ${it::class.simpleName}: ${it.message?.take(80)}"
+                            }
+                        }
+                    }
+                }.onFailure {
+                    Logger.w(LOG_TAG) {
+                        "auto-test: guild iteration failed for ${guild.name}: ${it::class.simpleName}: ${it.message?.take(80)}"
+                    }
+                }
             }
-            Logger.i(LOG_TAG) {
-                "auto-test: selected guild=${guild.id.value} channel=${firstText.id.value}"
+            // DMs
+            val dms = runCatching {
+                orch.dms.dms.filter { it.isNotEmpty() }.first()
+            }.getOrElse {
+                Logger.w(LOG_TAG) { "auto-test: no DMs available: ${it.message}" }
+                emptyList()
             }
-            session.transport.lazyRequestGuild(guild.id, listOf(firstText.id))
-            delay(1500L)
-            Logger.i(LOG_TAG) { "auto-test: triggering loadInitial" }
-            val result = orch.messages.loadInitial(firstText.id)
-            Logger.i(LOG_TAG) {
-                "auto-test: loadInitial done success=${result.isSuccess} value=${result.getOrNull()} err=${result.exceptionOrNull()?.message}"
+            Logger.i(LOG_TAG) { "auto-test: iterating ${dms.size} DM(s) (first 3)" }
+            for (dm in dms.take(3)) {
+                runCatching {
+                    val result = orch.messages.loadInitial(dm.id, pageSize = 50)
+                    val count = result.getOrNull() ?: -1
+                    val err = result.exceptionOrNull()?.message?.take(80)
+                    val label = dm.recipients.firstOrNull()?.username ?: dm.id.value
+                    Logger.i(LOG_TAG) {
+                        "auto-test: DM channel=$label loaded=$count err=$err"
+                    }
+                }.onFailure {
+                    Logger.w(LOG_TAG) {
+                        "auto-test: DM loadInitial threw for ${dm.id.value}: ${it::class.simpleName}: ${it.message?.take(80)}"
+                    }
+                }
             }
+            Logger.i(LOG_TAG) { "auto-test: COMPLETE all guilds tested" }
         }
 
         private fun detectMac(): Boolean {
