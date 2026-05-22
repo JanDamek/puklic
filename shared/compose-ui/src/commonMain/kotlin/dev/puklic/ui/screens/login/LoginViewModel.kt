@@ -51,12 +51,31 @@ public class LoginViewModel(
         if (!current.canSubmit) return
         _state.update { it.copy(submitting = true, error = null) }
         scope.launch {
-            val result = sessionManager.startSessionWithToken(current.token)
+            val result = runCatching { sessionManager.startSessionWithToken(current.token) }
+                .getOrElse { Result.failure(it) }
             if (result.isFailure) {
-                _state.update { it.copy(submitting = false, error = result.exceptionOrNull()?.message ?: "Login failed") }
+                _state.update { it.copy(submitting = false, error = mapError(result.exceptionOrNull())) }
             } else {
                 _state.update { it.copy(submitting = false, error = null) }
             }
+        }
+    }
+
+    /**
+     * Maps session-layer exceptions to the user-visible strings spelled out in
+     * `docs/04_ui/screens.md` §LoginScreen "Error":
+     *  - `IllegalArgumentException` from [SessionManager] → "Token rejected by Discord"
+     *  - `IllegalStateException` whose reason mentions network/connect/timeout → "Cannot reach Discord. Check connection."
+     *  - everything else → "Sign in failed"
+     */
+    private fun mapError(throwable: Throwable?): String {
+        if (throwable == null) return "Sign in failed"
+        val msg = throwable.message.orEmpty().lowercase()
+        return when {
+            throwable is IllegalArgumentException -> "Token rejected by Discord"
+            "network" in msg || "connect" in msg || "timeout" in msg || "host" in msg || "unreachable" in msg ->
+                "Cannot reach Discord. Check connection."
+            else -> "Sign in failed"
         }
     }
 }
