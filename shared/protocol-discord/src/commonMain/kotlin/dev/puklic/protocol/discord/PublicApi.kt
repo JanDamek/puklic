@@ -1,5 +1,6 @@
 package dev.puklic.protocol.discord
 
+import co.touchlab.kermit.Logger
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.Channel
 import dev.puklic.domain.Guild
@@ -66,6 +67,24 @@ public sealed interface DiscordDomainEvent {
 }
 
 private const val EVENT_BUFFER = 64
+private const val BRIDGE_TAG = "DiscordGatewayBridge"
+
+/**
+ * Allow-listed top-level READY payload keys safe to log by NAME. Never logs values.
+ * The `token` field is deliberately excluded.
+ */
+private val SAFE_READY_KEYS: Set<String> = setOf(
+    "v", "session_id", "session_type", "resume_gateway_url", "shard",
+    "guilds", "private_channels", "relationships", "presences",
+    "user_settings", "user_guild_settings", "read_state",
+    "application", "geo_ordered_rtc_regions", "country_code",
+)
+
+/** Allow-listed guild-payload keys safe to log by NAME. */
+private val SAFE_GUILD_KEYS: Set<String> = setOf(
+    "id", "name", "unavailable", "owner_id", "icon", "features",
+    "member_count", "channels", "threads", "roles", "joined_at",
+)
 
 /**
  * Bridges a [GatewayConnection]'s raw dispatch stream to a domain-typed [SharedFlow]. Unknown
@@ -82,7 +101,12 @@ public class DiscordGatewayBridge(
     init {
         scope.launch {
             gateway.events.collect { dispatch ->
+                Logger.i(BRIDGE_TAG) { "bridge: received raw event type=${dispatch.type}" }
                 val mapped = mapDispatch(dispatch, onUnknown)
+                Logger.i(BRIDGE_TAG) {
+                    "bridge: ${dispatch.type} mapped -> emitting ${mapped.size} events: " +
+                        mapped.joinToString(",") { it::class.simpleName ?: "?" }
+                }
                 mapped.forEach { _events.tryEmit(it) }
             }
         }
@@ -157,8 +181,11 @@ public class DiscordGatewayBridge(
                     emptyList()
                 }
             }
-        }.onFailure {
+        }.onFailure { t ->
             // Malformed payload — drop silently so the gateway keeps flowing.
+            Logger.i(BRIDGE_TAG) {
+                "bridge: decode-failed type=${event.type} cause=${t::class.simpleName} msg=${t.message}"
+            }
             onUnknown("${event.type}:decode-failed")
         }.getOrDefault(emptyList())
     }
@@ -171,6 +198,16 @@ public class DiscordGatewayBridge(
      */
     private fun mapReady(payload: JsonElement): List<DiscordDomainEvent> {
         val obj = payload.jsonObject
+        // Token-safe diagnostic: only top-level KEY NAMES (never values) + sizes.
+        val safeKeys = obj.keys.filter { it in SAFE_READY_KEYS }
+        Logger.i(BRIDGE_TAG) {
+            "bridge: READY top-level keys (allow-listed)=[${safeKeys.joinToString(",")}] " +
+                "total_key_count=${obj.size}"
+        }
+        val guildsField = obj["guilds"] as? kotlinx.serialization.json.JsonArray
+        Logger.i(BRIDGE_TAG) {
+            "bridge: READY guilds array size=${guildsField?.size ?: "null/absent"}"
+        }
         val sessionId = obj.getValue("session_id").jsonPrimitive.content
         val self = DiscordJson.decodeFromJsonElement(
             DiscordUserDto.serializer(),
@@ -178,14 +215,31 @@ public class DiscordGatewayBridge(
         ).toDomain()
         val events = mutableListOf<DiscordDomainEvent>(DiscordDomainEvent.Ready(self, sessionId))
         val guildsArray = obj["guilds"]?.let { it as? kotlinx.serialization.json.JsonArray } ?: return events
-        for (guildElement in guildsArray) {
+        for ((index, guildElement) in guildsArray.withIndex()) {
             val dto = runCatching {
                 DiscordJson.decodeFromJsonElement(
                     dev.puklic.protocol.discord.dto.DiscordGuildDto.serializer(),
                     guildElement,
                 )
+            }.onFailure { t ->
+                Logger.i(BRIDGE_TAG) {
+                    "bridge: READY guild[$index] decode-failed cause=${t::class.simpleName} msg=${t.message}"
+                }
             }.getOrNull() ?: continue
-            val guild = dto.toDomainOrNull() ?: continue
+            val guild = dto.toDomainOrNull()
+            if (guild == null) {
+                val keys = (guildElement as? kotlinx.serialization.json.JsonObject)?.keys
+                    ?.filter { it in SAFE_GUILD_KEYS }
+                    ?.joinToString(",")
+                Logger.i(BRIDGE_TAG) {
+                    "bridge: READY guild[$index] toDomainOrNull=null (likely unavailable stub) " +
+                        "safe_keys=[$keys]"
+                }
+                continue
+            }
+            Logger.i(BRIDGE_TAG) {
+                "bridge: READY guild[$index] decoded id=${guild.id.value} name=${guild.name}"
+            }
             events += DiscordDomainEvent.GuildCreated(guild)
             events += extractGuildChannels(guildElement, guild.id.value)
         }

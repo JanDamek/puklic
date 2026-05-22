@@ -1,5 +1,6 @@
 package dev.puklic.ui.screens.main
 
+import co.touchlab.kermit.Logger
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.domain.Channel
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -50,6 +52,7 @@ public class MainViewModel(
         MutableStateFlow(MainScreenState()).asStateFlow()
     } else {
         val guilds = orchestrators.guild.guilds
+            .onEach { Logger.i("MainViewModel") { "viewmodel: guilds state changed, size=${it.size}" } }
         val channelFlow = selectedGuild.flatMapLatest { gid ->
             if (gid == null) flowOf(emptyList()) else orchestrators.channel.channelsForGuild(gid)
         }

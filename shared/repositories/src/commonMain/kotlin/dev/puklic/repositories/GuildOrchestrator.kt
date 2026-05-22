@@ -29,13 +29,24 @@ public class GuildOrchestrator(
     init {
         sessionScope.launch {
             gatewaySource.events.collect { event ->
+                Logger.i(LOG_TAG) { "guild orchestrator: received event = ${event::class.simpleName}" }
                 when (event) {
                     is GatewayDomainEvent.GuildCreated -> {
-                        Logger.i(LOG_TAG) { "persist guild: id=${event.guild.id.value} name=${event.guild.name}" }
+                        Logger.i(LOG_TAG) {
+                            "guild orchestrator: persisting guild id=${event.guild.id.value} name=${event.guild.name}"
+                        }
                         storage.persist(event.guild)
                     }
-                    is GatewayDomainEvent.GuildUpdated -> storage.persist(event.guild)
-                    is GatewayDomainEvent.GuildDeleted -> storage.delete(event.guildId)
+                    is GatewayDomainEvent.GuildUpdated -> {
+                        Logger.i(LOG_TAG) {
+                            "guild orchestrator: updating guild id=${event.guild.id.value} name=${event.guild.name}"
+                        }
+                        storage.persist(event.guild)
+                    }
+                    is GatewayDomainEvent.GuildDeleted -> {
+                        Logger.i(LOG_TAG) { "guild orchestrator: deleting guild id=${event.guildId.value}" }
+                        storage.delete(event.guildId)
+                    }
                     else -> Unit
                 }
             }

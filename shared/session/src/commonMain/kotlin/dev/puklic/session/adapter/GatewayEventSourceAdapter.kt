@@ -1,5 +1,6 @@
 package dev.puklic.session.adapter
 
+import co.touchlab.kermit.Logger
 import dev.puklic.protocol.discord.DiscordDomainEvent
 import dev.puklic.protocol.discord.DiscordGatewayBridge
 import dev.puklic.repositories.GatewayDomainEvent
@@ -12,6 +13,7 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 
 private const val EVENT_BUFFER = 64
+private const val ADAPTER_TAG = "GatewayEventSourceAdapter"
 
 /**
  * Adapts the protocol-layer [DiscordGatewayBridge] (which emits [DiscordDomainEvent]) to the
@@ -30,6 +32,7 @@ public class GatewayEventSourceAdapter(
     init {
         scope.launch {
             bridge.events.collect { ev ->
+                Logger.i(ADAPTER_TAG) { "adapter: forwarding domain event = ${ev::class.simpleName}" }
                 val mapped = when (ev) {
                     is DiscordDomainEvent.MessageCreated -> GatewayDomainEvent.MessageCreated(ev.message)
                     is DiscordDomainEvent.MessageUpdated -> GatewayDomainEvent.MessageUpdated(ev.message)

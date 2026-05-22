@@ -1,6 +1,7 @@
 package dev.puklic.persistence.sqldelight
 
 import app.cash.sqldelight.coroutines.asFlow
+import co.touchlab.kermit.Logger
 import dev.puklic.db.PuklicDatabase
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildFeature
@@ -11,6 +12,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -25,6 +27,7 @@ class GuildRepositoryImpl(
     override fun observeAll(): Flow<List<Guild>> =
         db.guildQueries.selectAll().asFlow()
             .map { withContext(dispatcher) { it.executeAsList().map { row -> row.toDomain() } } }
+            .onEach { Logger.i(STORAGE_TAG) { "storage: observeAll emit, size=${it.size}" } }
             .flowOn(dispatcher)
 
     override suspend fun findById(id: GuildId): Guild? = withContext(dispatcher) {
@@ -47,6 +50,7 @@ class GuildRepositoryImpl(
     }
 
     private fun insert(guild: Guild) {
+        Logger.i(STORAGE_TAG) { "storage: INSERT guild id=${guild.id.value} name=${guild.name}" }
         db.guildQueries.upsert(
             id = guild.id.value,
             name = guild.name,
@@ -70,6 +74,7 @@ class GuildRepositoryImpl(
     )
 
     private companion object {
+        const val STORAGE_TAG = "GuildRepositoryImpl"
         val featuresSerializer = ListSerializer(String.serializer())
         val json get() = PersistenceJson
     }
