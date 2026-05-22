@@ -8,10 +8,16 @@ import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
+import dev.puklic.domain.Channel
+import dev.puklic.domain.Guild
+import dev.puklic.ids.GuildId
+import dev.puklic.persistence.repository.ChannelRepository
+import dev.puklic.persistence.repository.GuildRepository
 import dev.puklic.persistence.repository.MessageRepository
 import dev.puklic.persistence.repository.OutboundMessageRecord
 import dev.puklic.persistence.repository.OutboundQueue
 import dev.puklic.persistence.repository.OutboundState
+import dev.puklic.persistence.repository.UserRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -121,6 +127,49 @@ internal class FakeOutboundQueue : OutboundQueue {
 
     override suspend fun delete(localId: Long) { pending.update { it - localId } }
     override suspend fun findById(localId: Long): OutboundMessageRecord? = pending.value[localId]
+}
+
+internal class FakeGuildRepository : GuildRepository {
+    private val state = MutableStateFlow<Map<GuildId, Guild>>(emptyMap())
+    override fun observeAll(): Flow<List<Guild>> = state.map { it.values.sortedBy { g -> g.id.value } }
+    override suspend fun findById(id: GuildId): Guild? = state.value[id]
+    override suspend fun persist(guild: Guild) { state.update { it + (guild.id to guild) } }
+    override suspend fun persistAll(guilds: List<Guild>) {
+        state.update { current -> current + guilds.associateBy { it.id } }
+    }
+    override suspend fun delete(id: GuildId) { state.update { it - id } }
+}
+
+internal class FakeChannelRepository : ChannelRepository {
+    private val state = MutableStateFlow<Map<ChannelId, Channel>>(emptyMap())
+    override fun observeByGuild(guildId: GuildId): Flow<List<Channel>> = state.map { snap ->
+        snap.values.filter { ch ->
+            ch is dev.puklic.domain.GuildTextChannel && ch.guildId == guildId
+        }.sortedBy { it.id.value }
+    }
+    override suspend fun findById(id: ChannelId): Channel? = state.value[id]
+    override suspend fun persist(channel: Channel) { state.update { it + (channel.id to channel) } }
+    override suspend fun persistAll(channels: List<Channel>) {
+        state.update { current -> current + channels.associateBy { it.id } }
+    }
+    override suspend fun updateLastMessage(id: ChannelId, lastMessageId: MessageId) = Unit
+    override suspend fun delete(id: ChannelId) { state.update { it - id } }
+}
+
+internal class FakeUserRepository : UserRepository {
+    private val state = MutableStateFlow<Map<UserId, dev.puklic.domain.UserSummary>>(emptyMap())
+    val persistedAll: MutableList<List<dev.puklic.domain.UserSummary>> = mutableListOf()
+    override suspend fun findById(id: UserId): dev.puklic.domain.UserSummary? = state.value[id]
+    override suspend fun findByIds(ids: Collection<UserId>): List<dev.puklic.domain.UserSummary> =
+        ids.mapNotNull { state.value[it] }
+    override suspend fun persist(user: dev.puklic.domain.UserSummary) {
+        state.update { it + (user.id to user) }
+    }
+    override suspend fun persistAll(users: List<dev.puklic.domain.UserSummary>) {
+        persistedAll += users
+        state.update { current -> current + users.associateBy { it.id } }
+    }
+    override suspend fun delete(id: UserId) { state.update { it - id } }
 }
 
 internal class FakeGatewayEventSource : GatewayEventSource {

@@ -9,4 +9,7 @@ public data class Orchestrators(
     val outboundWorker: OutboundMessageWorker,
     val presence: PresenceOrchestrator,
     val typing: TypingOrchestrator,
+    val guild: GuildOrchestrator,
+    val channel: ChannelOrchestrator,
+    val user: UserOrchestrator,
 )

@@ -43,9 +43,16 @@ public class GatewayEventSourceAdapter(
                         userId = ev.userId,
                         timestampEpochSeconds = ev.timestampEpochSeconds,
                     )
-                    else -> null
+                    is DiscordDomainEvent.GuildCreated -> GatewayDomainEvent.GuildCreated(ev.guild)
+                    is DiscordDomainEvent.GuildUpdated -> GatewayDomainEvent.GuildUpdated(ev.guild)
+                    is DiscordDomainEvent.GuildDeleted -> GatewayDomainEvent.GuildDeleted(ev.guildId)
+                    is DiscordDomainEvent.ChannelCreated -> GatewayDomainEvent.ChannelCreated(ev.channel)
+                    is DiscordDomainEvent.ChannelUpdated -> GatewayDomainEvent.ChannelUpdated(ev.channel)
+                    is DiscordDomainEvent.ChannelDeleted -> GatewayDomainEvent.ChannelDeleted(ev.channelId)
+                    is DiscordDomainEvent.UserUpdated -> GatewayDomainEvent.UserUpdated(ev.user)
+                    is DiscordDomainEvent.Ready -> GatewayDomainEvent.Ready(ev.selfUser, ev.sessionId)
                 }
-                if (mapped != null) _events.tryEmit(mapped)
+                _events.tryEmit(mapped)
             }
         }
     }

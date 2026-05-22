@@ -1,7 +1,11 @@
 package dev.puklic.repositories
 
+import dev.puklic.domain.Channel
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.Guild
+import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
+import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
 import kotlinx.coroutines.flow.SharedFlow
@@ -29,6 +33,14 @@ public sealed interface GatewayDomainEvent {
         val userId: UserId,
         val timestampEpochSeconds: Long,
     ) : GatewayDomainEvent
+    public data class GuildCreated(val guild: Guild) : GatewayDomainEvent
+    public data class GuildUpdated(val guild: Guild) : GatewayDomainEvent
+    public data class GuildDeleted(val guildId: GuildId) : GatewayDomainEvent
+    public data class ChannelCreated(val channel: Channel) : GatewayDomainEvent
+    public data class ChannelUpdated(val channel: Channel) : GatewayDomainEvent
+    public data class ChannelDeleted(val channelId: ChannelId) : GatewayDomainEvent
+    public data class UserUpdated(val user: UserSummary) : GatewayDomainEvent
+    public data class Ready(val selfUser: UserSummary, val sessionId: String) : GatewayDomainEvent
 }
 
 /** Source of domain-level gateway events. Wraps the protocol-discord SharedFlow. */

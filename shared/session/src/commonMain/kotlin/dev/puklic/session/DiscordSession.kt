@@ -1,6 +1,7 @@
 package dev.puklic.session
 
 import dev.puklic.domain.UserSummary
+import dev.puklic.repositories.Orchestrators
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -29,6 +30,7 @@ public class DiscordSession(
     public val applicationScope: CoroutineScope,
     private val token: String,
     private val transport: SessionTransport,
+    public val orchestrators: Orchestrators? = null,
 ) {
     private val sessionJob: Job = SupervisorJob(applicationScope.coroutineContext[Job])
     private val context: CoroutineContext = applicationScope.coroutineContext + sessionJob

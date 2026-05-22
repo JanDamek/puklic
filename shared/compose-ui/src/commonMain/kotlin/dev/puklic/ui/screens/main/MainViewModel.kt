@@ -6,42 +6,69 @@ import dev.puklic.domain.Channel
 import dev.puklic.domain.Guild
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.repositories.Orchestrators
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 
 /**
- * Snapshot of the main screen's guild + channel state. Phase 1 uses an empty placeholder —
- * step 15-16 will wire this to the live `GuildRepository` / `ChannelRepository` reactive Flows.
+ * Snapshot of the main screen's guild + channel state. Backed by the live orchestrators
+ * (when available); falls back to empty placeholder when no session is active (e.g. tests).
  */
 public data class MainScreenState(
     val guilds: List<Guild> = emptyList(),
-    val channelsByGuild: Map<GuildId, List<Channel>> = emptyMap(),
+    val channelsForSelectedGuild: List<Channel> = emptyList(),
     val selectedGuildId: GuildId? = null,
     val selectedChannelId: ChannelId? = null,
 )
 
 /**
- * Decompose-style ViewModel for the three-pane authenticated UI. Phase 1 only carries a
- * placeholder state; data wiring lands in step 15-16.
+ * Decompose-style ViewModel for the three-pane authenticated UI. When [orchestrators] is non-null,
+ * [state] reflects the live guild + channel reactive Flows; selection is local to this view-model.
  */
+@OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 public class MainViewModel(
     componentContext: ComponentContext,
+    public val orchestrators: Orchestrators? = null,
     externalScope: CoroutineScope? = null,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)
 
-    private val _state = MutableStateFlow(MainScreenState())
-    public val state: StateFlow<MainScreenState> = _state.asStateFlow()
+    private val selectedGuild = MutableStateFlow<GuildId?>(null)
+    private val selectedChannel = MutableStateFlow<ChannelId?>(null)
+
+    public val state: StateFlow<MainScreenState> = if (orchestrators == null) {
+        MutableStateFlow(MainScreenState()).asStateFlow()
+    } else {
+        val guilds = orchestrators.guild.guilds
+        val channelFlow = selectedGuild.flatMapLatest { gid ->
+            if (gid == null) flowOf(emptyList()) else orchestrators.channel.channelsForGuild(gid)
+        }
+        combine(guilds, channelFlow, selectedGuild, selectedChannel) { gs, chs, gid, cid ->
+            MainScreenState(
+                guilds = gs,
+                channelsForSelectedGuild = chs,
+                selectedGuildId = gid,
+                selectedChannelId = cid,
+            )
+        }.stateIn(scope, SharingStarted.Eagerly, MainScreenState())
+    }
 
     public fun selectGuild(id: GuildId) {
-        _state.value = _state.value.copy(selectedGuildId = id, selectedChannelId = null)
+        selectedGuild.value = id
+        selectedChannel.value = null
     }
 
     public fun selectChannel(id: ChannelId) {
-        _state.value = _state.value.copy(selectedChannelId = id)
+        selectedChannel.value = id
     }
 }
