@@ -8,8 +8,10 @@ kotlin {
         commonMain.dependencies {
             implementation(projects.shared.domain)
             implementation(projects.shared.ids)
+            implementation(projects.shared.chatParser)
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
             implementation(libs.ktor.client.core)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)
@@ -31,6 +33,7 @@ kotlin {
         commonTest.dependencies {
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotlinx.coroutines.test)
+            implementation(libs.ktor.client.mock)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)

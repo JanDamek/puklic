@@ -1,0 +1,75 @@
+package dev.puklic.protocol.discord.dto
+
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonElement
+
+/**
+ * Generic Gateway frame envelope. Discord wraps every opcode in `{op, d, s?, t?}`.
+ *
+ * `d` is kept as raw `JsonElement` so the connection can dispatch by `(op, t)` and let
+ * the caller deserialize the payload-specific DTO.
+ */
+@Serializable
+internal data class GatewayFrame(
+    val op: Int,
+    val d: JsonElement? = null,
+    val s: Int? = null,
+    val t: String? = null,
+)
+
+internal object Opcode {
+    const val DISPATCH = 0
+    const val HEARTBEAT = 1
+    const val IDENTIFY = 2
+    const val PRESENCE_UPDATE = 3
+    const val VOICE_STATE_UPDATE = 4
+    const val RESUME = 6
+    const val RECONNECT = 7
+    const val REQUEST_GUILD_MEMBERS = 8
+    const val INVALID_SESSION = 9
+    const val HELLO = 10
+    const val HEARTBEAT_ACK = 11
+}
+
+@Serializable
+internal data class GatewayHello(
+    @SerialName("heartbeat_interval") val heartbeatInterval: Long,
+)
+
+@Serializable
+internal data class GatewayIdentify(
+    val token: String,
+    val properties: IdentifyProperties,
+    val capabilities: Int,
+    val compress: Boolean = false,
+    @SerialName("large_threshold") val largeThreshold: Int = 50,
+)
+
+@Serializable
+internal data class IdentifyProperties(
+    val os: String,
+    val browser: String,
+    val device: String,
+)
+
+@Serializable
+internal data class GatewayResume(
+    val token: String,
+    @SerialName("session_id") val sessionId: String,
+    val seq: Int,
+)
+
+/** Sent payload for op 1 — current `s` or null when none received yet. */
+@Serializable
+internal data class GatewayHeartbeat(val d: Int? = null)
+
+@Serializable
+internal data class ReadyEvent(
+    @SerialName("session_id") val sessionId: String,
+    @SerialName("resume_gateway_url") val resumeGatewayUrl: String,
+    val user: DiscordUserDto,
+    val guilds: List<DiscordGuildDto> = emptyList(),
+    @SerialName("private_channels") val privateChannels: List<DiscordChannelDto> = emptyList(),
+    val v: Int = 0,
+)
