@@ -48,7 +48,7 @@ class GatewayConnectionTest {
         waitFor { transport.sent.isNotEmpty() }
         val identifyFrame = transport.sent.first()
         assertTrue(identifyFrame.contains("\"op\":2"))
-        assertTrue(identifyFrame.contains("\"browser\":\"puklic\""))
+        assertTrue(identifyFrame.contains("\"browser\":\"Discord Client\""))
 
         // Now deliver READY
         transport.deliver(

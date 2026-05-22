@@ -40,7 +40,7 @@ internal data class GatewayHello(
 @Serializable
 internal data class GatewayIdentify(
     val token: String,
-    val properties: IdentifyProperties,
+    val properties: kotlinx.serialization.json.JsonElement,
     val capabilities: Int,
     val compress: Boolean = false,
     @SerialName("large_threshold") val largeThreshold: Int = 50,

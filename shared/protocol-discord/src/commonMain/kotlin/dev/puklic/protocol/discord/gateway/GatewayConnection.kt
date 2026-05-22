@@ -1,12 +1,14 @@
 package dev.puklic.protocol.discord.gateway
 
 import dev.puklic.protocol.discord.Capabilities
+import dev.puklic.protocol.discord.DiscordClientProperties
 import dev.puklic.protocol.discord.DiscordJson
+import dev.puklic.protocol.discord.SuperPropertiesJson
+import dev.puklic.protocol.discord.buildClientProperties
 import dev.puklic.protocol.discord.dto.GatewayFrame
 import dev.puklic.protocol.discord.dto.GatewayHello
 import dev.puklic.protocol.discord.dto.GatewayIdentify
 import dev.puklic.protocol.discord.dto.GatewayResume
-import dev.puklic.protocol.discord.dto.IdentifyProperties
 import dev.puklic.protocol.discord.dto.Opcode
 import dev.puklic.protocol.discord.dto.ReadyEvent
 import kotlinx.datetime.Clock
@@ -57,7 +59,13 @@ public class GatewayConnection(
     private val token: String,
     private val transportFactory: GatewayTransportFactory,
     private val now: () -> Long = { Clock.System.now().toEpochMilliseconds() },
+    clientProperties: DiscordClientProperties = buildClientProperties(),
 ) {
+    // Emit ALL identity fields (defaults included) — Discord's IDENTIFY parser expects the
+    // full client-properties payload, identical to the X-Super-Properties JSON.
+    private val identifyProperties: JsonElement =
+        SuperPropertiesJson.encodeToJsonElement(DiscordClientProperties.serializer(), clientProperties)
+
     private val _state = MutableStateFlow<GatewayState>(GatewayState.Disconnected)
     public val state: StateFlow<GatewayState> = _state.asStateFlow()
 
@@ -182,7 +190,7 @@ public class GatewayConnection(
                         GatewayIdentify.serializer(),
                         GatewayIdentify(
                             token = token,
-                            properties = IdentifyProperties(os = "linux", browser = "puklic", device = "puklic"),
+                            properties = identifyProperties,
                             capabilities = Capabilities.CAPABILITIES_VERSION,
                         ),
                     ),

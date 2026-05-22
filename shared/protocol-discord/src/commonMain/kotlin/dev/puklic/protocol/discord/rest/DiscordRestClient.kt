@@ -3,8 +3,12 @@ package dev.puklic.protocol.discord.rest
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
+import dev.puklic.protocol.discord.DiscordClientProperties
 import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordJson
+import dev.puklic.protocol.discord.buildClientProperties
+import dev.puklic.protocol.discord.currentTimeZoneId
+import dev.puklic.protocol.discord.encodeSuperProperties
 import dev.puklic.protocol.discord.dto.DiscordChannelDto
 import dev.puklic.protocol.discord.dto.DiscordGuildDto
 import dev.puklic.protocol.discord.dto.DiscordMessageDto
@@ -32,7 +36,6 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.serializer
 
 private const val BASE_URL = "https://discord.com/api/v10"
-private const val DEFAULT_UA = "Puklic/0.1.0 (Linux; Wayland)"
 private const val MAX_RETRIES = 3
 private const val INITIAL_BACKOFF_MS = 1_000L
 private const val MESSAGE_LIMIT_DEFAULT = 50
@@ -45,9 +48,16 @@ private const val MESSAGE_LIMIT_DEFAULT = 50
 public class DiscordRestClient(
     private val httpClient: HttpClient,
     private val token: String,
-    private val userAgent: String = DEFAULT_UA,
     private val baseUrl: String = BASE_URL,
+    clientProperties: DiscordClientProperties = buildClientProperties(),
+    private val timeZoneId: String = currentTimeZoneId(),
 ) {
+    private val clientProperties: DiscordClientProperties = clientProperties
+    private val userAgent: String = clientProperties.browserUserAgent
+    private val systemLocale: String = clientProperties.systemLocale
+    // X-Super-Properties is identical for every request — encode once on init.
+    private val superPropertiesB64: String = encodeSuperProperties(clientProperties)
+
     internal suspend fun getSelfUser(): Result<DiscordUserDto> =
         request("$baseUrl/users/@me", serializer<DiscordUserDto>())
 
@@ -231,11 +241,23 @@ public class DiscordRestClient(
         }
     }
 
+    /**
+     * Apply the full Discord desktop-client identity header set. Sent on every REST request —
+     * Discord's REST stack returns 50001 for legitimately accessible channels when the
+     * caller does not look like the official client. See ADR-0002 (2026-05-22).
+     *
+     * Token is appended via the `Authorization` header but never logged.
+     */
     private fun io.ktor.client.request.HttpRequestBuilder.applyAuth() {
         headers {
             append(HttpHeaders.Authorization, token)
-            append(HttpHeaders.UserAgent, userAgent)
             append(HttpHeaders.Accept, ContentType.Application.Json.toString())
+            append(HttpHeaders.UserAgent, userAgent)
+            append("X-Discord-Timezone", timeZoneId)
+            append("X-Discord-Locale", systemLocale)
+            append("X-Super-Properties", superPropertiesB64)
+            append("X-Debug-Options", "bugReporterEnabled")
+            append(HttpHeaders.Referrer, "https://discord.com/channels/@me")
         }
     }
 

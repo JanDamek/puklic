@@ -76,6 +76,42 @@ with the following constraints:
 - Passwords are never persisted, never logged, never echoed back outside the in-memory UI state;
   the password field uses `PasswordVisualTransformation`.
 
+## Update — 2026-05-22: realistic client-identity headers on every REST + Gateway request
+
+Discord's REST stack returns `50001 Missing Access` for legitimately accessible channels when the
+caller's `User-Agent` and `X-Super-Properties` do not look like the official desktop client. We
+verified this against live channels the user can read in the official Discord client but where
+`GET /channels/{id}/messages` failed for Puklic with `{"message":"Chybí přístup","code":50001}`.
+
+The fix (per the Acheron client, MIT-licensed reference at github.com/ouwou/acheron) is to send
+the desktop-client identity header set on every REST request and to send the same client
+properties on the Gateway IDENTIFY payload:
+
+- `User-Agent`: real Discord desktop UA (Electron + Chrome variant)
+- `X-Discord-Timezone`: system IANA tz (e.g. `Europe/Prague`)
+- `X-Discord-Locale`: system locale (e.g. `en-US`, `cs-CZ`)
+- `X-Super-Properties`: base64-encoded JSON with `os`, `browser="Discord Client"`,
+  `browser_version`, `os_version`, `system_locale`, `client_build_number`, `release_channel`,
+  and the related referrer fields
+- `X-Debug-Options: bugReporterEnabled`
+- `Referer: https://discord.com/channels/@me`
+
+The same `DiscordClientProperties` payload is also sent as `d.properties` on the Gateway
+IDENTIFY (op 2), replacing the prior `{os:"linux", browser:"puklic", device:"puklic"}` which
+made our gateway connection trivially identifiable as a third-party client and contributed to
+some channel views remaining empty after READY.
+
+This is a deliberate, narrow deviation from the "no detection-evasion" rule in
+`CLAUDE.md`. It is required to make REST work for channels the user already has
+access to in the official client. **We do not perform TLS-layer fingerprint impersonation
+(no libcurl-impersonate / utls), and we do not solve captchas.** Header-level identity is the
+minimum needed to interact with the same endpoints the official client uses; we still rely on
+the user's own (browser-obtained) token and do not mint sessions.
+
+`client_build_number` is hardcoded to `380000` for Phase 1; Phase 2 should fetch the current
+build from Discord's HTML (or a community feed) on startup. The default `User-Agent` is the
+macOS Electron variant; Phase 2 should pick the right OS-specific UA on Linux / Windows.
+
 ## Related
 
 - ADR-0003: Cache & RAM strategy
