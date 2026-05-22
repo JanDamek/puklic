@@ -79,7 +79,10 @@ public class MessageListViewModel(
                 _state.value = MessageListState.Error(
                     result.exceptionOrNull()?.message ?: "Failed to load messages.",
                 )
-            } else if (result.isSuccess && result.getOrNull() == 0 && _state.value is MessageListState.Loading) {
+            } else if (result.isSuccess && _state.value is MessageListState.Loading) {
+                // Safety net: if storage Flow hasn't re-emitted yet (or returns 0 messages), make
+                // sure we leave the Loading skeleton. A subsequent storage emit with messages will
+                // promote us to Loaded.
                 _state.value = MessageListState.Empty
             }
         }

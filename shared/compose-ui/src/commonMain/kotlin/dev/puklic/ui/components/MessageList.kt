@@ -47,11 +47,17 @@ public fun MessageList(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             is MessageListState.Error -> Text(
-                state.message,
+                friendlyErrorMessage(state.message),
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.error,
             )
-            is MessageListState.Loaded -> LazyColumn(reverseLayout = false) {
+            is MessageListState.Loaded -> if (state.messages.isEmpty()) {
+                Text(
+                    "It's quiet here. Start the conversation.",
+                    modifier = Modifier.align(Alignment.Center),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            } else LazyColumn(reverseLayout = false) {
                 if (state.isLoadingOlder) {
                     item { CircularProgressIndicator() }
                 }
@@ -61,4 +67,25 @@ public fun MessageList(
             }
         }
     }
+}
+
+/**
+ * Maps raw error strings (REST status text, Discord JSON error bodies, network exceptions) to a
+ * short user-facing line. Avoids leaking JSON payloads or stack traces into the UI. English only;
+ * localization is part of Phase 2 L10n work.
+ */
+internal fun friendlyErrorMessage(raw: String): String = when {
+    raw.contains("50001") || raw.contains("Forbidden", ignoreCase = true) ->
+        "No access to this channel. (Discord may require you to view it in the official client " +
+            "first; full access wiring is on the Phase 2 roadmap.)"
+    raw.contains("404") || raw.contains("Not Found", ignoreCase = true) ->
+        "Channel not found."
+    raw.contains("429") || raw.contains("rate limit", ignoreCase = true) ->
+        "Rate limited. Try again in a moment."
+    raw.contains("Network", ignoreCase = true) ||
+        raw.contains("Cannot reach", ignoreCase = true) ||
+        raw.contains("UnknownHost", ignoreCase = true) ||
+        raw.contains("timeout", ignoreCase = true) ->
+        "Cannot reach Discord. Check your connection."
+    else -> "Failed to load messages: ${raw.take(120)}"
 }

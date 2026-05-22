@@ -69,8 +69,11 @@ public fun MainScreen(viewModel: MainViewModel) {
             modifier = Modifier.width(240.dp).fillMaxHeight(),
         )
         VerticalDivider()
+        val selectedChannel = state.channelsForSelectedGuild
+            .firstOrNull { it.id == state.selectedChannelId }
         MessagePane(
             selectedChannelId = state.selectedChannelId,
+            selectedChannelName = selectedChannel?.name,
             messageOrchestrator = viewModel.orchestrators?.messages,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
@@ -146,6 +149,7 @@ private fun ChannelListPane(
 @Composable
 private fun MessagePane(
     selectedChannelId: ChannelId?,
+    selectedChannelName: String?,
     messageOrchestrator: MessageOrchestrator?,
     modifier: Modifier = Modifier,
 ) {
@@ -161,6 +165,7 @@ private fun MessagePane(
             )
             else -> ChannelMessages(
                 channelId = selectedChannelId,
+                channelName = selectedChannelName,
                 orchestrator = messageOrchestrator,
             )
         }
@@ -170,6 +175,7 @@ private fun MessagePane(
 @Composable
 private fun ChannelMessages(
     channelId: ChannelId,
+    channelName: String?,
     orchestrator: MessageOrchestrator,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
@@ -189,9 +195,10 @@ private fun ChannelMessages(
     val state by viewModel.viewModel.state.collectAsState()
     var draft by remember(channelId) { mutableStateOf("") }
 
+    val displayName = channelName?.takeIf { it.isNotBlank() } ?: channelId.value.toString()
     Column(modifier = Modifier.fillMaxSize()) {
         Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text("#${channelId.value}", style = MaterialTheme.typography.titleMedium)
+            Text("#$displayName", style = MaterialTheme.typography.titleMedium)
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
@@ -205,7 +212,7 @@ private fun ChannelMessages(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Composer(
             draft = draft,
-            placeholder = "Message #${channelId.value}",
+            placeholder = "Message #$displayName",
             onDraftChange = { draft = it },
             onSubmit = {
                 val toSend = draft.trim()
