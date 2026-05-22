@@ -11,6 +11,7 @@ import dev.puklic.protocol.discord.dto.GatewayIdentify
 import dev.puklic.protocol.discord.dto.GatewayResume
 import dev.puklic.protocol.discord.dto.Opcode
 import dev.puklic.protocol.discord.dto.ReadyEvent
+import co.touchlab.kermit.Logger
 import kotlinx.datetime.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -131,7 +132,16 @@ public class GatewayConnection(
      * No-ops if the gateway is not currently READY (no transport bound).
      */
     public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
-        val transport = activeTransport ?: return
+        val transport = activeTransport
+        if (transport == null) {
+            Logger.w("GatewayConnection") {
+                "OP14 skipped: no active transport (guild=${guildId.value}, channels=${channelIds.size})"
+            }
+            return
+        }
+        Logger.i("GatewayConnection") {
+            "OP14 sending guild=${guildId.value} channels=${channelIds.map { it.value }}"
+        }
         val payload = buildJsonObject {
             put("op", JsonPrimitive(LAZY_GUILD_SUBSCRIBE_OPCODE))
             putJsonObject("d") {
@@ -152,6 +162,7 @@ public class GatewayConnection(
             }
         }
         transport.sendText(DiscordJson.encodeToString(JsonElement.serializer(), payload))
+        Logger.i("GatewayConnection") { "OP14 sent (guild=${guildId.value})" }
     }
 
     private suspend fun handleText(transport: GatewayTransport, text: String) {

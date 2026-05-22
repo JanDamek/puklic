@@ -1,5 +1,6 @@
 package dev.puklic.ui.screens.main
 
+import co.touchlab.kermit.Logger
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.domain.ChatMessage
@@ -8,10 +9,12 @@ import dev.puklic.repositories.MessageOrchestrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 /** State sealed family per `docs/04_ui/component-library.md` §MessageList. */
 public sealed interface MessageListState {
@@ -72,20 +75,45 @@ public class MessageListViewModel(
     private fun triggerInitialFetch() {
         _state.value = MessageListState.Loading
         scope.launch {
-            val result = orchestrator.loadInitial(channelId)
-            // On success, the storage Flow will re-emit and flip state to Loaded / Empty.
-            // On failure, surface an error if no messages have arrived yet.
-            if (result.isFailure && _state.value is MessageListState.Loading) {
-                _state.value = MessageListState.Error(
-                    result.exceptionOrNull()?.message ?: "Failed to load messages.",
-                )
-            } else if (result.isSuccess && _state.value is MessageListState.Loading) {
-                // Safety net: if storage Flow hasn't re-emitted yet (or returns 0 messages), make
-                // sure we leave the Loading skeleton. A subsequent storage emit with messages will
-                // promote us to Loaded.
-                _state.value = MessageListState.Empty
+            // Bounded loadInitial: even if REST hangs, the skeleton must not stick forever.
+            val outcome = withTimeoutOrNull(LOAD_INITIAL_TIMEOUT_MS) {
+                var attempt = orchestrator.loadInitial(channelId)
+                // Retry once on 50001 (Missing Access). After OP14 lazy_request, Discord may still
+                // be processing the subscription — a short wait + retry frequently succeeds.
+                if (attempt.isFailure && attempt.exceptionOrNull()?.message?.contains("50001") == true) {
+                    Logger.i("MessageListViewModel") {
+                        "loadInitial got 50001, retrying after ${RETRY_BACKOFF_MS}ms"
+                    }
+                    delay(RETRY_BACKOFF_MS)
+                    attempt = orchestrator.loadInitial(channelId)
+                    Logger.i("MessageListViewModel") {
+                        "loadInitial retry result: success=${attempt.isSuccess}"
+                    }
+                }
+                attempt
+            }
+            when {
+                outcome == null && _state.value is MessageListState.Loading -> {
+                    _state.value = MessageListState.Error("Timed out loading messages.")
+                }
+                outcome != null && outcome.isFailure && _state.value is MessageListState.Loading -> {
+                    _state.value = MessageListState.Error(
+                        outcome.exceptionOrNull()?.message ?: "Failed to load messages.",
+                    )
+                }
+                outcome != null && outcome.isSuccess && _state.value is MessageListState.Loading -> {
+                    // Safety net: if storage Flow hasn't re-emitted yet (or returns 0 messages),
+                    // leave the Loading skeleton. A subsequent storage emit with messages will
+                    // promote us to Loaded.
+                    _state.value = MessageListState.Empty
+                }
             }
         }
+    }
+
+    private companion object {
+        const val LOAD_INITIAL_TIMEOUT_MS = 10_000L
+        const val RETRY_BACKOFF_MS = 1_000L
     }
 
     public fun sendMessage(content: String) {

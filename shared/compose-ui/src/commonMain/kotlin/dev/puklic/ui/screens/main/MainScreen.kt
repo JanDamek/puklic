@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import co.touchlab.kermit.Logger
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
@@ -142,7 +143,22 @@ private fun ChannelListPane(
             val categories = channels
                 .filterIsInstance<GuildCategoryChannel>()
                 .sortedBy { it.position }
-            val orphanText = textChannels.filter { it.parentId == null }
+            val categoryIds = categories.map { it.id }.toSet()
+            // Channels with null parentId OR with parentId pointing to a category that wasn't
+            // delivered by the gateway (e.g. permission-gated) are rendered as top-level so they
+            // never silently disappear. This is the regression fix for #1: previously the strict
+            // `parentId == cat.id` filter dropped every channel whose parent category was not in
+            // the visible list.
+            val orphanText = textChannels.filter { it.parentId == null || it.parentId !in categoryIds }
+            Logger.i("ChannelListPane") {
+                "incoming channels: ${channels.size}, " +
+                    "types: ${channels.groupBy { it::class.simpleName }.mapValues { it.value.size }}"
+            }
+            Logger.i("ChannelListPane") {
+                "categories: ${categories.size}, text: ${textChannels.size}, " +
+                    "withParent: ${textChannels.count { it.parentId != null }}, " +
+                    "orphanRendered: ${orphanText.size}"
+            }
             LazyColumn {
                 if (orphanText.isNotEmpty()) {
                     items(orphanText, key = { "txt-${it.id.value}" }) { ch ->

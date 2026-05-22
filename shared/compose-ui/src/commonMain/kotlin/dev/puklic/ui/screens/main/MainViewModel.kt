@@ -12,6 +12,7 @@ import dev.puklic.repositories.Orchestrators
 import dev.puklic.session.SessionTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -97,11 +98,17 @@ public class MainViewModel(
         val transport = sessionTransport ?: return
         val gid = selectedGuild.value ?: return
         // Re-subscribe with the focused channel so Discord lifts the 50001 gate before the next
-        // REST `getMessages` issued by the messages orchestrator.
-        scope.launch { transport.lazyRequestGuild(gid, listOf(id)) }
+        // REST `getMessages` issued by the messages orchestrator. A short settle delay gives
+        // Discord time to register the subscription internally before REST runs — without it,
+        // the gate may still be active and the first call returns 50001.
+        scope.launch {
+            transport.lazyRequestGuild(gid, listOf(id))
+            delay(LAZY_SUBSCRIBE_SETTLE_MS)
+        }
     }
 
     private companion object {
         const val LAZY_SUBSCRIBE_BOOTSTRAP = 5
+        const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
     }
 }
