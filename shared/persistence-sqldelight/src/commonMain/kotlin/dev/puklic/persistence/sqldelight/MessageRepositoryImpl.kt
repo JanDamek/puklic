@@ -18,6 +18,7 @@ import kotlinx.datetime.Instant
 class MessageRepositoryImpl(
     private val db: PuklicDatabase,
     private val dispatcher: CoroutineDispatcher,
+    private val nowEpochMs: () -> Long = { kotlinx.datetime.Clock.System.now().toEpochMilliseconds() },
 ) : MessageRepository {
 
     override fun observe(channelId: ChannelId, limit: Int): Flow<List<ChatMessage>> =
@@ -43,18 +44,33 @@ class MessageRepositoryImpl(
         }
 
     override suspend fun persist(message: ChatMessage) {
-        withContext(dispatcher) {
-            insert(message)
-        }
+        persistAll(listOf(message))
     }
 
     override suspend fun persistAll(messages: List<ChatMessage>) {
         if (messages.isEmpty()) return
         withContext(dispatcher) {
+            val authors = messages.map { it.author }.distinctBy { it.id.value }
+            val ts = nowEpochMs()
             db.transaction {
+                // Upsert authors first to satisfy FK constraint on message.author_id.
+                authors.forEach { upsertAuthor(it, ts) }
                 messages.forEach { insert(it) }
             }
         }
+    }
+
+    private fun upsertAuthor(user: UserSummary, updatedAt: Long) {
+        db.userQueries.upsert(
+            id = user.id.value,
+            username = user.username,
+            global_name = user.globalName,
+            discriminator = user.discriminator,
+            avatar_hash = user.avatarHash,
+            bot = if (user.bot) 1L else 0L,
+            system = if (user.system) 1L else 0L,
+            updated_at = updatedAt,
+        )
     }
 
     override suspend fun findById(id: MessageId): ChatMessage? = withContext(dispatcher) {

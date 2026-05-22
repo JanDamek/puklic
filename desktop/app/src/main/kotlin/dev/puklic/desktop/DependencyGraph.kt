@@ -101,7 +101,7 @@ public class DependencyGraph private constructor(
 
             val ioDispatcher = Dispatchers.IO
             val nowMs: () -> Long = { Clock.System.now().toEpochMilliseconds() }
-            val messageStore = MessageRepositoryImpl(database, ioDispatcher)
+            val messageStore = MessageRepositoryImpl(database, ioDispatcher, nowMs)
             val guildStore = GuildRepositoryImpl(database, ioDispatcher, nowMs)
             val channelStore = ChannelRepositoryImpl(database, ioDispatcher, nowMs)
             val userStore = UserRepositoryImpl(database, ioDispatcher, nowMs)
