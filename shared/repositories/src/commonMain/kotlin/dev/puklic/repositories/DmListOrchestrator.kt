@@ -1,5 +1,6 @@
 package dev.puklic.repositories
 
+import co.touchlab.kermit.Logger
 import dev.puklic.domain.DmChannel
 import dev.puklic.ids.ChannelId
 import kotlinx.coroutines.CoroutineScope
@@ -7,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+
+private const val DM_LIST_TAG = "DmListOrchestrator"
 
 /**
  * Tracks the user's Direct-Message channels (channel types 1 + 3) entirely in memory.
@@ -24,14 +27,24 @@ public class DmListOrchestrator(
     public val dms: StateFlow<List<DmChannel>> = _dms.asStateFlow()
 
     init {
+        Logger.i(DM_LIST_TAG) { "dm-list orchestrator: subscribing to gateway events" }
         sessionScope.launch {
             gatewaySource.events.collect { event ->
                 when (event) {
-                    is GatewayDomainEvent.ChannelCreated -> if (event.channel is DmChannel) {
-                        upsert(event.channel)
+                    is GatewayDomainEvent.ChannelCreated -> {
+                        val kind = event.channel::class.simpleName ?: "?"
+                        Logger.i(DM_LIST_TAG) {
+                            "dm-list orchestrator: ChannelCreated kind=$kind id=${event.channel.id.value}"
+                        }
+                        if (event.channel is DmChannel) upsert(event.channel)
                     }
-                    is GatewayDomainEvent.ChannelUpdated -> if (event.channel is DmChannel) {
-                        upsert(event.channel)
+                    is GatewayDomainEvent.ChannelUpdated -> {
+                        if (event.channel is DmChannel) {
+                            Logger.i(DM_LIST_TAG) {
+                                "dm-list orchestrator: ChannelUpdated DM id=${event.channel.id.value}"
+                            }
+                            upsert(event.channel)
+                        }
                     }
                     is GatewayDomainEvent.ChannelDeleted -> remove(event.channelId)
                     else -> Unit
@@ -42,6 +55,10 @@ public class DmListOrchestrator(
 
     private fun upsert(channel: DmChannel) {
         _dms.value = (_dms.value.filterNot { it.id == channel.id } + channel)
+        Logger.i(DM_LIST_TAG) {
+            "dm-list orchestrator: upsert -> dms.size=${_dms.value.size} id=${channel.id.value} " +
+                "recipients=${channel.recipients.size}"
+        }
     }
 
     private fun remove(id: ChannelId) {

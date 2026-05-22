@@ -252,17 +252,28 @@ public class DiscordGatewayBridge(
         if (privateChannels != null) {
             Logger.i(BRIDGE_TAG) { "bridge: READY private_channels size=${privateChannels.size}" }
             for ((index, dmElement) in privateChannels.withIndex()) {
-                val channel = runCatching {
+                val dto = runCatching {
                     DiscordJson.decodeFromJsonElement(
                         dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
                         dmElement,
-                    ).toDomain()
+                    )
                 }.onFailure { t ->
                     Logger.i(BRIDGE_TAG) {
                         "bridge: READY private_channels[$index] decode-failed " +
                             "cause=${t::class.simpleName} msg=${t.message}"
                     }
                 }.getOrNull() ?: continue
+                Logger.i(BRIDGE_TAG) {
+                    "bridge: READY private_channels[$index] decoded type=${dto.type} " +
+                        "id=${dto.id} recipients=${dto.recipients.size}"
+                }
+                val channel = dto.toDomain()
+                if (channel == null) {
+                    Logger.i(BRIDGE_TAG) {
+                        "bridge: READY private_channels[$index] toDomain=null (unsupported type=${dto.type})"
+                    }
+                    continue
+                }
                 events += DiscordDomainEvent.ChannelCreated(channel)
             }
         }
@@ -277,20 +288,40 @@ public class DiscordGatewayBridge(
     private fun extractGuildChannels(guildPayload: JsonElement, guildId: Long): List<DiscordDomainEvent> {
         val channelsArray = (guildPayload as? kotlinx.serialization.json.JsonObject)
             ?.get("channels") as? kotlinx.serialization.json.JsonArray ?: return emptyList()
-        return channelsArray.mapNotNull { channelElement ->
+        val rawTypeCounts = mutableMapOf<Int, Int>()
+        val mappedTypeCounts = mutableMapOf<String, Int>()
+        var droppedCount = 0
+        val result = channelsArray.mapNotNull { channelElement ->
             val channelObj = channelElement as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
             val withGuild = kotlinx.serialization.json.buildJsonObject {
                 channelObj.forEach { (k, v) -> put(k, v) }
                 put("guild_id", JsonPrimitive(guildId.toString()))
             }
-            val channel = runCatching {
+            val dto = runCatching {
                 DiscordJson.decodeFromJsonElement(
                     dev.puklic.protocol.discord.dto.DiscordChannelDto.serializer(),
                     withGuild,
-                ).toDomain()
-            }.getOrNull() ?: return@mapNotNull null
+                )
+            }.getOrNull() ?: run {
+                droppedCount += 1
+                return@mapNotNull null
+            }
+            rawTypeCounts[dto.type] = (rawTypeCounts[dto.type] ?: 0) + 1
+            val channel = dto.toDomain()
+            if (channel == null) {
+                droppedCount += 1
+                return@mapNotNull null
+            }
+            val kind = channel::class.simpleName ?: "?"
+            mappedTypeCounts[kind] = (mappedTypeCounts[kind] ?: 0) + 1
             DiscordDomainEvent.ChannelCreated(channel)
         }
+        Logger.i(BRIDGE_TAG) {
+            "bridge: extractGuildChannels guild=$guildId rawCount=${channelsArray.size} " +
+                "rawTypes=$rawTypeCounts mapped=$mappedTypeCounts dropped=$droppedCount " +
+                "emitted=${result.size}"
+        }
+        return result
     }
 
     @Suppress("unused")

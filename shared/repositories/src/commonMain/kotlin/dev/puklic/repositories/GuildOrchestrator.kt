@@ -35,13 +35,33 @@ public class GuildOrchestrator(
                         Logger.i(LOG_TAG) {
                             "guild orchestrator: persisting guild id=${event.guild.id.value} name=${event.guild.name}"
                         }
-                        storage.persist(event.guild)
+                        try {
+                            storage.persist(event.guild)
+                            Logger.i(LOG_TAG) {
+                                "guild orchestrator: persisted OK guild id=${event.guild.id.value}"
+                            }
+                        } catch (t: Throwable) {
+                            Logger.w(LOG_TAG) {
+                                "guild orchestrator: persist FAILED guild id=${event.guild.id.value} " +
+                                    "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                            }
+                        }
                     }
                     is GatewayDomainEvent.GuildUpdated -> {
                         Logger.i(LOG_TAG) {
                             "guild orchestrator: updating guild id=${event.guild.id.value} name=${event.guild.name}"
                         }
-                        storage.persist(event.guild)
+                        try {
+                            storage.persist(event.guild)
+                            Logger.i(LOG_TAG) {
+                                "guild orchestrator: updated OK guild id=${event.guild.id.value}"
+                            }
+                        } catch (t: Throwable) {
+                            Logger.w(LOG_TAG) {
+                                "guild orchestrator: update FAILED guild id=${event.guild.id.value} " +
+                                    "cause=${t::class.simpleName} msg=${t.message?.take(200)}"
+                            }
+                        }
                     }
                     is GatewayDomainEvent.GuildDeleted -> {
                         Logger.i(LOG_TAG) { "guild orchestrator: deleting guild id=${event.guildId.value}" }
