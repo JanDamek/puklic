@@ -1,0 +1,330 @@
+package dev.puklic.voice.gateway
+
+import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+/**
+ * Voice gateway state machine.
+ *
+ * Source of truth: `docs/03_infrastructure/architect-reports/2026-05-23-voice.md` §5.
+ *
+ * Transitions:
+ *   Idle → ConnectingWs → AwaitingHello → Identifying → AwaitingReady → Active
+ *                                                                   ↘ Reconnecting → ConnectingWs
+ *                                                                   ↘ Failed
+ *
+ * UDP, IP discovery, encryption and SelectProtocol/SessionDescription consumption belong to
+ * slices 4..6. This slice only opens the socket, exchanges Hello/Identify/Ready, runs the
+ * heartbeat loop, and exposes events.
+ */
+internal sealed interface VoiceGatewayState {
+    data object Idle : VoiceGatewayState
+    data class ConnectingWs(val attempt: Int) : VoiceGatewayState
+    data object AwaitingHello : VoiceGatewayState
+    data object Identifying : VoiceGatewayState
+    data object AwaitingReady : VoiceGatewayState
+    data class Active(val ssrc: Int) : VoiceGatewayState
+    data class Reconnecting(val attempt: Int, val reason: String) : VoiceGatewayState
+    data class Failed(val reason: String) : VoiceGatewayState
+}
+
+internal sealed interface VoiceGatewayEvent {
+    data class Ready(val ssrc: Int, val ip: String, val port: Int, val modes: List<String>) : VoiceGatewayEvent
+    data class SessionDescription(val mode: String, val secretKey: ByteArray) : VoiceGatewayEvent {
+        override fun equals(other: Any?): Boolean =
+            other is SessionDescription && mode == other.mode && secretKey.contentEquals(other.secretKey)
+        override fun hashCode(): Int = 31 * mode.hashCode() + secretKey.contentHashCode()
+    }
+    data class Speaking(val userId: String, val ssrc: Int, val flags: Int) : VoiceGatewayEvent
+    data class ClientDisconnect(val userId: String) : VoiceGatewayEvent
+}
+
+internal interface VoiceGatewayConnection {
+    val state: StateFlow<VoiceGatewayState>
+    val events: SharedFlow<VoiceGatewayEvent>
+    suspend fun connect(endpoint: String, token: String, sessionId: String, serverId: String, userId: String)
+    suspend fun sendSelectProtocol(externalIp: String, externalPort: Int, mode: String)
+    suspend fun sendSpeaking(speaking: Int, ssrc: Int)
+    suspend fun close()
+}
+
+/**
+ * Default [VoiceGatewayConnection]. The transport is injected so tests can drive the protocol
+ * with a fake socket — same pattern as `GatewayConnection` in `:shared:protocol-discord`.
+ *
+ * @param maxMissedAcks two missed heartbeat acks → reconnect, per architect report §5.
+ * @param maxReconnectAttempts exponential backoff caps at 5 (1/2/4/8/16 s) per §5.
+ */
+internal class DefaultVoiceGatewayConnection(
+    private val scope: CoroutineScope,
+    private val transportFactory: VoiceGatewayTransportFactory,
+    private val sleep: suspend (Long) -> Unit = { delay(it) },
+    private val now: () -> Long = { 0L },
+    private val maxMissedAcks: Int = DEFAULT_MAX_MISSED_ACKS,
+    private val maxReconnectAttempts: Int = DEFAULT_MAX_RECONNECT_ATTEMPTS,
+) : VoiceGatewayConnection {
+
+    private val _state = MutableStateFlow<VoiceGatewayState>(VoiceGatewayState.Idle)
+    override val state: StateFlow<VoiceGatewayState> = _state.asStateFlow()
+
+    private val _events = MutableSharedFlow<VoiceGatewayEvent>(extraBufferCapacity = EVENT_BUFFER)
+    override val events: SharedFlow<VoiceGatewayEvent> = _events.asSharedFlow()
+
+    private var workerJob: Job? = null
+    private var heartbeatJob: Job? = null
+    private var activeTransport: VoiceGatewayTransport? = null
+
+    private var endpoint: String = ""
+    private var token: String = ""
+    private var sessionId: String = ""
+    private var serverId: String = ""
+    private var userId: String = ""
+    private var missedAcks: Int = 0
+    private var heartbeatNonce: Long = 0
+    private var ssrc: Int = 0
+
+    override suspend fun connect(
+        endpoint: String,
+        token: String,
+        sessionId: String,
+        serverId: String,
+        userId: String,
+    ) {
+        if (workerJob?.isActive == true) return
+        this.endpoint = endpoint
+        this.token = token
+        this.sessionId = sessionId
+        this.serverId = serverId
+        this.userId = userId
+        workerJob = scope.launch { runWithReconnect() }
+    }
+
+    override suspend fun sendSelectProtocol(externalIp: String, externalPort: Int, mode: String) {
+        val transport = activeTransport ?: run {
+            Logger.w(TAG) { "SELECT_PROTOCOL skipped: no active transport" }
+            return
+        }
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(VoiceOp.SELECT_PROTOCOL))
+            put(
+                "d",
+                JSON.encodeToJsonElement(
+                    VoiceSelectProtocol.serializer(),
+                    VoiceSelectProtocol(
+                        protocol = "udp",
+                        data = VoiceSelectProtocolData(externalIp, externalPort, mode),
+                    ),
+                ),
+            )
+        }
+        transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+    }
+
+    override suspend fun sendSpeaking(speaking: Int, ssrc: Int) {
+        val transport = activeTransport ?: run {
+            Logger.w(TAG) { "SPEAKING skipped: no active transport" }
+            return
+        }
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(VoiceOp.SPEAKING))
+            put(
+                "d",
+                JSON.encodeToJsonElement(
+                    VoiceSpeaking.serializer(),
+                    VoiceSpeaking(speaking = speaking, delay = 0, ssrc = ssrc),
+                ),
+            )
+        }
+        transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+    }
+
+    override suspend fun close() {
+        heartbeatJob?.cancelAndJoin()
+        heartbeatJob = null
+        activeTransport?.close()
+        workerJob?.cancelAndJoin()
+        workerJob = null
+        activeTransport = null
+        _state.value = VoiceGatewayState.Idle
+    }
+
+    private suspend fun runWithReconnect() {
+        var attempt = 1
+        while (true) {
+            _state.value = VoiceGatewayState.ConnectingWs(attempt)
+            val transport = try {
+                transportFactory(endpoint)
+            } catch (t: Throwable) {
+                Logger.w(TAG) { "voice WS connect failed attempt=$attempt: ${t.message}" }
+                if (attempt >= maxReconnectAttempts) {
+                    _state.value = VoiceGatewayState.Failed("connect failed: ${t.message}")
+                    return
+                }
+                _state.value = VoiceGatewayState.Reconnecting(attempt, "connect: ${t.message}")
+                sleep(backoffMs(attempt))
+                attempt++
+                continue
+            }
+            activeTransport = transport
+            _state.value = VoiceGatewayState.AwaitingHello
+            missedAcks = 0
+
+            val sessionTerminatedNormally = try {
+                runSession(transport)
+            } catch (t: Throwable) {
+                Logger.w(TAG) { "voice session error: ${t.message}" }
+                false
+            } finally {
+                heartbeatJob?.cancelAndJoin()
+                heartbeatJob = null
+                activeTransport = null
+            }
+
+            if (sessionTerminatedNormally) return
+            if (attempt >= maxReconnectAttempts) {
+                _state.value = VoiceGatewayState.Failed("max reconnect attempts reached")
+                return
+            }
+            _state.value = VoiceGatewayState.Reconnecting(attempt, "session lost")
+            sleep(backoffMs(attempt))
+            attempt++
+        }
+    }
+
+    /** @return true when the session was closed cleanly and no reconnect is needed. */
+    private suspend fun runSession(transport: VoiceGatewayTransport): Boolean {
+        var closedCleanly = false
+        transport.incoming.collect { frame ->
+            when (frame) {
+                is VoiceFrameIn.Text -> handleText(transport, frame.text)
+                is VoiceFrameIn.Close -> {
+                    Logger.i(TAG) { "voice WS closed code=${frame.code} reason=${frame.reason}" }
+                    closedCleanly = frame.code == VoiceGatewayTransport.NORMAL_CLOSURE
+                    return@collect
+                }
+            }
+        }
+        return closedCleanly
+    }
+
+    private suspend fun handleText(transport: VoiceGatewayTransport, text: String) {
+        val envelope = JSON.decodeFromString(VoiceFrame.serializer(), text)
+        when (envelope.op) {
+            VoiceOp.HELLO -> {
+                val hello = JSON.decodeFromJsonElement(VoiceHello.serializer(), requireD(envelope))
+                sendIdentify(transport)
+                _state.value = VoiceGatewayState.Identifying
+                _state.value = VoiceGatewayState.AwaitingReady
+                startHeartbeat(transport, hello.heartbeatInterval.toLong())
+            }
+            VoiceOp.READY -> {
+                val ready = JSON.decodeFromJsonElement(VoiceReady.serializer(), requireD(envelope))
+                ssrc = ready.ssrc
+                _state.value = VoiceGatewayState.Active(ready.ssrc)
+                _events.tryEmit(
+                    VoiceGatewayEvent.Ready(ready.ssrc, ready.ip, ready.port, ready.modes),
+                )
+            }
+            VoiceOp.SESSION_DESCRIPTION -> {
+                val sd = JSON.decodeFromJsonElement(VoiceSessionDescription.serializer(), requireD(envelope))
+                val key = ByteArray(sd.secretKey.size) { sd.secretKey[it].toByte() }
+                _events.tryEmit(VoiceGatewayEvent.SessionDescription(sd.mode, key))
+            }
+            VoiceOp.SPEAKING -> {
+                val sp = JSON.decodeFromJsonElement(VoiceSpeaking.serializer(), requireD(envelope))
+                val uid = sp.userId ?: return
+                _events.tryEmit(VoiceGatewayEvent.Speaking(uid, sp.ssrc, sp.speaking))
+            }
+            VoiceOp.HEARTBEAT_ACK -> {
+                missedAcks = 0
+            }
+            VoiceOp.CLIENT_DISCONNECT -> {
+                val cd = JSON.decodeFromJsonElement(VoiceClientDisconnect.serializer(), requireD(envelope))
+                _events.tryEmit(VoiceGatewayEvent.ClientDisconnect(cd.userId))
+            }
+            VoiceOp.RESUMED -> {
+                // resume ok — session restored, nothing to do beyond logging.
+                Logger.i(TAG) { "voice gateway resumed" }
+            }
+            else -> {
+                Logger.d(TAG) { "voice unhandled op=${envelope.op}" }
+            }
+        }
+    }
+
+    private suspend fun sendIdentify(transport: VoiceGatewayTransport) {
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(VoiceOp.IDENTIFY))
+            put(
+                "d",
+                JSON.encodeToJsonElement(
+                    VoiceIdentify.serializer(),
+                    VoiceIdentify(
+                        serverId = serverId,
+                        userId = userId,
+                        sessionId = sessionId,
+                        token = token,
+                    ),
+                ),
+            )
+        }
+        transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+    }
+
+    private fun startHeartbeat(transport: VoiceGatewayTransport, intervalMs: Long) {
+        heartbeatJob?.let { scope.launch { it.cancelAndJoin() } }
+        heartbeatJob = scope.launch {
+            while (true) {
+                sleep(intervalMs)
+                if (missedAcks >= maxMissedAcks) {
+                    Logger.w(TAG) { "missed $missedAcks heartbeat acks — forcing reconnect" }
+                    transport.close(code = HEARTBEAT_TIMEOUT_CODE, reason = "missed acks")
+                    return@launch
+                }
+                heartbeatNonce = if (heartbeatNonce == Long.MAX_VALUE) 1 else heartbeatNonce + 1
+                missedAcks++
+                val nonce = heartbeatNonce
+                val payload = buildJsonObject {
+                    put("op", JsonPrimitive(VoiceOp.HEARTBEAT))
+                    put("d", JsonPrimitive(nonce))
+                }
+                transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+                now()
+            }
+        }
+    }
+
+    private fun requireD(envelope: VoiceFrame): JsonElement =
+        envelope.d ?: error("voice frame op=${envelope.op} missing required `d` field")
+
+    private fun backoffMs(attempt: Int): Long {
+        val capped = attempt.coerceAtMost(MAX_BACKOFF_EXPONENT)
+        return BASE_BACKOFF_MS shl (capped - 1)
+    }
+
+    private companion object {
+        const val TAG = "VoiceGatewayConnection"
+        const val EVENT_BUFFER = 64
+        const val DEFAULT_MAX_MISSED_ACKS = 2
+        const val DEFAULT_MAX_RECONNECT_ATTEMPTS = 5
+        const val BASE_BACKOFF_MS = 1_000L
+        const val MAX_BACKOFF_EXPONENT = 4 // caps at 8 s (1<<3)
+        const val HEARTBEAT_TIMEOUT_CODE = 4009
+        val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    }
+}
