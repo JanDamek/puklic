@@ -12,5 +12,5 @@ package dev.puklic.session
  * this when more than one flag exists.
  */
 public object VoiceFeatureFlag {
-    public const val ENABLED: Boolean = false
+    public const val ENABLED: Boolean = true
 }

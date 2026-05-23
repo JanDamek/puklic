@@ -34,6 +34,9 @@ kotlin {
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotlinx.coroutines.test)
         }
+        jvmMain.dependencies {
+            implementation(projects.shared.voice)
+        }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
         }

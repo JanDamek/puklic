@@ -74,20 +74,24 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             modifier = Modifier.width(56.dp).fillMaxHeight(),
         )
         VerticalDivider()
-        if (state.isDmHome) {
-            DmListPane(
-                dms = state.dmChannels,
-                selectedChannelId = state.selectedChannelId,
-                onSelectChannel = viewModel::selectChannel,
-                modifier = Modifier.width(240.dp).fillMaxHeight(),
-            )
-        } else {
-            ChannelListPane(
-                channels = state.channelsForSelectedGuild,
-                selectedChannelId = state.selectedChannelId,
-                onSelectChannel = viewModel::selectChannel,
-                modifier = Modifier.width(240.dp).fillMaxHeight(),
-            )
+        Column(modifier = Modifier.width(240.dp).fillMaxHeight()) {
+            val paneModifier = Modifier.fillMaxWidth().weight(1f)
+            if (state.isDmHome) {
+                DmListPane(
+                    dms = state.dmChannels,
+                    selectedChannelId = state.selectedChannelId,
+                    onSelectChannel = viewModel::selectChannel,
+                    modifier = paneModifier,
+                )
+            } else {
+                ChannelListPane(
+                    channels = state.channelsForSelectedGuild,
+                    selectedChannelId = state.selectedChannelId,
+                    onSelectChannel = viewModel::selectChannel,
+                    modifier = paneModifier,
+                )
+            }
+            VoiceDock(viewModel = viewModel)
         }
         VerticalDivider()
         val selectedChannel: Channel? = if (state.isDmHome) {
@@ -466,3 +470,13 @@ private class ChannelMessagesHolder(
     val viewModel: MessageListViewModel,
     val lifecycle: LifecycleRegistry,
 )
+
+/**
+ * Voice dock at the bottom of the channel-list pane. JVM-only actual renders the real
+ * voice status bar + settings dialog. Android/iOS actuals are stubs until those platforms
+ * grow native audio backends (Voice Phase 3.1+).
+ *
+ * Per architect report `docs/03_infrastructure/architect-reports/2026-05-23-voice.md` §12.
+ */
+@Composable
+internal expect fun VoiceDock(viewModel: MainViewModel)

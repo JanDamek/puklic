@@ -272,11 +272,33 @@ public class DependencyGraph private constructor(
                 gateway = gateway,
                 scope = sessionScope,
             )
+
+            // Voice wiring — behind VoiceFeatureFlag.ENABLED (slice 9/10 of
+            // docs/03_infrastructure/architect-reports/2026-05-23-voice.md §13).
+            val voiceClient: dev.puklic.voice.VoiceClient =
+                if (dev.puklic.session.VoiceFeatureFlag.ENABLED) {
+                    val mainGatewayBridge = MainGatewayBridgeAdapter(
+                        gateway = gateway,
+                        bridge = gatewayBridge,
+                        scope = sessionScope,
+                    )
+                    dev.puklic.voice.DefaultVoiceClient(
+                        applicationScope = sessionScope,
+                        mainGateway = mainGatewayBridge,
+                        selfUserIdProvider = { selfUserId.value },
+                        voiceTransportFactory = dev.puklic.voice.gateway
+                            .ktorVoiceGatewayTransportFactory(httpClient),
+                    )
+                } else {
+                    dev.puklic.voice.NoOpVoiceClient()
+                }
+
             return DiscordSession(
                 applicationScope = applicationScope,
                 token = token,
                 transport = transport,
                 orchestrators = orchestrators,
+                voiceClient = voiceClient,
             )
         }
 

@@ -76,6 +76,7 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
             sessionTransport = activeSession?.transport,
             preferences = root.preferences,
             initialPosition = pos,
+            voiceClient = activeSession?.voiceClient,
         ),
         platformOpen = platformOpen,
     )

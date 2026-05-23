@@ -66,6 +66,7 @@ public class MainViewModel(
     externalScope: CoroutineScope? = null,
     private val preferences: UserPreferencesRepository? = null,
     initialPosition: LastPosition = LastPosition.Empty,
+    public val voiceClient: Any? = null,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)

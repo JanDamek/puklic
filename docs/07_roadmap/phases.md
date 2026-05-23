@@ -48,15 +48,17 @@ Goal: a usable read+write client for everyday text communication.
 
 ## Phase 3 — Voice
 
-- [ ] Voice gateway protocol
-- [ ] Audio device enumeration (PipeWire / CoreAudio / AAudio)
-- [ ] Join/leave voice channel
-- [ ] Opus integration (libopus binding)
-- [ ] RTP/UDP voice transport
-- [ ] Voice encryption (xsalsa20_poly1305_lite)
-- [ ] Mute/deafen UI + state sync
-- [ ] DAVE protocol (E2EE voice, per public spec)
-- [ ] Voice state indicators in channel list
+- [x] Voice gateway protocol
+- [x] Audio device enumeration (PipeWire / CoreAudio / AAudio)
+- [x] Join/leave voice channel
+- [x] Opus integration (libopus binding)
+- [x] RTP/UDP voice transport
+- [x] Voice encryption (xsalsa20_poly1305_lite)
+  - Shipped as `aead_xchacha20_poly1305_rtpsize` (Discord's current mandatory mode since 2024-11). Legacy `xsalsa20_poly1305_lite` not implemented.
+- [x] Mute/deafen UI + state sync
+- [~] DAVE protocol (E2EE voice, per public spec)
+- [x] Voice state indicators in channel list
+  - VoiceStatusBar (slice 10) shows connecting/connected/failed; speaking indicator wired through SSRC ↔ UserId resolver (Op 5 Speaking events). Channel-row click-to-join deferred — `GuildVoiceChannel` data class is not yet in the domain model; users connect through the status bar's Settings affordance for now.
 
 ## Phase 4 — Wayland screenshare
 
