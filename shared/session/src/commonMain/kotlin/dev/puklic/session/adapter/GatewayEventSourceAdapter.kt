@@ -119,6 +119,10 @@ public class GatewayEventSourceAdapter(
             token = ev.token,
             endpoint = ev.endpoint,
         )
+        is DiscordDomainEvent.VoiceStatesBootstrap -> GatewayDomainEvent.VoiceStatesBootstrap(
+            guildId = ev.guildId,
+            states = ev.states,
+        )
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {

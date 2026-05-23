@@ -13,4 +13,5 @@ public data class Orchestrators(
     val channel: ChannelOrchestrator,
     val user: UserOrchestrator,
     val dms: DmListOrchestrator,
+    val voiceStates: VoiceStateRepository,
 )

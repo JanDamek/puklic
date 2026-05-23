@@ -6,6 +6,7 @@ import dev.puklic.domain.Channel
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
 import dev.puklic.domain.UserSummary
+import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.EmojiId
 import dev.puklic.ids.GuildId
@@ -130,6 +131,16 @@ public sealed interface DiscordDomainEvent {
         val token: String,
         val endpoint: String?,
     ) : DiscordDomainEvent
+
+    /**
+     * Initial voice-channel occupants for a guild, extracted from the `voice_states` array
+     * of a `GUILD_CREATE` dispatch. Emitted once alongside the corresponding [GuildCreated];
+     * subsequent updates flow as individual [VoiceStateUpdated] events.
+     */
+    public data class VoiceStatesBootstrap(
+        val guildId: GuildId,
+        val states: List<VoiceMember>,
+    ) : DiscordDomainEvent
 }
 
 /**
@@ -250,7 +261,14 @@ public class DiscordGatewayBridge(
                     val guild = dto.toDomainOrNull() ?: return@runCatching emptyList()
                     val guildEvent = if (event.type == "GUILD_CREATE") DiscordDomainEvent.GuildCreated(guild)
                     else DiscordDomainEvent.GuildUpdated(guild)
-                    listOf<DiscordDomainEvent>(guildEvent) + extractGuildChannels(payload, guild.id.value)
+                    val voiceBootstrap = if (event.type == "GUILD_CREATE") {
+                        extractVoiceStatesBootstrap(payload, guild.id)
+                    } else {
+                        emptyList()
+                    }
+                    listOf<DiscordDomainEvent>(guildEvent) +
+                        extractGuildChannels(payload, guild.id.value) +
+                        voiceBootstrap
                 }
                 "GUILD_DELETE" -> {
                     val id = payload.jsonObject.getValue("id").jsonPrimitive.content.toLong()
@@ -428,6 +446,7 @@ public class DiscordGatewayBridge(
             }
             events += DiscordDomainEvent.GuildCreated(guild)
             events += extractGuildChannels(guildElement, guild.id.value)
+            events += extractVoiceStatesBootstrap(guildElement, guild.id)
         }
         // DM + Group-DM channels live under `private_channels`. They have no guild_id; the
         // DiscordChannelDto -> DmChannel mapper already handles this when type ∈ {1, 3}.
@@ -550,6 +569,45 @@ public class DiscordGatewayBridge(
                 "emitted=${result.size}"
         }
         return result
+    }
+
+    /**
+     * Extracts the `voice_states` array from a GUILD_CREATE (or READY-embedded guild) payload
+     * into a single [DiscordDomainEvent.VoiceStatesBootstrap]. Discord delivers a snapshot of
+     * who is currently in each voice channel of the guild; subsequent presence changes flow as
+     * incremental VOICE_STATE_UPDATE dispatches.
+     *
+     * Returns an empty list when the payload lacks `voice_states` or the array is empty — both
+     * are legal (a guild with no active voice occupants).
+     */
+    private fun extractVoiceStatesBootstrap(
+        guildPayload: JsonElement,
+        guildId: GuildId,
+    ): List<DiscordDomainEvent> {
+        val voiceArray = (guildPayload as? kotlinx.serialization.json.JsonObject)
+            ?.get("voice_states") as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        if (voiceArray.isEmpty()) return emptyList()
+        val members = voiceArray.mapNotNull { el ->
+            val obj = el as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val channelIdStr = obj["channel_id"]?.jsonPrimitive?.contentOrNull
+            val channelIdLong = channelIdStr?.toLongOrNull() ?: return@mapNotNull null
+            val userIdLong = obj["user_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                ?: return@mapNotNull null
+            VoiceMember(
+                userId = UserId(userIdLong),
+                channelId = ChannelId(channelIdLong),
+                guildId = guildId,
+                selfMute = obj["self_mute"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
+                selfDeaf = obj["self_deaf"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
+                muted = obj["mute"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
+                deafened = obj["deaf"]?.jsonPrimitive?.contentOrNull?.toBooleanStrictOrNull() ?: false,
+            )
+        }
+        if (members.isEmpty()) return emptyList()
+        Logger.i(BRIDGE_TAG) {
+            "bridge: extractVoiceStatesBootstrap guild=${guildId.value} members=${members.size}"
+        }
+        return listOf(DiscordDomainEvent.VoiceStatesBootstrap(guildId, members))
     }
 
     @Suppress("unused")

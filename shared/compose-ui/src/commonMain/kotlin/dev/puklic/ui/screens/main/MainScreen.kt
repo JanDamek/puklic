@@ -47,10 +47,13 @@ import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.domain.GuildVoiceChannel
+import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.UserId
 import dev.puklic.ui.components.CategoryHeader
 import dev.puklic.ui.components.ChannelListItem
+import dev.puklic.ui.components.VoiceMemberRow
 import dev.puklic.ui.components.EmptyState
 import dev.puklic.ui.components.GuildRailItem
 import dev.puklic.ui.components.PuklicAvatar
@@ -85,11 +88,14 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     modifier = paneModifier,
                 )
             } else {
+                val voiceStates by viewModel.voiceStates.collectAsState()
                 ChannelListPane(
                     channels = state.channelsForSelectedGuild,
                     selectedChannelId = state.selectedChannelId,
                     onSelectChannel = viewModel::selectChannel,
                     onJoinVoiceChannel = { guildId, channelId -> viewModel.joinVoiceChannel(guildId, channelId) },
+                    voiceMembersByChannel = voiceStates,
+                    resolveDisplayName = viewModel::resolveDisplayName,
                     modifier = paneModifier,
                 )
             }
@@ -249,6 +255,8 @@ private fun ChannelListPane(
     selectedChannelId: ChannelId?,
     onSelectChannel: (ChannelId) -> Unit,
     onJoinVoiceChannel: (GuildId, ChannelId) -> Unit,
+    voiceMembersByChannel: Map<ChannelId, List<VoiceMember>> = emptyMap(),
+    resolveDisplayName: suspend (UserId) -> String = { it.value.toString() },
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalPuklicSpacing.current
@@ -309,10 +317,11 @@ private fun ChannelListPane(
                 }
                 if (orphanVoice.isNotEmpty()) {
                     items(orphanVoice, key = { "voi-${it.id.value}" }) { ch ->
-                        ChannelListItem(
+                        VoiceChannelEntry(
                             channel = ch,
-                            isSelected = false,
-                            onClick = { onJoinVoiceChannel(ch.guildId, ch.id) },
+                            members = voiceMembersByChannel[ch.id].orEmpty(),
+                            resolveDisplayName = resolveDisplayName,
+                            onJoin = { onJoinVoiceChannel(ch.guildId, ch.id) },
                         )
                     }
                 }
@@ -338,10 +347,11 @@ private fun ChannelListPane(
                         .filter { it.parentId == cat.id }
                         .sortedBy { it.position }
                     items(underVoice, key = { "voi-${it.id.value}" }) { ch ->
-                        ChannelListItem(
+                        VoiceChannelEntry(
                             channel = ch,
-                            isSelected = false,
-                            onClick = { onJoinVoiceChannel(ch.guildId, ch.id) },
+                            members = voiceMembersByChannel[ch.id].orEmpty(),
+                            resolveDisplayName = resolveDisplayName,
+                            onJoin = { onJoinVoiceChannel(ch.guildId, ch.id) },
                         )
                     }
                 }
@@ -489,6 +499,36 @@ private fun ChannelMessages(
                 }
             },
         )
+    }
+}
+
+/**
+ * A voice channel row plus its (possibly empty) list of current occupants. Members render
+ * indented under the row so the visual grouping is unambiguous.
+ */
+@Composable
+private fun VoiceChannelEntry(
+    channel: GuildVoiceChannel,
+    members: List<VoiceMember>,
+    resolveDisplayName: suspend (UserId) -> String,
+    onJoin: () -> Unit,
+) {
+    Column {
+        ChannelListItem(
+            channel = channel,
+            isSelected = false,
+            onClick = onJoin,
+        )
+        if (members.isNotEmpty()) {
+            members
+                .sortedBy { it.userId.value }
+                .forEach { member ->
+                    VoiceMemberRow(
+                        member = member,
+                        resolveDisplayName = resolveDisplayName,
+                    )
+                }
+        }
     }
 }
 

@@ -5,6 +5,7 @@ import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
 import dev.puklic.domain.UserSummary
+import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
@@ -100,6 +101,16 @@ public sealed interface GatewayDomainEvent {
         val guildId: GuildId,
         val token: String,
         val endpoint: String?,
+    ) : GatewayDomainEvent
+
+    /**
+     * Initial set of voice-channel occupants carried inside a `GUILD_CREATE` dispatch's
+     * `voice_states` array. Consumed by `VoiceStateRepository` to seed its in-memory map before
+     * any incremental [VoiceStateUpdated] events arrive.
+     */
+    public data class VoiceStatesBootstrap(
+        val guildId: GuildId,
+        val states: List<VoiceMember>,
     ) : GatewayDomainEvent
 }
 

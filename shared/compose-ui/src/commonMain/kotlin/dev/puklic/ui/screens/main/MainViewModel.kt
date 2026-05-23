@@ -7,8 +7,10 @@ import dev.puklic.domain.Channel
 import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildTextChannel
+import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.repositories.Orchestrators
@@ -168,6 +170,25 @@ public class MainViewModel(
 
     public suspend fun stopScreenShare() {
         (voiceClient as? dev.puklic.voice.VoiceClient)?.screenShare?.stop()
+    }
+
+    /**
+     * Live map of voice-channel-id → occupants. Surfaces the [voiceStates] repository so the
+     * channel list can render a member list under each voice channel row. Empty map when no
+     * session is wired (tests / pre-login).
+     */
+    public val voiceStates: StateFlow<Map<ChannelId, List<VoiceMember>>> =
+        orchestrators?.voiceStates?.voiceStates
+            ?: MutableStateFlow(emptyMap<ChannelId, List<VoiceMember>>()).asStateFlow()
+
+    /**
+     * Best-effort, non-suspending display name lookup used by voice-member rows. Falls back to
+     * the numeric id when the user is not yet cached. ViewModel-scoped so the UI never touches
+     * the persistence layer directly.
+     */
+    public suspend fun resolveDisplayName(userId: UserId): String {
+        val user = orchestrators?.user?.findById(userId)
+        return user?.globalName ?: user?.username ?: userId.value.toString()
     }
 
     public fun selectChannel(id: ChannelId) {
