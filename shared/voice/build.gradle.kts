@@ -48,7 +48,12 @@ kotlin {
             // See shared/voice/src/jvmMain/kotlin/dev/puklic/voice/codec/OpusCodec.jvm.kt.
             implementation(libs.javacpp)
             implementation(libs.ffmpeg.bindings)
-            implementation(libs.ffmpeg.platform.gpl)
+            // Per-OS classifier only — keeps jpackage installer size ~30 MB of natives
+            // instead of ~150 MB. See Phase 5 of
+            // docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md.
+            // The umbrella `ffmpeg-platform-gpl` artifact (all classifiers) is used only
+            // in tests via testRuntimeOnly below for cross-host CI convenience.
+            runtimeOnly("org.bytedeco:ffmpeg:${libs.versions.ffmpeg.get()}:${detectFfmpegClassifier()}")
             implementation(libs.bouncycastle.bcprov)
             // Linux xdg-desktop-portal ScreenCast over session D-Bus.
             // Both artifacts published to Maven Central. See architect report
@@ -60,7 +65,33 @@ kotlin {
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
+            // For tests we keep the umbrella artifact so cross-host CI / IDE test runs
+            // pick the right native automatically without depending on host detection
+            // matching the runner. Production runtime uses the slim classifier above.
+            runtimeOnly(libs.ffmpeg.platform.gpl)
         }
+    }
+}
+
+/**
+ * Detects the JavaCPP FFmpeg classifier for the *host* JVM running Gradle. Used to pick
+ * a single OS/arch native bundle (~30 MB) instead of the umbrella `ffmpeg-platform-gpl`
+ * artifact (~150 MB, all classifiers). CI matrix builds get the correct natives because
+ * each runner has its own host JVM.
+ *
+ * GPL build (suffix `-gpl`) is required because Puklic links libx264 for screen-share
+ * H.264 encoding (see voice architect report §3).
+ */
+fun detectFfmpegClassifier(): String {
+    val osName = System.getProperty("os.name").lowercase()
+    val osArch = System.getProperty("os.arch").lowercase()
+    return when {
+        osName.contains("linux") && osArch == "amd64" -> "linux-x86_64-gpl"
+        osName.contains("linux") && osArch in setOf("aarch64", "arm64") -> "linux-arm64-gpl"
+        osName.contains("mac") && osArch == "x86_64" -> "macosx-x86_64-gpl"
+        osName.contains("mac") && osArch in setOf("aarch64", "arm64") -> "macosx-arm64-gpl"
+        osName.contains("windows") -> "windows-x86_64-gpl"
+        else -> error("Unsupported OS/arch for FFmpeg native classifier: $osName / $osArch")
     }
 }
 

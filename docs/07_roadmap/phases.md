@@ -79,6 +79,18 @@ is deferred to 4.1.
 - [~] Share with audio — macOS routes via BlackHole 2ch (user-installed); PipeWire audio capture in 4.1
 - [x] Video send via voice gateway transport (RTP FU-A + AEAD on Ready.video_ssrc; slices 4–5)
 
+## Distribution — self-contained installers (slice 5/6, landed 2026-05-23)
+
+- [x] Compose Desktop `nativeDistributions` configured (Deb, AppImage on Linux; Dmg on macOS; Msi on Windows)
+- [x] Per-OS FFmpeg classifier (`detectFfmpegClassifier()` in `shared/voice/build.gradle.kts`) — ~30 MB natives instead of ~150 MB umbrella
+- [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns`, `icons/windows/puklic.ico`)
+- [x] `.dmg` build verified on macOS host — `Puklic-1.0.0.dmg` ≈ 157 MB
+- [ ] `.deb` + `.AppImage` build verified on Linux host (CI)
+- [ ] `.msi` build verified on Windows host (CI)
+- [x] README install instructions
+
+See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md](../03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md) §6–§8.
+
 ## Phase 5 — Optimisation
 
 - [ ] Memory profiling (JFR baseline + per-screen flamegraph)

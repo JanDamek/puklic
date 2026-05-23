@@ -40,6 +40,45 @@ Architecture and the domain model live in [`docs/`](docs/). Start at [docs/READM
 
 See [docs/07_roadmap/phases.md](docs/07_roadmap/phases.md). Currently before Phase 1 (MVP).
 
+## Installation
+
+Self-contained native installers (bundled JRE 21 + FFmpeg/Opus natives + dbus-java) are
+produced from `:desktop:app` via Compose Desktop's `jpackage` integration. Each installer
+is ~150 MB and runs without any system dependencies (no `apt install libopus0`, no JRE).
+
+### Linux (Ubuntu / Debian / Mint, x86_64)
+
+```bash
+wget https://github.com/JanDamek/puklic/releases/download/v0.1.0/puklic_0.1.0-1_amd64.deb
+sudo dpkg -i puklic_0.1.0-1_amd64.deb
+puklic
+```
+
+### Linux (other distros, x86_64)
+
+Download `Puklic-0.1.0-x86_64.AppImage`, `chmod +x`, run.
+
+### macOS (Apple Silicon / Intel)
+
+Download `Puklic-1.0.0.dmg`, open, drag **Puklic** to **Applications**.
+
+### Windows (x86_64)
+
+Download `Puklic-0.1.0.msi`, double-click, follow installer.
+
+### Build installers from source
+
+```bash
+# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS, .msi on Windows)
+./gradlew :desktop:app:packageDistributionForCurrentOS
+```
+
+Output: `desktop/app/build/compose/binaries/main/{deb,appimage,dmg,msi}/`.
+
+Per-OS FFmpeg natives are selected automatically by `detectFfmpegClassifier()` in
+`shared/voice/build.gradle.kts` to keep each installer slim (~30 MB of natives instead
+of ~150 MB for the umbrella `ffmpeg-platform-gpl` artifact).
+
 ## Build
 
 TBD — the Gradle multimodule scaffold is in place (Steps 1–2 landed). Run `./gradlew help` to validate. Application entry points (`:desktop:app`) come online in Phase 1 implementation steps.
