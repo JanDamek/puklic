@@ -1,8 +1,10 @@
 package dev.puklic.repositories
 
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
+import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.MessageRepository
 import dev.puklic.persistence.repository.OutboundQueue
 import dev.puklic.persistence.repository.OutboundMessageRecord
@@ -47,6 +49,7 @@ public class MessageOrchestrator(
     private val outboundQueue: OutboundQueue,
     private val nonceGenerator: () -> String = { defaultNonce() },
     private val nowProvider: () -> Instant = { Clock.System.now() },
+    private val selfUserIdProvider: () -> UserId? = { null },
 ) {
     private val activeChannelState = MutableStateFlow<ChannelId?>(null)
 
@@ -58,6 +61,26 @@ public class MessageOrchestrator(
                     is GatewayDomainEvent.MessageCreated -> persistWithAuthor(event.message)
                     is GatewayDomainEvent.MessageUpdated -> persistWithAuthor(event.message)
                     is GatewayDomainEvent.MessageDeleted -> storage.delete(event.messageId)
+                    is GatewayDomainEvent.ReactionAdded -> mutate(event.messageId) { msg ->
+                        msg.copy(reactions = ReactionMutator.add(
+                            msg.reactions,
+                            event.emoji,
+                            isMe = event.userId == selfUserIdProvider(),
+                        ))
+                    }
+                    is GatewayDomainEvent.ReactionRemoved -> mutate(event.messageId) { msg ->
+                        msg.copy(reactions = ReactionMutator.remove(
+                            msg.reactions,
+                            event.emoji,
+                            isMe = event.userId == selfUserIdProvider(),
+                        ))
+                    }
+                    is GatewayDomainEvent.ReactionsClearedAll -> mutate(event.messageId) { msg ->
+                        msg.copy(reactions = emptyList())
+                    }
+                    is GatewayDomainEvent.ReactionsClearedEmoji -> mutate(event.messageId) { msg ->
+                        msg.copy(reactions = ReactionMutator.clearEmoji(msg.reactions, event.emoji))
+                    }
                     else -> Unit
                 }
             }
@@ -78,6 +101,45 @@ public class MessageOrchestrator(
     private suspend fun persistWithAuthor(message: dev.puklic.domain.ChatMessage) {
         userStorage.persist(message.author)
         storage.persist(message)
+    }
+
+    /**
+     * Read-modify-write for a single message by id. No-op if the message is not in storage
+     * (event arrived for a message we never cached — e.g. older than the warm window). The
+     * persist call re-emits via [MessageRepository.observe], so the UI recomposes naturally.
+     */
+    private suspend inline fun mutate(id: MessageId, transform: (ChatMessage) -> ChatMessage) {
+        val current = storage.findById(id) ?: return
+        storage.persist(transform(current))
+    }
+
+    /**
+     * Optimistically toggle the current user's reaction on [messageId]. Persists the mutated
+     * local state immediately, then issues the REST call. On failure the local state is
+     * rolled back so the UI returns to the pre-toggle reactions list.
+     */
+    public suspend fun toggleReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+        alreadyReacted: Boolean,
+    ) {
+        val current = storage.findById(messageId) ?: return
+        val mutated = if (alreadyReacted) {
+            current.copy(reactions = ReactionMutator.remove(current.reactions, emoji, isMe = true))
+        } else {
+            current.copy(reactions = ReactionMutator.add(current.reactions, emoji, isMe = true))
+        }
+        storage.persist(mutated)
+        val result = if (alreadyReacted) {
+            messageGateway.removeReaction(channelId, messageId, emoji)
+        } else {
+            messageGateway.addReaction(channelId, messageId, emoji)
+        }
+        result.onFailure {
+            // Rollback to the pre-toggle reactions snapshot.
+            storage.persist(current)
+        }
     }
 
     /** Promote [channelId] to the hot slot. */

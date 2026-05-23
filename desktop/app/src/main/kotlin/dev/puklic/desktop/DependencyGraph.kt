@@ -210,6 +210,15 @@ public class DependencyGraph private constructor(
             val gatewayEventSource = GatewayEventSourceAdapter(gatewayBridge, sessionScope)
             val messageGateway = MessageGatewayAdapter(messageBridge, channelStore)
 
+            // Self-user id tracker — populated when Ready arrives, consumed by
+            // MessageOrchestrator to mark reactions originating from the current user.
+            val selfUserId = kotlinx.coroutines.flow.MutableStateFlow<dev.puklic.ids.UserId?>(null)
+            sessionScope.launch {
+                gatewayBridge.events
+                    .filterIsInstance<dev.puklic.protocol.discord.DiscordDomainEvent.Ready>()
+                    .collect { selfUserId.value = it.selfUser.id }
+            }
+
             val messageOrchestrator = MessageOrchestrator(
                 sessionScope = sessionScope,
                 gatewaySource = gatewayEventSource,
@@ -217,6 +226,7 @@ public class DependencyGraph private constructor(
                 storage = messageStore,
                 userStorage = userStore,
                 outboundQueue = outboundQueue,
+                selfUserIdProvider = { selfUserId.value },
             )
             val outboundWorker = OutboundMessageWorker(
                 sessionScope = sessionScope,

@@ -2,6 +2,7 @@ package dev.puklic.repositories
 
 import dev.puklic.domain.Channel
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
 import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
@@ -44,6 +45,31 @@ public sealed interface GatewayDomainEvent {
         val selfUser: UserSummary,
         val sessionId: String,
         val users: List<UserSummary> = emptyList(),
+    ) : GatewayDomainEvent
+
+    public data class ReactionAdded(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val userId: UserId,
+        val emoji: EmojiRef,
+    ) : GatewayDomainEvent
+
+    public data class ReactionRemoved(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val userId: UserId,
+        val emoji: EmojiRef,
+    ) : GatewayDomainEvent
+
+    public data class ReactionsClearedAll(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+    ) : GatewayDomainEvent
+
+    public data class ReactionsClearedEmoji(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val emoji: EmojiRef,
     ) : GatewayDomainEvent
 }
 

@@ -82,6 +82,27 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.ChannelDeleted -> GatewayDomainEvent.ChannelDeleted(ev.channelId)
         is DiscordDomainEvent.UserUpdated -> GatewayDomainEvent.UserUpdated(ev.user)
         is DiscordDomainEvent.Ready -> GatewayDomainEvent.Ready(ev.selfUser, ev.sessionId, ev.users)
+        is DiscordDomainEvent.ReactionAdded -> GatewayDomainEvent.ReactionAdded(
+            channelId = ev.channelId,
+            messageId = ev.messageId,
+            userId = ev.userId,
+            emoji = ev.emoji,
+        )
+        is DiscordDomainEvent.ReactionRemoved -> GatewayDomainEvent.ReactionRemoved(
+            channelId = ev.channelId,
+            messageId = ev.messageId,
+            userId = ev.userId,
+            emoji = ev.emoji,
+        )
+        is DiscordDomainEvent.ReactionsClearedAll -> GatewayDomainEvent.ReactionsClearedAll(
+            channelId = ev.channelId,
+            messageId = ev.messageId,
+        )
+        is DiscordDomainEvent.ReactionsClearedEmoji -> GatewayDomainEvent.ReactionsClearedEmoji(
+            channelId = ev.channelId,
+            messageId = ev.messageId,
+            emoji = ev.emoji,
+        )
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {
