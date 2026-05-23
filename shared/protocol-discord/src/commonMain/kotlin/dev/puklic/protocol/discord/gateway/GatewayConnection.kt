@@ -179,6 +179,57 @@ public class GatewayConnection(
         guildSubscriptionsBulk(mapOf(guildId to channelIds))
     }
 
+    /**
+     * Send OP 4 `VOICE_STATE_UPDATE` on the **main** gateway. This is step 1 of the voice trigger
+     * flow per `docs/03_infrastructure/architect-reports/2026-05-23-voice.md` §5: the client picks
+     * a voice channel, the gateway responds with VOICE_STATE_UPDATE (session_id) and
+     * VOICE_SERVER_UPDATE (token, endpoint), and the voice WS connection can then be opened.
+     *
+     * JSON shape:
+     *   {"op": 4, "d": {"guild_id": "<id>"|null, "channel_id": "<id>"|null,
+     *                   "self_mute": false, "self_deaf": false}}
+     *
+     * Passing `channelId = null` signals leaving the current voice channel.
+     * `guildId = null` is reserved for DM-call voice (not implemented in Phase 3.0); pass-through.
+     * No-ops if the gateway is not currently connected.
+     */
+    public suspend fun sendVoiceStateUpdate(
+        guildId: GuildId?,
+        channelId: ChannelId?,
+        selfMute: Boolean,
+        selfDeaf: Boolean,
+    ) {
+        val transport = activeTransport
+        if (transport == null) {
+            Logger.w("GatewayConnection") {
+                "OP4 VOICE_STATE_UPDATE skipped: no active transport " +
+                    "(guild=${guildId?.value} channel=${channelId?.value})"
+            }
+            return
+        }
+        Logger.i("GatewayConnection") {
+            "OP4 VOICE_STATE_UPDATE sending guild=${guildId?.value} channel=${channelId?.value} " +
+                "selfMute=$selfMute selfDeaf=$selfDeaf"
+        }
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(Opcode.VOICE_STATE_UPDATE))
+            putJsonObject("d") {
+                put(
+                    "guild_id",
+                    guildId?.let { JsonPrimitive(it.value.toString()) } ?: JsonPrimitive(null as String?),
+                )
+                put(
+                    "channel_id",
+                    channelId?.let { JsonPrimitive(it.value.toString()) } ?: JsonPrimitive(null as String?),
+                )
+                put("self_mute", JsonPrimitive(selfMute))
+                put("self_deaf", JsonPrimitive(selfDeaf))
+            }
+        }
+        transport.sendText(DiscordJson.encodeToString(JsonElement.serializer(), payload))
+        Logger.i("GatewayConnection") { "OP4 VOICE_STATE_UPDATE sent" }
+    }
+
     private suspend fun handleText(transport: GatewayTransport, text: String) {
         val envelope = DiscordJson.decodeFromString(GatewayFrame.serializer(), text)
         envelope.s?.let { sequence = it }

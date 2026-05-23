@@ -191,6 +191,53 @@ class GatewayConnectionTest {
         gw.disconnect()
     }
 
+    @Test
+    fun send_voice_state_update_emits_op4_with_expected_shape() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val gw = newGateway(transport)
+        gw.connect("wss://test")
+        transport.deliver(GatewayFrameIn.Text("""{"op":10,"d":{"heartbeat_interval":45000}}"""))
+        waitFor { transport.sent.isNotEmpty() } // IDENTIFY sent
+
+        val before = transport.sent.size
+        gw.sendVoiceStateUpdate(
+            guildId = dev.puklic.ids.GuildId(100L),
+            channelId = dev.puklic.ids.ChannelId(200L),
+            selfMute = false,
+            selfDeaf = false,
+        )
+        waitFor { transport.sent.size > before }
+        val frame = transport.sent.last()
+        assertTrue(frame.contains("\"op\":4"), "expected op:4 frame, got: $frame")
+        assertTrue(frame.contains("\"guild_id\":\"100\""), frame)
+        assertTrue(frame.contains("\"channel_id\":\"200\""), frame)
+        assertTrue(frame.contains("\"self_mute\":false"), frame)
+        assertTrue(frame.contains("\"self_deaf\":false"), frame)
+        gw.disconnect()
+    }
+
+    @Test
+    fun send_voice_state_update_with_null_channel_signals_leave() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeTransport()
+        val gw = newGateway(transport)
+        gw.connect("wss://test")
+        transport.deliver(GatewayFrameIn.Text("""{"op":10,"d":{"heartbeat_interval":45000}}"""))
+        waitFor { transport.sent.isNotEmpty() }
+
+        val before = transport.sent.size
+        gw.sendVoiceStateUpdate(
+            guildId = dev.puklic.ids.GuildId(100L),
+            channelId = null,
+            selfMute = false,
+            selfDeaf = false,
+        )
+        waitFor { transport.sent.size > before }
+        val frame = transport.sent.last()
+        assertTrue(frame.contains("\"op\":4"), frame)
+        assertTrue(frame.contains("\"channel_id\":null"), frame)
+        gw.disconnect()
+    }
+
     private fun TestScope.newGateway(transport: FakeTransport): GatewayConnection =
         GatewayConnection(
             scope = this,

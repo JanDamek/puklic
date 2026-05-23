@@ -75,6 +75,32 @@ public sealed interface GatewayDomainEvent {
         val messageId: MessageId,
         val emoji: EmojiRef,
     ) : GatewayDomainEvent
+
+    /**
+     * Voice trigger flow step 2a — main-gateway VOICE_STATE_UPDATE dispatch. Mirrored from
+     * `DiscordDomainEvent.VoiceStateUpdated` by the wiring adapter. See architect report
+     * 2026-05-23-voice §5.
+     */
+    public data class VoiceStateUpdated(
+        val guildId: GuildId?,
+        val channelId: ChannelId?,
+        val userId: UserId,
+        val sessionId: String,
+        val selfMute: Boolean,
+        val selfDeaf: Boolean,
+        val mute: Boolean,
+        val deaf: Boolean,
+    ) : GatewayDomainEvent
+
+    /**
+     * Voice trigger flow step 2b — main-gateway VOICE_SERVER_UPDATE dispatch. `endpoint` may be
+     * null during region migration.
+     */
+    public data class VoiceServerUpdated(
+        val guildId: GuildId,
+        val token: String,
+        val endpoint: String?,
+    ) : GatewayDomainEvent
 }
 
 /** Source of domain-level gateway events. Wraps the protocol-discord SharedFlow. */

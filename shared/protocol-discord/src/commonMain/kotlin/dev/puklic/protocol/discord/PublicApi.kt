@@ -103,6 +103,33 @@ public sealed interface DiscordDomainEvent {
         val messageId: MessageId,
         val emoji: EmojiRef,
     ) : DiscordDomainEvent
+
+    /**
+     * Voice trigger flow step 2a per architect report 2026-05-23-voice §5: main-gateway dispatch
+     * confirming the user's new voice channel + session id. Both ids may be null (leaving a voice
+     * channel; DM-call voice).
+     */
+    public data class VoiceStateUpdated(
+        val guildId: GuildId?,
+        val channelId: ChannelId?,
+        val userId: UserId,
+        val sessionId: String,
+        val selfMute: Boolean,
+        val selfDeaf: Boolean,
+        val mute: Boolean,
+        val deaf: Boolean,
+    ) : DiscordDomainEvent
+
+    /**
+     * Voice trigger flow step 2b: main-gateway dispatch carrying the voice WS endpoint + token.
+     * `endpoint` may be null briefly during region migration — callers must wait for a follow-up
+     * event with a non-null endpoint before opening the voice WS.
+     */
+    public data class VoiceServerUpdated(
+        val guildId: GuildId,
+        val token: String,
+        val endpoint: String?,
+    ) : DiscordDomainEvent
 }
 
 /**
@@ -276,6 +303,33 @@ public class DiscordGatewayBridge(
                         channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
                         messageId = MessageId(obj.getValue("message_id").jsonPrimitive.content.toLong()),
                         emoji = decodeEmoji(obj.getValue("emoji").jsonObject),
+                    ))
+                }
+                "VOICE_STATE_UPDATE" -> {
+                    val dto = DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.VoiceStateUpdateDto.serializer(),
+                        payload,
+                    )
+                    listOf(DiscordDomainEvent.VoiceStateUpdated(
+                        guildId = dto.guildId?.toLongOrNull()?.let(::GuildId),
+                        channelId = dto.channelId?.toLongOrNull()?.let(::ChannelId),
+                        userId = UserId(dto.userId.toLong()),
+                        sessionId = dto.sessionId,
+                        selfMute = dto.selfMute,
+                        selfDeaf = dto.selfDeaf,
+                        mute = dto.mute,
+                        deaf = dto.deaf,
+                    ))
+                }
+                "VOICE_SERVER_UPDATE" -> {
+                    val dto = DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.VoiceServerUpdateDto.serializer(),
+                        payload,
+                    )
+                    listOf(DiscordDomainEvent.VoiceServerUpdated(
+                        guildId = GuildId(dto.guildId.toLong()),
+                        token = dto.token,
+                        endpoint = dto.endpoint,
                     ))
                 }
                 "READY" -> mapReady(payload)

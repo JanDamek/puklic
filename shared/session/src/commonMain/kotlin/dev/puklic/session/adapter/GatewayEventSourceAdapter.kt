@@ -104,6 +104,21 @@ public class GatewayEventSourceAdapter(
             messageId = ev.messageId,
             emoji = ev.emoji,
         )
+        is DiscordDomainEvent.VoiceStateUpdated -> GatewayDomainEvent.VoiceStateUpdated(
+            guildId = ev.guildId,
+            channelId = ev.channelId,
+            userId = ev.userId,
+            sessionId = ev.sessionId,
+            selfMute = ev.selfMute,
+            selfDeaf = ev.selfDeaf,
+            mute = ev.mute,
+            deaf = ev.deaf,
+        )
+        is DiscordDomainEvent.VoiceServerUpdated -> GatewayDomainEvent.VoiceServerUpdated(
+            guildId = ev.guildId,
+            token = ev.token,
+            endpoint = ev.endpoint,
+        )
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {

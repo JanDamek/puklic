@@ -208,6 +208,105 @@ class DiscordGatewayBridgeTest {
         val channelEvents = collected.filterIsInstance<DiscordDomainEvent.ChannelCreated>()
         assertEquals(2, channelEvents.size)
     }
+
+    @Test
+    fun voice_state_update_dispatch_emits_VoiceStateUpdated_with_ids() = runTest(UnconfinedTestDispatcher()) {
+        val gw = TestGateway()
+        val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        val bridge = DiscordGatewayBridge(gw.asPublicGateway(), bridgeScope)
+        val collected = mutableListOf<DiscordDomainEvent>()
+        val job = launch { bridge.events.collect { collected.add(it) } }
+
+        val payload = Json.parseToJsonElement(
+            """
+            {
+              "guild_id": "100",
+              "channel_id": "200",
+              "user_id": "300",
+              "session_id": "sess-xyz",
+              "self_mute": true,
+              "self_deaf": false,
+              "mute": false,
+              "deaf": false,
+              "suppress": false
+            }
+            """.trimIndent(),
+        )
+        gw.emit(GatewayDispatchEvent(type = "VOICE_STATE_UPDATE", sequence = 1, payload = payload))
+
+        withTimeout(2_000) {
+            while (collected.none { it is DiscordDomainEvent.VoiceStateUpdated }) {
+                kotlinx.coroutines.yield()
+            }
+        }
+        job.cancel()
+        bridgeScope.cancel()
+
+        val ev = collected.filterIsInstance<DiscordDomainEvent.VoiceStateUpdated>().single()
+        assertEquals(100L, ev.guildId?.value)
+        assertEquals(200L, ev.channelId?.value)
+        assertEquals(300L, ev.userId.value)
+        assertEquals("sess-xyz", ev.sessionId)
+        assertTrue(ev.selfMute)
+    }
+
+    @Test
+    fun voice_server_update_dispatch_emits_VoiceServerUpdated() = runTest(UnconfinedTestDispatcher()) {
+        val gw = TestGateway()
+        val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        val bridge = DiscordGatewayBridge(gw.asPublicGateway(), bridgeScope)
+        val collected = mutableListOf<DiscordDomainEvent>()
+        val job = launch { bridge.events.collect { collected.add(it) } }
+
+        val payload = Json.parseToJsonElement(
+            """
+            {
+              "token": "voicetoken",
+              "guild_id": "100",
+              "endpoint": "us-east1234.discord.media"
+            }
+            """.trimIndent(),
+        )
+        gw.emit(GatewayDispatchEvent(type = "VOICE_SERVER_UPDATE", sequence = 2, payload = payload))
+
+        withTimeout(2_000) {
+            while (collected.none { it is DiscordDomainEvent.VoiceServerUpdated }) {
+                kotlinx.coroutines.yield()
+            }
+        }
+        job.cancel()
+        bridgeScope.cancel()
+
+        val ev = collected.filterIsInstance<DiscordDomainEvent.VoiceServerUpdated>().single()
+        assertEquals(100L, ev.guildId.value)
+        assertEquals("voicetoken", ev.token)
+        assertEquals("us-east1234.discord.media", ev.endpoint)
+    }
+
+    @Test
+    fun voice_server_update_with_null_endpoint_during_region_migration() = runTest(UnconfinedTestDispatcher()) {
+        val gw = TestGateway()
+        val bridgeScope = CoroutineScope(SupervisorJob() + UnconfinedTestDispatcher(testScheduler))
+        val bridge = DiscordGatewayBridge(gw.asPublicGateway(), bridgeScope)
+        val collected = mutableListOf<DiscordDomainEvent>()
+        val job = launch { bridge.events.collect { collected.add(it) } }
+
+        val payload = Json.parseToJsonElement(
+            """{"token":"t","guild_id":"100","endpoint":null}""",
+        )
+        gw.emit(GatewayDispatchEvent(type = "VOICE_SERVER_UPDATE", sequence = 3, payload = payload))
+
+        withTimeout(2_000) {
+            while (collected.none { it is DiscordDomainEvent.VoiceServerUpdated }) {
+                kotlinx.coroutines.yield()
+            }
+        }
+        job.cancel()
+        bridgeScope.cancel()
+
+        val ev = collected.filterIsInstance<DiscordDomainEvent.VoiceServerUpdated>().single()
+        kotlin.test.assertNull(ev.endpoint)
+    }
 }
 
 /** Minimal in-process Gateway that lets a test push raw [GatewayDispatchEvent]s. */
