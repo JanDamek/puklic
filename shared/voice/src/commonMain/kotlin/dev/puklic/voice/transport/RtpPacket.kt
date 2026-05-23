@@ -1,12 +1,13 @@
 package dev.puklic.voice.transport
 
 /**
- * Pure RTP header framing for Discord voice (Opus payload).
+ * Pure RTP header framing for Discord voice + video.
  *
- * Layout per architect report 2026-05-23-voice.md §6:
+ * Layout per architect reports 2026-05-23-voice.md §6 (Opus audio) and
+ * 2026-05-23-screenshare.md §5 (H.264 / VP8 video):
  * ```
  * byte 0:    0x80              version=2, padding=0, ext=0, csrc=0
- * byte 1:    0x78              payload type Opus
+ * byte 1:    M(1) | PT(7)      marker bit + payload type
  * bytes 2-3: sequence (u16 BE)
  * bytes 4-7: timestamp (u32 BE)
  * bytes 8-11: ssrc (u32 BE)
@@ -16,12 +17,24 @@ internal object RtpPacket {
 
     const val HEADER_SIZE: Int = 12
     const val VERSION_FLAGS: Byte = 0x80.toByte()
-    const val PAYLOAD_TYPE_OPUS: Byte = 0x78.toByte()
+    const val PAYLOAD_TYPE_OPUS: Byte = 0x78.toByte() // 120
+    const val PAYLOAD_TYPE_H264: Byte = 0x65.toByte() // 101
+    const val PAYLOAD_TYPE_VP8: Byte = 0x67.toByte()  // 103
 
-    fun writeHeader(sequence: Short, timestamp: Int, ssrc: Int): ByteArray {
+    private const val MARKER_BIT: Int = 0x80
+    private const val PAYLOAD_TYPE_MASK: Int = 0x7F
+
+    fun writeHeader(
+        sequence: Short,
+        timestamp: Int,
+        ssrc: Int,
+        payloadType: Byte = PAYLOAD_TYPE_OPUS,
+        marker: Boolean = false,
+    ): ByteArray {
         val out = ByteArray(HEADER_SIZE)
         out[0] = VERSION_FLAGS
-        out[1] = PAYLOAD_TYPE_OPUS
+        val markerBits = if (marker) MARKER_BIT else 0
+        out[1] = (markerBits or (payloadType.toInt() and PAYLOAD_TYPE_MASK)).toByte()
         val seqInt = sequence.toInt() and 0xFFFF
         out[2] = ((seqInt ushr 8) and 0xFF).toByte()
         out[3] = (seqInt and 0xFF).toByte()
@@ -39,7 +52,12 @@ internal object RtpPacket {
     fun readHeader(bytes: ByteArray): Header {
         require(bytes.size >= HEADER_SIZE) { "RTP header requires $HEADER_SIZE bytes, got ${bytes.size}" }
         require(bytes[0] == VERSION_FLAGS) { "Unsupported RTP version/flags byte: 0x${(bytes[0].toInt() and 0xFF).toString(16)}" }
-        require(bytes[1] == PAYLOAD_TYPE_OPUS) { "Unsupported RTP payload type: 0x${(bytes[1].toInt() and 0xFF).toString(16)}" }
+        val b1 = bytes[1].toInt() and 0xFF
+        val marker = (b1 and MARKER_BIT) != 0
+        val payloadType = (b1 and PAYLOAD_TYPE_MASK).toByte()
+        require(payloadType == PAYLOAD_TYPE_OPUS || payloadType == PAYLOAD_TYPE_H264 || payloadType == PAYLOAD_TYPE_VP8) {
+            "Unsupported RTP payload type: 0x${(payloadType.toInt() and 0xFF).toString(16)}"
+        }
         val seq = (((bytes[2].toInt() and 0xFF) shl 8) or (bytes[3].toInt() and 0xFF)).toShort()
         val ts = ((bytes[4].toInt() and 0xFF) shl 24) or
             ((bytes[5].toInt() and 0xFF) shl 16) or
@@ -49,8 +67,14 @@ internal object RtpPacket {
             ((bytes[9].toInt() and 0xFF) shl 16) or
             ((bytes[10].toInt() and 0xFF) shl 8) or
             (bytes[11].toInt() and 0xFF)
-        return Header(seq, ts, ssrc)
+        return Header(seq, ts, ssrc, payloadType, marker)
     }
 
-    data class Header(val sequence: Short, val timestamp: Int, val ssrc: Int)
+    data class Header(
+        val sequence: Short,
+        val timestamp: Int,
+        val ssrc: Int,
+        val payloadType: Byte = PAYLOAD_TYPE_OPUS,
+        val marker: Boolean = false,
+    )
 }

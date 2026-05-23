@@ -44,7 +44,13 @@ internal sealed interface VoiceGatewayState {
 }
 
 internal sealed interface VoiceGatewayEvent {
-    data class Ready(val ssrc: Int, val ip: String, val port: Int, val modes: List<String>) : VoiceGatewayEvent
+    data class Ready(
+        val ssrc: Int,
+        val ip: String,
+        val port: Int,
+        val modes: List<String>,
+        val videoSsrc: Int = 0,
+    ) : VoiceGatewayEvent
     data class SessionDescription(val mode: String, val secretKey: ByteArray) : VoiceGatewayEvent {
         override fun equals(other: Any?): Boolean =
             other is SessionDescription && mode == other.mode && secretKey.contentEquals(other.secretKey)
@@ -60,6 +66,7 @@ internal interface VoiceGatewayConnection {
     suspend fun connect(endpoint: String, token: String, sessionId: String, serverId: String, userId: String)
     suspend fun sendSelectProtocol(externalIp: String, externalPort: Int, mode: String)
     suspend fun sendSpeaking(speaking: Int, ssrc: Int)
+    suspend fun sendVideoStream(audioSsrc: Int, videoSsrc: Int, rtxSsrc: Int, active: Boolean)
     suspend fun close()
 }
 
@@ -127,7 +134,12 @@ internal class DefaultVoiceGatewayConnection(
                     VoiceSelectProtocol.serializer(),
                     VoiceSelectProtocol(
                         protocol = "udp",
-                        data = VoiceSelectProtocolData(externalIp, externalPort, mode),
+                        data = VoiceSelectProtocolData(
+                            address = externalIp,
+                            port = externalPort,
+                            mode = mode,
+                            codecs = DEFAULT_CODECS,
+                        ),
                     ),
                 ),
             )
@@ -147,6 +159,35 @@ internal class DefaultVoiceGatewayConnection(
                 JSON.encodeToJsonElement(
                     VoiceSpeaking.serializer(),
                     VoiceSpeaking(speaking = speaking, delay = 0, ssrc = ssrc),
+                ),
+            )
+        }
+        transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+    }
+
+    override suspend fun sendVideoStream(audioSsrc: Int, videoSsrc: Int, rtxSsrc: Int, active: Boolean) {
+        val transport = activeTransport ?: run {
+            Logger.w(TAG) { "VIDEO_STREAM skipped: no active transport" }
+            return
+        }
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(VoiceOp.VIDEO_STREAM))
+            put(
+                "d",
+                JSON.encodeToJsonElement(
+                    Op12VideoStream.serializer(),
+                    Op12VideoStream(
+                        audioSsrc = audioSsrc,
+                        videoSsrc = videoSsrc,
+                        rtxSsrc = rtxSsrc,
+                        streams = listOf(
+                            Op12VideoStream.StreamSpec(
+                                ssrc = videoSsrc,
+                                rtxSsrc = rtxSsrc,
+                                active = active,
+                            ),
+                        ),
+                    ),
                 ),
             )
         }
@@ -237,7 +278,13 @@ internal class DefaultVoiceGatewayConnection(
                 ssrc = ready.ssrc
                 _state.value = VoiceGatewayState.Active(ready.ssrc)
                 _events.tryEmit(
-                    VoiceGatewayEvent.Ready(ready.ssrc, ready.ip, ready.port, ready.modes),
+                    VoiceGatewayEvent.Ready(
+                        ssrc = ready.ssrc,
+                        ip = ready.ip,
+                        port = ready.port,
+                        modes = ready.modes,
+                        videoSsrc = ready.videoSsrc,
+                    ),
                 )
             }
             VoiceOp.SESSION_DESCRIPTION -> {
@@ -326,5 +373,38 @@ internal class DefaultVoiceGatewayConnection(
         const val MAX_BACKOFF_EXPONENT = 4 // caps at 8 s (1<<3)
         const val HEARTBEAT_TIMEOUT_CODE = 4009
         val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+
+        // Codec advertisement sent in Op 1 SelectProtocol. Audio = encode+decode (we send and
+        // receive voice); video = encode only (4.0 MVP doesn't render remote video).
+        // See architect report `2026-05-23-screenshare.md` §4.
+        val DEFAULT_CODECS = listOf(
+            VoiceCodecEntry(
+                name = "opus",
+                type = "audio",
+                payloadType = 120,
+                rtxPayloadType = null,
+                priority = 1000,
+                encode = true,
+                decode = true,
+            ),
+            VoiceCodecEntry(
+                name = "H264",
+                type = "video",
+                payloadType = 101,
+                rtxPayloadType = 102,
+                priority = 1000,
+                encode = true,
+                decode = false,
+            ),
+            VoiceCodecEntry(
+                name = "VP8",
+                type = "video",
+                payloadType = 103,
+                rtxPayloadType = 104,
+                priority = 2000,
+                encode = true,
+                decode = false,
+            ),
+        )
     }
 }

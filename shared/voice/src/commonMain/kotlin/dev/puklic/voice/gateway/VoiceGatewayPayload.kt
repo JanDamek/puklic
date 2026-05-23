@@ -32,6 +32,7 @@ internal data class VoiceIdentify(
 @Serializable
 internal data class VoiceReady(
     val ssrc: Int,
+    @SerialName("video_ssrc") val videoSsrc: Int = 0,
     val ip: String,
     val port: Int,
     val modes: List<String>,
@@ -48,10 +49,22 @@ internal data class VoiceHeartbeatAck(
 )
 
 @Serializable
+internal data class VoiceCodecEntry(
+    val name: String,
+    val type: String,
+    @SerialName("payload_type") val payloadType: Int,
+    @SerialName("rtx_payload_type") val rtxPayloadType: Int? = null,
+    val priority: Int,
+    val encode: Boolean,
+    val decode: Boolean,
+)
+
+@Serializable
 internal data class VoiceSelectProtocolData(
     val address: String,
     val port: Int,
     val mode: String,
+    val codecs: List<VoiceCodecEntry> = emptyList(),
 )
 
 @Serializable
@@ -59,6 +72,29 @@ internal data class VoiceSelectProtocol(
     val protocol: String,
     val data: VoiceSelectProtocolData,
 )
+
+/**
+ * Op 12 VideoStream (client → server). Notifies Discord which SSRCs carry the screenshare
+ * video + RTX, plus simulcast stream descriptors. See architect report §4.
+ */
+@Serializable
+internal data class Op12VideoStream(
+    @SerialName("audio_ssrc") val audioSsrc: Int,
+    @SerialName("video_ssrc") val videoSsrc: Int,
+    @SerialName("rtx_ssrc") val rtxSsrc: Int = 0,
+    val streams: List<StreamSpec>,
+) {
+    @Serializable
+    internal data class StreamSpec(
+        val type: String = "video",
+        val rid: String = "100",
+        val quality: Int = 100,
+        val ssrc: Int,
+        @SerialName("rtx_ssrc") val rtxSsrc: Int = 0,
+        @SerialName("max_bitrate") val maxBitrate: Int = 2_500_000,
+        val active: Boolean,
+    )
+}
 
 @Serializable
 internal data class VoiceSessionDescription(

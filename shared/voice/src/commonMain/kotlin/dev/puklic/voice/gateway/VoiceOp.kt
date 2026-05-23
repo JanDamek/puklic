@@ -17,6 +17,7 @@ internal object VoiceOp {
     const val RESUME: Int = 7
     const val HELLO: Int = 8
     const val RESUMED: Int = 9
+    const val VIDEO_STREAM: Int = 12
     const val CLIENT_DISCONNECT: Int = 13
 
     // DAVE — not implemented in Phase 3.0, reserved for 3.1+.
