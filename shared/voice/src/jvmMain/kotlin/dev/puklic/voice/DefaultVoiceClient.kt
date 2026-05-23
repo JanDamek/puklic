@@ -373,16 +373,10 @@ public class DefaultVoiceClient(
                 )
             }
             runCatching { voiceGateway?.sendSpeaking(if (muted) 0 else 1, activeSsrc) }
-            // Pause/resume capture by stopping the loop. Restart-on-unmute keeps things simple.
-            if (muted) {
-                capture?.stop()
-            } else {
-                val scope = sessionScope
-                if (scope != null && capture == null) {
-                    // Pipeline was destroyed; we would need to rebuild. For now this is a no-op:
-                    // mute always tears down only the capture loop, never the encoder/codec.
-                }
-            }
+            // Pause/resume the encode-send path WITHOUT tearing down the encoder or the
+            // capture device. The loop keeps draining the line while muted, so toggling
+            // mute is now cycle-safe (mute → unmute → mute → unmute …).
+            capture?.setMuted(muted)
         }
     }
 
@@ -400,9 +394,11 @@ public class DefaultVoiceClient(
                     selfDeaf = deaf,
                 )
             }
+            // Capture pause is reversible; playback stop is acceptable because
+            // un-deafening currently requires a reconnect cycle (deferred; see report §10).
+            capture?.setMuted(mute)
             if (deaf) {
                 playback?.stop()
-                capture?.stop()
             }
         }
     }

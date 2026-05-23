@@ -33,6 +33,9 @@ internal class CapturePipeline(
 
     private var job: Job? = null
 
+    @Volatile
+    private var muted: Boolean = false
+
     fun start(scope: CoroutineScope, deviceId: String? = null) {
         check(job == null || job?.isActive != true) { "CapturePipeline already running" }
         capture.start(deviceId)
@@ -45,12 +48,41 @@ internal class CapturePipeline(
         capture.stop()
     }
 
+    /**
+     * Pause or resume the encode+send path without tearing down the capture line or
+     * the Opus encoder. While [muted] is `true` the loop still drains the audio device
+     * (so the OS line doesn't drift / overflow) but discards frames — no encode, no send,
+     * speaking transitions are suppressed and a final speaking=false is emitted on the
+     * transition to muted.
+     */
+    fun setMuted(value: Boolean) {
+        muted = value
+    }
+
     private suspend fun runLoop() {
         var speaking = false
         var silenceFrames = 0
+        var wasMuted = false
         try {
             while (currentCoroutineIsActive()) {
                 val pcm = capture.read()
+                if (muted) {
+                    if (!wasMuted) {
+                        wasMuted = true
+                        if (speaking) {
+                            speaking = false
+                            silenceFrames = 0
+                            onSpeakingChange(false)
+                        }
+                    }
+                    continue
+                }
+                if (wasMuted) {
+                    wasMuted = false
+                    // Reset gate so we don't carry stale silence-tail state across the pause.
+                    silenceFrames = 0
+                    speaking = false
+                }
                 val isLoud = computeRms(pcm) > rmsThreshold
                 if (isLoud) {
                     silenceFrames = 0

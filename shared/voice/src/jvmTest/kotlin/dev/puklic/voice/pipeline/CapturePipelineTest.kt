@@ -5,6 +5,7 @@ import dev.puklic.voice.audio.AudioCapture
 import dev.puklic.voice.codec.OpusEncoder
 import io.kotest.matchers.collections.shouldContainInOrder
 import io.kotest.matchers.ints.shouldBeGreaterThanOrEqual
+import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -68,6 +69,61 @@ class CapturePipelineTest {
         synchronized(sent) { sent.size } shouldBeGreaterThanOrEqual 3
         speakingEvents.firstOrNull() shouldBe true
         encoder.calls shouldBeGreaterThanOrEqual 3
+    }
+
+    @Test
+    fun `mute unmute cycle preserves encoder and resumes sending`(): Unit = runBlocking {
+        // Endless loud frames so the test only depends on the mute flag.
+        val capture = object : AudioCapture {
+            override fun start(deviceId: String?) {}
+            override fun stop() {}
+            override fun read(): ShortArray = loudFrame()
+            override fun close() {}
+        }
+        val encoder = FakeEncoder()
+        val sent = mutableListOf<ByteArray>()
+        val speakingEvents = mutableListOf<Boolean>()
+
+        val pipeline = CapturePipeline(
+            capture = capture,
+            encoder = encoder,
+            encodeAndSend = { synchronized(sent) { sent.add(it) } },
+            onSpeakingChange = { speakingEvents.add(it) },
+        )
+
+        val scope = CoroutineScope(Dispatchers.IO)
+        pipeline.start(scope)
+
+        suspend fun waitForGrowth(prev: Int, atLeast: Int) {
+            withTimeout(2_000) {
+                while (synchronized(sent) { sent.size } < prev + atLeast) {
+                    kotlinx.coroutines.delay(5)
+                }
+            }
+        }
+
+        // Cycle 3x: each iteration must produce new packets after unmute.
+        repeat(3) {
+            waitForGrowth(prev = synchronized(sent) { sent.size }, atLeast = 5)
+            val beforeMute = synchronized(sent) { sent.size }
+            pipeline.setMuted(true)
+            // Allow loop to observe the flag and drain any in-flight frame.
+            kotlinx.coroutines.delay(100)
+            val afterMute = synchronized(sent) { sent.size }
+            pipeline.setMuted(false)
+            // Now expect new packets within a short window.
+            withTimeout(2_000) {
+                while (synchronized(sent) { sent.size } <= afterMute + 3) {
+                    kotlinx.coroutines.delay(5)
+                }
+            }
+            // While muted, no significant growth.
+            (afterMute - beforeMute) shouldBeLessThanOrEqual 3
+        }
+
+        pipeline.stop()
+        // Encoder kept being reused (not rebuilt across cycles).
+        encoder.calls shouldBeGreaterThanOrEqual 15
     }
 
     @Test
