@@ -47,7 +47,7 @@ jlleitschuh-ktlint-gradle = "12.1.2"
 
 # Platform-specific (desktop)
 jna = "5.16.0"
-dbus-java = "4.3.1"
+dbus-java = "5.1.1"
 
 # Native multimedia (JavaCPP bundled libavcodec / FFmpeg GPL build incl. libopus, libx264)
 javacpp = "1.5.11"
@@ -127,6 +127,7 @@ ktlint-compose-rules = { module = "io.nlopez.compose.rules:ktlint", version.ref 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+dbus-java-transport-jnr-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-jnr-unixsocket", version.ref = "dbus-java" }
 
 # JavaCPP + FFmpeg (libavcodec/libavformat/libavdevice/libavutil; GPL build incl. libopus + libx264)
 javacpp = { group = "org.bytedeco", name = "javacpp", version.ref = "javacpp" }

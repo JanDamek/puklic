@@ -50,6 +50,13 @@ kotlin {
             implementation(libs.ffmpeg.bindings)
             implementation(libs.ffmpeg.platform.gpl)
             implementation(libs.bouncycastle.bcprov)
+            // Linux xdg-desktop-portal ScreenCast over session D-Bus.
+            // Both artifacts published to Maven Central. See architect report
+            // docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md §4
+            // phase 3. On non-Linux hosts the class is loaded lazily, so the deps are
+            // a small classpath cost (~1 MB) but never trigger D-Bus on macOS/Windows.
+            implementation(libs.dbus.java.core)
+            implementation(libs.dbus.java.transport.jnr.unixsocket)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)

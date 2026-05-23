@@ -166,6 +166,36 @@ Manual smoke test checklist (Phase 1):
 - [ ] Tray icon is visible
 - [ ] Drag & drop attachment from Nautilus / Dolphin
 
+## Screencast via xdg-desktop-portal (Phase 3 of self-contained refactor)
+
+Puklic captures the desktop on Wayland by talking to the compositor's `org.freedesktop.portal.ScreenCast` interface over the session D-Bus, then handing the resulting PipeWire fd to libavdevice's `pipewire` demuxer (bundled in the JavaCPP FFmpeg GPL build, no separate install).
+
+Implementation entry points:
+- `shared/voice/src/jvmMain/kotlin/dev/puklic/voice/screenshare/source/LinuxScreenSourceEnumerator.jvm.kt` — returns a single synthetic "portal" entry (the compositor's own picker handles real selection)
+- `shared/voice/src/jvmMain/kotlin/dev/puklic/voice/screenshare/linux/LinuxPortalScreenCast.kt` — drives `CreateSession → SelectSources → Start → OpenPipeWireRemote` via `dbus-java 5.1.1`
+- `LibavVideoEncoder` accepts an optional `pipewireFd: Int` parameter; when set it forwards `av_dict_set("fd", "<int>", 0)` so libavdevice uses the portal-allocated PipeWire endpoint
+- `DefaultScreenShareClient` detects `source.id == "portal"`, runs the handshake, and substitutes the real PipeWire node id into the encoder's `ScreenSource`
+
+D-Bus runtime dependencies (already on every modern Wayland desktop):
+- `xdg-desktop-portal` (≥ 1.16 recommended)
+- Compositor-specific backend: `xdg-desktop-portal-gnome`, `xdg-desktop-portal-kde`, `xdg-desktop-portal-hyprland`, or `xdg-desktop-portal-wlr` for Sway
+- `pipewire` ≥ 0.3 daemon (used by both the portal and libavdevice)
+
+### Manual smoke test (cannot run in CI — no session bus, no portal)
+
+1. Boot a GNOME or KDE Wayland session.
+2. Launch Puklic, sign in, join a voice channel.
+3. Click "Share Screen". The compositor's picker (e.g. GNOME's "Share your screen") must pop up.
+4. Pick a monitor and confirm. The screencast indicator (red dot / "Cast" badge in the system tray) should appear.
+5. On a second machine, open the official Discord client and join the same voice channel. The shared screen must render with sub-second latency and recognisable contents (no green/purple corruption — that would indicate the YUV pixel format negotiation between PipeWire and libavdevice failed).
+6. Click "Stop Sharing" in Puklic. The compositor indicator must disappear within ~1 second.
+
+### Known caveats
+
+- The portal flow is currently smoke-tested only; CI runs only the small reflection-based unit tests in `LinuxPortalScreenCastTest`.
+- dbus-java's deserialisation of `a(ua{sv})` (the `streams` field on Start's Response) is shape-dependent; `LinuxPortalScreenCast.extractStreams` currently handles both `Object[]` and `List<*>` rows. If a future dbus-java release switches to a typed `DBusStruct` shape, extend that helper.
+- No restore-token support yet; every screencast triggers the compositor picker. Adding `restore_token`/`persist_mode` (portal v4+) is a follow-up.
+
 ## Open questions
 
 - **Compose native Wayland:** when to switch? Track [github.com/JetBrains/compose-multiplatform](https://github.com/JetBrains/compose-multiplatform) issues.

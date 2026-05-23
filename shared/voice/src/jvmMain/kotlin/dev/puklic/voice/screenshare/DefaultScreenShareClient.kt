@@ -7,6 +7,8 @@ import dev.puklic.voice.gateway.VoiceGatewayConnection
 import dev.puklic.voice.screenshare.encoder.VideoEncoder
 import dev.puklic.voice.screenshare.encoder.ffmpegVideoEncoder
 import dev.puklic.voice.screenshare.encoder.libavVideoEncoder
+import dev.puklic.voice.screenshare.linux.LinuxPortalScreenCast
+import dev.puklic.voice.screenshare.source.LinuxScreenSourceEnumerator
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
 import dev.puklic.voice.transport.RtpPacket
 import dev.puklic.voice.transport.UdpRtpTransport
@@ -51,6 +53,11 @@ internal class DefaultScreenShareClient(
             libavVideoEncoder(src, audio)
         }
     },
+    /**
+     * Test seam. Defaults to constructing a fresh [LinuxPortalScreenCast] on demand. Production
+     * Linux path: invoked when `source.id == LinuxScreenSourceEnumerator.PORTAL_PICKER_ID`.
+     */
+    private val portalScreenCastFactory: () -> LinuxPortalScreenCast = { LinuxPortalScreenCast() },
     private val sendDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ScreenShareClient {
 
@@ -60,6 +67,7 @@ internal class DefaultScreenShareClient(
     private val mutex = Mutex()
     private var encoder: VideoEncoder? = null
     private var sendJob: Job? = null
+    private var activePortal: LinuxPortalScreenCast? = null
 
     override suspend fun listSources(): List<ScreenSource> = enumerator.list()
 
@@ -84,7 +92,34 @@ internal class DefaultScreenShareClient(
             active = true,
         )
 
-        val enc = encoderFactory(source, shareAudio)
+        // Linux Wayland path: when the user picked the synthetic "portal" entry from
+        // [LinuxScreenSourceEnumerator], run the xdg-desktop-portal handshake to obtain a
+        // PipeWire node id + fd. The compositor pops up its own picker during Start().
+        val enc: VideoEncoder = if (source.id == LinuxScreenSourceEnumerator.PORTAL_PICKER_ID) {
+            val portal = portalScreenCastFactory()
+            activePortal = portal
+            val stream = try {
+                portal.open(includeAudio = shareAudio)
+            } catch (e: Throwable) {
+                runCatching { portal.close() }
+                activePortal = null
+                _state.value = ScreenShareState.Failed("xdg-desktop-portal handshake failed: ${e.message}")
+                return
+            }
+            // Construct the encoder with the real PipeWire node id (replacing the synthetic
+            // "portal" sentinel) plus the portal-allocated fd.
+            // Width/height stay 0 (UNKNOWN); the encoder reads real dimensions from the
+            // PipeWire stream once libavdevice opens it.
+            val realSource = ScreenSource.Monitor(
+                id = stream.nodeId.toString(),
+                displayName = source.displayName,
+                widthPx = 0,
+                heightPx = 0,
+            )
+            libavVideoEncoder(realSource, shareAudio, stream.fd)
+        } else {
+            encoderFactory(source, shareAudio)
+        }
         encoder = enc
         val sender = VideoRtpSender(
             udp = udpTransport,
@@ -124,6 +159,8 @@ internal class DefaultScreenShareClient(
         sendJob = null
         runCatching { encoder?.stop() }
         encoder = null
+        runCatching { activePortal?.close() }
+        activePortal = null
 
         runCatching {
             voiceGateway.sendVideoStream(

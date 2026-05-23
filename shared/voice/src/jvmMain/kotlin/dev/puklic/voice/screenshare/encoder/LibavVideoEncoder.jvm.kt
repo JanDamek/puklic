@@ -87,6 +87,13 @@ internal class LibavVideoEncoder(
      */
     private val inputFormatOverride: String? = null,
     private val inputUrlOverride: String? = null,
+    /**
+     * Linux Wayland only: PipeWire fd handed out by `OpenPipeWireRemote` on the
+     * xdg-desktop-portal session. When set, passed to libavdevice as
+     * `av_dict_set("fd", "<int>", 0)` so the pipewire demuxer can attach to the portal-allocated
+     * remote endpoint rather than the default system PipeWire socket. Ignored on non-Linux.
+     */
+    private val pipewireFd: Int? = null,
 ) : VideoEncoder {
 
     private val closed = AtomicBoolean(false)
@@ -107,6 +114,11 @@ internal class LibavVideoEncoder(
         // silently drops them.
         av_dict_set(opts, "capture_cursor", "1", 0)
         av_dict_set(opts, "pixel_format", "nv12", 0)
+        // Portal-allocated PipeWire fd (Linux Wayland). libavdevice's pipewire demuxer reads
+        // this option and dup()s the fd; safe to free `opts` afterwards.
+        if (pipewireFd != null) {
+            av_dict_set(opts, "fd", pipewireFd.toString(), 0)
+        }
 
         val openRc = avformat_open_input(fmtCtx, inputUrl, ifmt, opts)
         av_dict_free(opts)
@@ -320,3 +332,14 @@ internal class LibavVideoEncoder(
 /** Convenience constructor — analogous to [ffmpegVideoEncoder]. */
 internal fun libavVideoEncoder(source: ScreenSource, shareAudio: Boolean): VideoEncoder =
     LibavVideoEncoder(source = source, shareAudio = shareAudio)
+
+/** Linux-only convenience constructor that injects the portal-allocated PipeWire fd. */
+internal fun libavVideoEncoder(
+    source: ScreenSource,
+    shareAudio: Boolean,
+    pipewireFd: Int,
+): VideoEncoder = LibavVideoEncoder(
+    source = source,
+    shareAudio = shareAudio,
+    pipewireFd = pipewireFd,
+)

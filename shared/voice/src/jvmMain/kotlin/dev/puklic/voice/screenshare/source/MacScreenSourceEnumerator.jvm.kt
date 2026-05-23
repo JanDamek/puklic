@@ -199,4 +199,20 @@ internal object AvfoundationListParser {
     }
 }
 
-internal actual fun screenSourceEnumerator(): ScreenSourceEnumerator = MacScreenSourceEnumerator()
+/**
+ * JVM actual for [screenSourceEnumerator]. Dispatches by OS:
+ *   - macOS → [MacScreenSourceEnumerator] (avfoundation list, plus AppleScript window enum)
+ *   - Linux → [LinuxScreenSourceEnumerator] (single synthetic "portal" entry; the actual
+ *     monitor selection happens inside xdg-desktop-portal's GUI picker at capture-start time)
+ *   - other → Mac enumerator (best-effort; will likely return empty / fail to capture)
+ *
+ * See architect report `docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md`
+ * §4 phase 3.
+ */
+internal actual fun screenSourceEnumerator(): ScreenSourceEnumerator {
+    val osName = System.getProperty("os.name").orEmpty()
+    return when {
+        osName.contains("Linux", ignoreCase = true) -> LinuxScreenSourceEnumerator()
+        else -> MacScreenSourceEnumerator()
+    }
+}
