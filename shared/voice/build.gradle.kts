@@ -50,7 +50,7 @@ kotlin {
             //   backend in `dev.puklic.voice.codec` will stay stubbed. The current scaffold
             //   only uses the NoOpVoiceClient, which has no codec/AEAD dependencies.
             // implementation(libs.concentus)
-            // implementation(libs.bouncycastle.bcprov)
+            implementation(libs.bouncycastle.bcprov)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)

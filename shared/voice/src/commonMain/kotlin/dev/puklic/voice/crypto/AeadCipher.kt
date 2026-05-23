@@ -1,0 +1,20 @@
+package dev.puklic.voice.crypto
+
+/**
+ * Authenticated cipher used for Discord voice `aead_xchacha20_poly1305_rtpsize`.
+ *
+ * Per architect report 2026-05-23-voice.md §7:
+ *  - Key: 32 B from SessionDescription.
+ *  - Nonce: 24 B (XChaCha20 extended nonce).
+ *  - AAD: 12 B RTP header.
+ *  - Tag: 16 B Poly1305, appended to ciphertext.
+ */
+internal interface AeadCipher {
+    /** Returns ciphertext concatenated with 16-byte Poly1305 tag. */
+    fun encrypt(plaintext: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
+
+    /** Verifies the 16-byte tag and returns the plaintext, or throws on auth failure. */
+    fun decrypt(ciphertextWithTag: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
+}
+
+internal expect fun xchacha20Poly1305(key: ByteArray): AeadCipher
