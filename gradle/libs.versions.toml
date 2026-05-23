@@ -49,6 +49,10 @@ jlleitschuh-ktlint-gradle = "12.1.2"
 jna = "5.16.0"
 dbus-java = "4.3.1"
 
+# Voice (Phase 3, jvm-only)
+concentus = "1.0.2"
+bouncycastle = "1.78"
+
 [libraries]
 # Kotlin stdlib (implicit in plugins, but explicit where needed)
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -113,6 +117,10 @@ ktlint-compose-rules = { module = "io.nlopez.compose.rules:ktlint", version.ref 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+
+# Voice (Phase 3, jvm-only)
+concentus = { group = "com.github.jitsi", name = "concentus", version.ref = "concentus" }
+bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [bundles]
 ktor-common = [

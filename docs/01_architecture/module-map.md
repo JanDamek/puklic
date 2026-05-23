@@ -25,6 +25,7 @@ puklic/
 │   ├── persistence-sqldelight/       # :shared:persistence-sqldelight
 │   ├── repositories/                 # :shared:repositories
 │   ├── session/                      # :shared:session
+│   ├── voice/                        # :shared:voice  (Phase 3.0, jvm-only)
 │   ├── media-api/                    # :shared:media-api  (Phase 3)
 │   └── compose-ui/                   # :shared:compose-ui
 │
@@ -109,6 +110,14 @@ puklic/
 - **Purpose:** `DiscordSession` — top-level session lifecycle, gateway connect/resume, state machine
 - **Targets:** JVM, Android, iOS
 - **Depends on:** `:shared:protocol-discord`, `:shared:repositories`, `:shared:platform-api`
+
+### `:shared:voice` (Phase 3.0, jvm-only)
+
+- **Purpose:** Voice gateway + RTP/UDP + Opus + AEAD (jvm-only Phase 3.0). Exposes `VoiceClient` facade, `VoiceState`, `AudioDevice`, `AudioConstants` in commonMain; real audio/codec/AEAD I/O lives in jvmMain (concentus + BouncyCastle + javax.sound.sampled). Android / iOS targets are commented out until Phase 3.1+.
+- **Targets:** JVM (Android/iOS planned)
+- **Dependencies:** kotlinx-coroutines, kotlinx-serialization-json, ktor-client-websockets; jvmMain: concentus (Opus), bouncycastle-bcprov (XChaCha20-Poly1305)
+- **Depends on:** `:shared:ids`, `:shared:domain`, `:shared:platform-api`
+- **SSOT:** `docs/03_infrastructure/architect-reports/2026-05-23-voice.md`
 
 ### `:shared:media-api` (Phase 3)
 

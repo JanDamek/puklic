@@ -16,6 +16,7 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven("https://maven.pkg.jetbrains.space/public/p/compose/dev")
+        maven("https://jitpack.io") // for com.github.jitsi:concentus (Opus codec, jvm-only :shared:voice)
     }
 }
 
@@ -31,6 +32,7 @@ include(":shared:persistence-api")
 include(":shared:persistence-sqldelight")
 include(":shared:repositories")
 include(":shared:session")
+include(":shared:voice")
 include(":shared:compose-ui")
 
 // ── Desktop modules ────────────────────────────────────────────────────────

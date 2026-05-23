@@ -7,6 +7,7 @@ plugins {
 dependencies {
     implementation(projects.shared.composeUi)
     implementation(projects.shared.session)
+    implementation(projects.shared.voice)
     implementation(projects.shared.platformApi)
     implementation(projects.shared.domain)
     implementation(projects.shared.ids)
