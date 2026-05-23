@@ -33,6 +33,7 @@ include(":shared:persistence-sqldelight")
 include(":shared:repositories")
 include(":shared:session")
 include(":shared:voice")
+include(":shared:voice-dave")
 include(":shared:compose-ui")
 
 // ── Desktop modules ────────────────────────────────────────────────────────

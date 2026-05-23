@@ -57,6 +57,11 @@ Goal: a usable read+write client for everyday text communication.
   - Shipped as `aead_xchacha20_poly1305_rtpsize` (Discord's current mandatory mode since 2024-11). Legacy `xsalsa20_poly1305_lite` not implemented.
 - [x] Mute/deafen UI + state sync
 - [~] DAVE protocol (E2EE voice, per public spec)
+  - 2026-05-23 (3.1a): architect report `docs/03_infrastructure/architect-reports/2026-05-23-dave-e2ee.md`.
+  - 2026-05-23 (3.1b): `:shared:voice-dave` module + `MlsClient` interface + Wire `core-crypto-jvm:4.2.0` JVM actual + 3 passing smoke tests (init, KeyPackage, two-client Welcome exporter parity). Binary distribution license bumps to GPL-3.0-or-later (ADR-0007). Known gap: Wire 4.2.0 only exposes the AVS-labelled MLS exporter; DAVE label `"Discord Secure Frames v0"` requires a Wire upgrade or libdave-JNI in Phase 3.2.
+  - [ ] 3.1c: gateway opcodes 21-31 wiring (voice gateway client extension).
+  - [ ] 3.1d: per-frame ChaCha20-Poly1305 encrypt/decrypt + key ratchet.
+  - [ ] 3.1e: pairwise fingerprint UI + lock-icon state.
 - [x] Voice state indicators in channel list
   - VoiceStatusBar (slice 10) shows connecting/connected/failed; speaking indicator wired through SSRC ↔ UserId resolver (Op 5 Speaking events). Channel-row click-to-join deferred — `GuildVoiceChannel` data class is not yet in the domain model; users connect through the status bar's Settings affordance for now.
 

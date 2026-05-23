@@ -65,6 +65,13 @@ ffmpeg = "7.1-1.5.11"
 # package install. See shared/voice/src/jvmMain/kotlin/dev/puklic/voice/codec/LibOpus.kt.
 bouncycastle = "1.78"
 
+# DAVE (Phase 3.1b, jvm-only)
+# Wire core-crypto: MLS (RFC 9420) over Rust JNI native. GPL-3.0-or-later.
+# 4.2.0 pinned per ADR-0007 (architect-reports/2026-05-23-dave-e2ee.md). Brings
+# Rust .so/.dylib/.dll for linux-x64, macOS-arm64/x64, win-x64 via the runtime
+# dep `core-crypto-uniffi-jvm`. iOS artifact stuck at 0.6.0-rc — iOS DAVE deferred.
+wire-core-crypto = "4.2.0"
+
 [libraries]
 # Kotlin stdlib (implicit in plugins, but explicit where needed)
 kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "kotlin" }
@@ -140,6 +147,9 @@ ffmpeg-platform-gpl = { group = "org.bytedeco", name = "ffmpeg-platform-gpl", ve
 
 # Voice (Phase 3, jvm-only)
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+
+# DAVE / MLS (jvm-only). See architect report 2026-05-23-dave-e2ee.md + ADR-0007.
+wire-core-crypto-jvm = { group = "com.wire", name = "core-crypto-jvm", version.ref = "wire-core-crypto" }
 
 [bundles]
 ktor-common = [

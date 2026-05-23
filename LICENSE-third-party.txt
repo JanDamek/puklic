@@ -6,6 +6,11 @@ LICENSE). Distributed binary installers, however, bundle additional third-
 party software with different license terms. This file enumerates those
 components and the effect on the combined work.
 
+Effective binary distribution license (since 2026-05-23, Phase 3.1b /
+ADR-0007): **GPL-3.0-or-later**, due to the inclusion of
+`com.wire:core-crypto-jvm` (MLS for DAVE E2EE voice). Prior baseline was
+GPL-2.0-or-later from the libx264/libx265 bundle (Phase 6).
+
 ----------------------------------------------------------------------------
 1. FFmpeg (bundled via org.bytedeco:ffmpeg-platform-gpl 7.1-1.5.11)
 ----------------------------------------------------------------------------
@@ -17,9 +22,28 @@ The Puklic installers embed a GPL build of FFmpeg that includes:
   - libx265 (H.265 encoder) ............ GPL-2.0-or-later
   - libopus (Opus audio codec) ......... BSD-3-Clause
 
-Because libx264 and libx265 are GPL-2.0-or-later, the **distributed binary
-installer as a whole is licensed under GPL-2.0-or-later**. Puklic's own
-source code remains Apache-2.0 and may be reused under those terms.
+libx264 and libx265 are GPL-2.0-or-later. Combined with `core-crypto-jvm`
+(GPL-3.0-or-later, §1b below), the distributed binary installer as a whole
+is licensed under **GPL-3.0-or-later**. Puklic's own source code remains
+Apache-2.0 and may be reused under those terms.
+
+----------------------------------------------------------------------------
+1b. Wire core-crypto (com.wire:core-crypto-jvm 4.2.0)
+----------------------------------------------------------------------------
+
+The Puklic installers embed `com.wire:core-crypto-jvm`, which provides the
+MLS (RFC 9420) implementation backing DAVE end-to-end voice encryption. The
+artifact transitively brings `com.wire:core-crypto-uniffi-jvm`, a Rust JNI
+native library (~16 MB across linux-x64, macOS-arm64/x64, win-x64; no iOS).
+
+  License:   GPL-3.0-or-later
+  Upstream:  https://github.com/wireapp/core-crypto
+  License:   https://www.gnu.org/licenses/gpl-3.0.html
+
+Because core-crypto-jvm is GPL-3.0-or-later, the distributed binary
+installer's effective license escalates from GPL-2.0-or-later (libx264) to
+**GPL-3.0-or-later**. See ADR-0007 for the licensing rationale and
+docs/06_ops/licensing.md for the user-facing summary.
 
 FFmpeg upstream: https://ffmpeg.org/
 libx264 upstream: https://www.videolan.org/developers/x264.html
