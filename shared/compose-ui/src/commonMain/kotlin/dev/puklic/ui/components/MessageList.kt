@@ -5,10 +5,13 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.puklic.domain.ChatMessage
@@ -58,19 +61,34 @@ public fun MessageList(
                     modifier = Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-            } else LazyColumn(reverseLayout = false) {
-                if (state.isLoadingOlder) {
-                    item { CircularProgressIndicator() }
+            } else {
+                // Repository delivers ascending (oldest -> newest). For Discord-style
+                // bottom-anchored rendering we reverse to newest-first and use
+                // reverseLayout=true so msgs[0] (newest) sits at the visual bottom.
+                val msgs = remember(state.messages) { state.messages.asReversed() }
+                val listState = rememberLazyListState()
+                // Auto-scroll to bottom (newest) when a new message arrives if the user
+                // is already near the bottom; preserve position if they scrolled up.
+                LaunchedEffect(msgs.firstOrNull()?.id?.value) {
+                    if (msgs.isNotEmpty() && listState.firstVisibleItemIndex <= 1) {
+                        listState.scrollToItem(0)
+                    }
                 }
-                val msgs = state.messages
-                items(msgs.size, key = { idx -> msgs[idx].id.value }) { idx ->
-                    val prev = msgs.getOrNull(idx - 1)
-                    val grouped = prev != null &&
-                        prev.author.id == msgs[idx].author.id &&
-                        kotlin.math.abs(
-                            msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
-                        ) <= GROUPING_WINDOW_SECONDS
-                    MessageRow(message = msgs[idx], groupedWithPrevious = grouped)
+                LazyColumn(state = listState, reverseLayout = true) {
+                    items(msgs.size, key = { idx -> msgs[idx].id.value }) { idx ->
+                        // With reverseLayout=true and newest-first list, the message
+                        // visually above this one is the older sibling at idx+1.
+                        val prev = msgs.getOrNull(idx + 1)
+                        val grouped = prev != null &&
+                            prev.author.id == msgs[idx].author.id &&
+                            kotlin.math.abs(
+                                msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
+                            ) <= GROUPING_WINDOW_SECONDS
+                        MessageRow(message = msgs[idx], groupedWithPrevious = grouped)
+                    }
+                    if (state.isLoadingOlder) {
+                        item { CircularProgressIndicator() }
+                    }
                 }
             }
         }
