@@ -1,5 +1,6 @@
 package dev.puklic.protocol.discord.rest
 
+import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
@@ -20,7 +21,9 @@ import io.ktor.client.request.headers
 import io.ktor.client.request.parameter
 import io.ktor.client.request.patch
 import io.ktor.client.request.post
+import io.ktor.client.request.put
 import io.ktor.client.request.setBody
+import io.ktor.http.encodeURLPathPart
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
@@ -196,6 +199,63 @@ public class DiscordRestClient(
         },
         onFailure = { Result.failure(it) },
     )
+
+    /**
+     * Add the bot/user's reaction (`@me`) on [messageId]. Discord returns 204 No Content
+     * on success. URL path: `/channels/{cid}/messages/{mid}/reactions/{emoji}/@me`.
+     *
+     * For [EmojiRef.Unicode] the codepoint is percent-encoded as raw UTF-8
+     * (e.g. `👍` → `%F0%9F%91%8D`). For [EmojiRef.Custom] the path segment is
+     * `name:id` — the literal `:` is preserved (Acheron parity; Discord requires it).
+     */
+    public suspend fun addReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.put(
+                "$baseUrl/channels/${channelId.value}/messages/${messageId.value}" +
+                    "/reactions/${emoji.toReactionPath()}/@me",
+            ) {
+                applyAuth()
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (response.status.isSuccess()) Result.success(Unit) else Result.failure(errorOf(response))
+        },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
+     * Remove the bot/user's own reaction (`@me`) from [messageId]. Discord returns
+     * 204 No Content on success.
+     */
+    public suspend fun removeOwnReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.delete(
+                "$baseUrl/channels/${channelId.value}/messages/${messageId.value}" +
+                    "/reactions/${emoji.toReactionPath()}/@me",
+            ) {
+                applyAuth()
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (response.status.isSuccess()) Result.success(Unit) else Result.failure(errorOf(response))
+        },
+        onFailure = { Result.failure(it) },
+    )
+
+    private fun EmojiRef.toReactionPath(): String = when (this) {
+        is EmojiRef.Unicode -> codepoint.encodeURLPathPart()
+        is EmojiRef.Custom -> "$name:${id.value}".encodeURLPathPart()
+    }
 
     // ── internals ─────────────────────────────────────────────────────────────
 

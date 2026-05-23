@@ -1,6 +1,7 @@
 package dev.puklic.repositories
 
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 
@@ -41,4 +42,18 @@ public interface MessageGateway {
         channelId: ChannelId,
         limit: Int,
     ): Result<List<ChatMessage>>
+
+    /** Add the current user's reaction `[emoji]` on `[messageId]` in `[channelId]`. */
+    public suspend fun addReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit>
+
+    /** Remove the current user's own reaction `[emoji]` from `[messageId]`. */
+    public suspend fun removeReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit>
 }

@@ -1,6 +1,7 @@
 package dev.puklic.repositories
 
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.MessageFlags
 import dev.puklic.domain.MessageMentions
 import dev.puklic.domain.RichTextDocument
@@ -227,4 +228,22 @@ internal class FakeMessageGateway : MessageGateway {
         channelId: ChannelId,
         limit: Int,
     ): Result<List<ChatMessage>> = loadInitialResponse(channelId, limit)
+
+    var addReactionResponse: (ChannelId, MessageId, EmojiRef) -> Result<Unit> =
+        { _, _, _ -> Result.success(Unit) }
+    var removeReactionResponse: (ChannelId, MessageId, EmojiRef) -> Result<Unit> =
+        { _, _, _ -> Result.success(Unit) }
+
+    val addReactionCalls = mutableListOf<Triple<ChannelId, MessageId, EmojiRef>>()
+    val removeReactionCalls = mutableListOf<Triple<ChannelId, MessageId, EmojiRef>>()
+
+    override suspend fun addReaction(channelId: ChannelId, messageId: MessageId, emoji: EmojiRef): Result<Unit> {
+        addReactionCalls += Triple(channelId, messageId, emoji)
+        return addReactionResponse(channelId, messageId, emoji)
+    }
+
+    override suspend fun removeReaction(channelId: ChannelId, messageId: MessageId, emoji: EmojiRef): Result<Unit> {
+        removeReactionCalls += Triple(channelId, messageId, emoji)
+        return removeReactionResponse(channelId, messageId, emoji)
+    }
 }

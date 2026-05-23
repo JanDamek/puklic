@@ -3,9 +3,11 @@ package dev.puklic.protocol.discord
 import co.touchlab.kermit.Logger
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.Channel
+import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
 import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
+import dev.puklic.ids.EmojiId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
@@ -71,6 +73,31 @@ public sealed interface DiscordDomainEvent {
         val selfUser: UserSummary,
         val sessionId: String,
         val users: List<UserSummary> = emptyList(),
+    ) : DiscordDomainEvent
+
+    public data class ReactionAdded(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val userId: UserId,
+        val emoji: EmojiRef,
+    ) : DiscordDomainEvent
+
+    public data class ReactionRemoved(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val userId: UserId,
+        val emoji: EmojiRef,
+    ) : DiscordDomainEvent
+
+    public data class ReactionsClearedAll(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+    ) : DiscordDomainEvent
+
+    public data class ReactionsClearedEmoji(
+        val channelId: ChannelId,
+        val messageId: MessageId,
+        val emoji: EmojiRef,
     ) : DiscordDomainEvent
 }
 
@@ -205,6 +232,39 @@ public class DiscordGatewayBridge(
                 "USER_UPDATE" -> listOf(DiscordDomainEvent.UserUpdated(
                     DiscordJson.decodeFromJsonElement(DiscordUserDto.serializer(), payload).toDomain(),
                 ))
+                "MESSAGE_REACTION_ADD" -> {
+                    val obj = payload.jsonObject
+                    listOf(DiscordDomainEvent.ReactionAdded(
+                        channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
+                        messageId = MessageId(obj.getValue("message_id").jsonPrimitive.content.toLong()),
+                        userId = UserId(obj.getValue("user_id").jsonPrimitive.content.toLong()),
+                        emoji = decodeEmoji(obj.getValue("emoji").jsonObject),
+                    ))
+                }
+                "MESSAGE_REACTION_REMOVE" -> {
+                    val obj = payload.jsonObject
+                    listOf(DiscordDomainEvent.ReactionRemoved(
+                        channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
+                        messageId = MessageId(obj.getValue("message_id").jsonPrimitive.content.toLong()),
+                        userId = UserId(obj.getValue("user_id").jsonPrimitive.content.toLong()),
+                        emoji = decodeEmoji(obj.getValue("emoji").jsonObject),
+                    ))
+                }
+                "MESSAGE_REACTION_REMOVE_ALL" -> {
+                    val obj = payload.jsonObject
+                    listOf(DiscordDomainEvent.ReactionsClearedAll(
+                        channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
+                        messageId = MessageId(obj.getValue("message_id").jsonPrimitive.content.toLong()),
+                    ))
+                }
+                "MESSAGE_REACTION_REMOVE_EMOJI" -> {
+                    val obj = payload.jsonObject
+                    listOf(DiscordDomainEvent.ReactionsClearedEmoji(
+                        channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
+                        messageId = MessageId(obj.getValue("message_id").jsonPrimitive.content.toLong()),
+                        emoji = decodeEmoji(obj.getValue("emoji").jsonObject),
+                    ))
+                }
                 "READY" -> mapReady(payload)
                 else -> {
                     onUnknown(event.type)
@@ -218,6 +278,22 @@ public class DiscordGatewayBridge(
             }
             onUnknown("${event.type}:decode-failed")
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Decode a Discord emoji partial object into [EmojiRef]. Discord sends
+     * `{ id: string?, name: string?, animated: boolean? }`. If `id` is null the emoji is a
+     * Unicode codepoint stored in `name`; otherwise it is a guild custom emoji.
+     */
+    private fun decodeEmoji(obj: kotlinx.serialization.json.JsonObject): EmojiRef {
+        val id = obj["id"]?.jsonPrimitive?.contentOrNull
+        val name = obj["name"]?.jsonPrimitive?.contentOrNull
+        val animated = obj["animated"]?.jsonPrimitive?.content?.toBooleanStrictOrNull() ?: false
+        return if (id == null) {
+            EmojiRef.Unicode(codepoint = name ?: "")
+        } else {
+            EmojiRef.Custom(id = EmojiId(id.toLong()), name = name ?: "", animated = animated)
+        }
     }
 
     /**
@@ -455,6 +531,18 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
             guildId = guildId,
             channelType = channelType,
         ).map { list -> list.map { it.toDomain() } }
+
+    public suspend fun addReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: dev.puklic.domain.EmojiRef,
+    ): Result<Unit> = rest.addReaction(channelId, messageId, emoji)
+
+    public suspend fun removeOwnReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: dev.puklic.domain.EmojiRef,
+    ): Result<Unit> = rest.removeOwnReaction(channelId, messageId, emoji)
 }
 
 /**

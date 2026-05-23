@@ -2,6 +2,7 @@ package dev.puklic.session.adapter
 
 import dev.puklic.domain.ChannelType
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
@@ -67,6 +68,18 @@ public class MessageGatewayAdapter(
         guildId = resolveGuildId(channelId),
         channelType = resolveChannelType(channelId),
     )
+
+    override suspend fun addReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit> = bridge.addReaction(channelId, messageId, emoji)
+
+    override suspend fun removeReaction(
+        channelId: ChannelId,
+        messageId: MessageId,
+        emoji: EmojiRef,
+    ): Result<Unit> = bridge.removeOwnReaction(channelId, messageId, emoji)
 
     private companion object {
         const val DISCORD_TYPE_GUILD_TEXT = 0
