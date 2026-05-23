@@ -127,6 +127,57 @@ class CapturePipelineTest {
     }
 
     @Test
+    fun `daveEncrypt hook wraps each Opus frame before send`(): Unit = runBlocking {
+        // 3 loud frames → daveEncrypt called 3x, sent bytes carry the DAVE marker
+        // tag (a single 0xDA prefix here, standing in for the libdave trailer).
+        val capture = FakeCapture(listOf(loudFrame(), loudFrame(), loudFrame()))
+        val encoder = FakeEncoder()
+        val sent = mutableListOf<ByteArray>()
+        val daveCalls = mutableListOf<ByteArray>()
+        val pipeline = CapturePipeline(
+            capture = capture,
+            encoder = encoder,
+            encodeAndSend = { synchronized(sent) { sent.add(it) } },
+            onSpeakingChange = { },
+            daveEncrypt = { opus ->
+                synchronized(daveCalls) { daveCalls.add(opus) }
+                byteArrayOf(0xDA.toByte()) + opus
+            },
+        )
+        val scope = CoroutineScope(Dispatchers.IO)
+        pipeline.start(scope)
+        withTimeout(2_000) {
+            while (synchronized(sent) { sent.size } < 3) Thread.sleep(5)
+        }
+        pipeline.stop()
+
+        synchronized(daveCalls) { daveCalls.size } shouldBeGreaterThanOrEqual 3
+        synchronized(sent) { sent.toList() }.take(3).forEach { it[0] shouldBe 0xDA.toByte() }
+    }
+
+    @Test
+    fun `null daveEncrypt is pass-through`(): Unit = runBlocking {
+        val capture = FakeCapture(listOf(loudFrame()))
+        val encoder = FakeEncoder()
+        val sent = mutableListOf<ByteArray>()
+        val pipeline = CapturePipeline(
+            capture = capture,
+            encoder = encoder,
+            encodeAndSend = { synchronized(sent) { sent.add(it) } },
+            onSpeakingChange = { },
+            daveEncrypt = null,
+        )
+        val scope = CoroutineScope(Dispatchers.IO)
+        pipeline.start(scope)
+        withTimeout(2_000) {
+            while (synchronized(sent) { sent.size } < 1) Thread.sleep(5)
+        }
+        pipeline.stop()
+        // FakeEncoder tags by first-sample hi-byte; verify NO DAVE prefix mutated it.
+        synchronized(sent) { sent.first() }.size shouldBe 1
+    }
+
+    @Test
     fun `silence after speech ends with 5 silence frames and speaking off`(): Unit = runBlocking {
         // 2 loud frames, then plenty of silent frames to trigger stop.
         val frames = buildList {

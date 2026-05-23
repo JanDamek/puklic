@@ -18,7 +18,11 @@ class MlsClientSmokeTest {
 
     @Test
     fun `init returns non-empty signature public key`() = runTest {
-        val client = mlsClient()
+        // These Wire-specific assertions (non-empty pubkey, non-trivial KeyPackage
+        // pre-join) only hold for the Wire backend; libdave's C API does not
+        // expose the signature key and refuses KeyPackage marshal until Init has
+        // run. The libdave smoke + frame-crypto suites cover that backend.
+        val client = WireMlsClient()
         try {
             val pubKey = client.init("test-user-${UUID.randomUUID()}")
             pubKey.size shouldBeGreaterThan MIN_PUBLIC_KEY_BYTES
@@ -31,7 +35,9 @@ class MlsClientSmokeTest {
 
     @Test
     fun `generateKeyPackage returns non-trivial bytes`() = runTest {
-        val client = mlsClient()
+        // Wire backend: KeyPackage marshalable straight after init (libdave needs
+        // a numeric groupId via daveSessionInit first; see LibdaveMlsClientSmokeTest).
+        val client = WireMlsClient()
         try {
             client.init("test-user-${UUID.randomUUID()}")
             val keyPackage = client.generateKeyPackage()

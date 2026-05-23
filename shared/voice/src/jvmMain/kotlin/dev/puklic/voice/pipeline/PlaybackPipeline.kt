@@ -39,6 +39,13 @@ internal class PlaybackPipeline(
      * video pipelines can co-exist on the same UDP socket without contending on receive().
      */
     private val packetSource: (suspend () -> ByteArray)? = null,
+    /**
+     * Optional DAVE per-frame decrypt hook. Invoked AFTER per-hop AEAD strips the
+     * RTP wrapper and BEFORE Opus decode. Receives (ssrc, ciphertext-or-opus) and
+     * returns plaintext Opus, or null on integrity failure (drop the frame).
+     * When null, frames pass through unchanged (non-DAVE fallback).
+     */
+    private val daveDecrypt: (suspend (ssrc: Int, opusOrCiphertext: ByteArray) -> ByteArray?)? = null,
 ) {
 
     private val streams = ConcurrentHashMap<Int, SsrcStream>()
@@ -84,7 +91,15 @@ internal class PlaybackPipeline(
             val ssrc = decoded.header.ssrc
             val stream = streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
             stream.lastPacketNs = System.nanoTime()
-            val ready = stream.buffer.push(decoded.header.sequence, decoded.opus)
+            // DAVE: strip the per-frame ciphertext layer (if any) BEFORE we hand
+            // bytes to the jitter buffer + Opus decoder. Pass-through on null hook;
+            // drop the frame on integrity failure (null return) when a hook is set.
+            val opusPlain: ByteArray = if (daveDecrypt != null) {
+                daveDecrypt.invoke(ssrc, decoded.opus) ?: continue
+            } else {
+                decoded.opus
+            }
+            val ready = stream.buffer.push(decoded.header.sequence, opusPlain)
             for (opus in ready) {
                 val pcm = try {
                     stream.decoder.decode(opus, fec = false)

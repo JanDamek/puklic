@@ -120,7 +120,47 @@ internal interface MlsClient {
      */
     suspend fun signaturePublicKey(): ByteArray
 
+    /**
+     * Build a libdave-driven [FrameEncryptor] for the local user's outbound audio on
+     * [ssrc]. Returns null when the backend does not support byte-compatible DAVE
+     * frame crypto (e.g. the Wire fallback) or when the local group has no key
+     * ratchet yet (pre-join). Callers MUST treat null as "pass-through, no DAVE".
+     *
+     * The returned encryptor is bound to libdave's per-frame key schedule (key
+     * ratchet derived from MLS exporter + SSRC + generation), Opus codec assignment,
+     * and ChaCha20-Poly1305 AEAD with DAVE trailer. It is NOT a generic AEAD.
+     */
+    suspend fun frameEncryptor(ssrc: Int): FrameEncryptor? = null
+
+    /**
+     * Build a libdave-driven [FrameDecryptor] for inbound audio from [userId] on
+     * [ssrc]. Returns null when DAVE is unavailable for the same reasons as
+     * [frameEncryptor]. Callers MUST treat null as "pass-through, no DAVE".
+     */
+    suspend fun frameDecryptor(userId: String, ssrc: Int): FrameDecryptor? = null
+
     /** Release native resources. Idempotent. */
+    fun close()
+}
+
+/**
+ * One-shot DAVE frame encryptor. Wraps a libdave Encryptor + KeyRatchet pair.
+ * NOT thread-safe; one per (session, SSRC) on the producer coroutine.
+ */
+internal interface FrameEncryptor {
+    /** Encrypt one Opus media frame; returns ciphertext (Opus + DAVE trailer). */
+    fun encrypt(plaintext: ByteArray): ByteArray
+
+    /** Release native handles. Idempotent. */
+    fun close()
+}
+
+/** One-shot DAVE frame decryptor. NOT thread-safe; one per (sender userId, SSRC). */
+internal interface FrameDecryptor {
+    /** Decrypt one ciphertext frame; returns plaintext or null on integrity failure. */
+    fun decrypt(ciphertext: ByteArray): ByteArray?
+
+    /** Release native handles. Idempotent. */
     fun close()
 }
 

@@ -120,6 +120,26 @@ internal class DaveSession(
         return mlsClient.exportSecret(gid, DAVE_FRAME_LABEL, ctx, length)
     }
 
+    /**
+     * Build a [FrameEncryptor] for the local user's outbound audio on [ssrc].
+     * Returns null when DAVE is disabled (e.g. Wire backend, pre-join, or
+     * server-advertised unsupported version). Callers must pass-through Opus
+     * frames unchanged in that case.
+     */
+    suspend fun frameEncryptor(ssrc: Int): FrameEncryptor? = mutex.withLock {
+        if (_state.value is State.Disabled) return null
+        mlsClient.frameEncryptor(ssrc)
+    }
+
+    /**
+     * Build a [FrameDecryptor] for inbound audio from [userId] on [ssrc]. Same
+     * null semantics as [frameEncryptor].
+     */
+    suspend fun frameDecryptor(userId: String, ssrc: Int): FrameDecryptor? = mutex.withLock {
+        if (_state.value is State.Disabled) return null
+        mlsClient.frameDecryptor(userId, ssrc)
+    }
+
     private suspend fun handlePrepareTransition(jsonBody: JsonElement) {
         val obj = jsonBody.jsonObject
         val proto = obj["protocol_version"]?.jsonPrimitive?.int ?: 0

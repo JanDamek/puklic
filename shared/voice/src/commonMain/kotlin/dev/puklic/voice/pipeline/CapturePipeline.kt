@@ -29,6 +29,13 @@ internal class CapturePipeline(
     private val onSpeakingChange: suspend (Boolean) -> Unit,
     private val rmsThreshold: Int = DEFAULT_RMS_THRESHOLD,
     private val silenceFramesToStop: Int = SILENCE_FRAMES_TO_STOP,
+    /**
+     * Optional DAVE per-frame encrypt hook. Applied to the Opus frame BEFORE
+     * the per-hop AEAD layer (which lives inside [encodeAndSend]). When null,
+     * frames pass through unchanged — required for the non-DAVE fallback path
+     * and for tests that don't want to spin up libdave.
+     */
+    private val daveEncrypt: (suspend (opusFrame: ByteArray) -> ByteArray)? = null,
 ) {
 
     private var job: Job? = null
@@ -91,7 +98,8 @@ internal class CapturePipeline(
                         onSpeakingChange(true)
                     }
                     val opus = encoder.encode(pcm)
-                    encodeAndSend(opus)
+                    val toSend = daveEncrypt?.invoke(opus) ?: opus
+                    encodeAndSend(toSend)
                 } else if (speaking) {
                     silenceFrames++
                     if (silenceFrames >= silenceFramesToStop) {

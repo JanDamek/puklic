@@ -221,6 +221,37 @@ internal class LibdaveMlsClient : MlsClient {
         ByteArray(0)
     }
 
+    override suspend fun frameEncryptor(ssrc: Int): FrameEncryptor? = mutex.withLock {
+        requireInited()
+        val uid = userId ?: return null
+        // Outbound frames are keyed by the local user's own ratchet.
+        val ratchet = lib.daveSessionGetKeyRatchet(session, uid) ?: run {
+            logger.w { "frameEncryptor: no key ratchet for self user yet (pre-join)" }
+            return null
+        }
+        val enc = lib.daveEncryptorCreate() ?: run {
+            lib.daveKeyRatchetDestroy(ratchet)
+            error("daveEncryptorCreate returned NULL")
+        }
+        lib.daveEncryptorSetKeyRatchet(enc, ratchet)
+        lib.daveEncryptorAssignSsrcToCodec(enc, ssrc, DAVE_CODEC_OPUS)
+        LibdaveFrameEncryptor(lib, enc, ratchet, ssrc)
+    }
+
+    override suspend fun frameDecryptor(userId: String, ssrc: Int): FrameDecryptor? = mutex.withLock {
+        requireInited()
+        val ratchet = lib.daveSessionGetKeyRatchet(session, userId) ?: run {
+            logger.w { "frameDecryptor: no key ratchet for userId=$userId (not in group?)" }
+            return null
+        }
+        val dec = lib.daveDecryptorCreate() ?: run {
+            lib.daveKeyRatchetDestroy(ratchet)
+            error("daveDecryptorCreate returned NULL")
+        }
+        lib.daveDecryptorTransitionToKeyRatchet(dec, ratchet)
+        LibdaveFrameDecryptor(lib, dec, ratchet, ssrc)
+    }
+
     override fun close() {
         if (closed) return
         closed = true
@@ -255,8 +286,109 @@ internal class LibdaveMlsClient : MlsClient {
     private fun String.parseAsU64(): Long =
         toULongOrNull()?.toLong() ?: this.hashCode().toLong()
 
-    private companion object {
+    internal companion object {
         const val DAVE_PROTOCOL_VERSION_1: Short = 1
         const val PLACEHOLDER_GROUP_ID: Long = 0L
+
+        // libdave DAVECodec / DAVEMediaType enum values (cpp/includes/dave/dave.h).
+        const val DAVE_CODEC_OPUS: Int = 1
+        const val DAVE_MEDIA_TYPE_AUDIO: Int = 0
+        const val DAVE_ENCRYPTOR_RESULT_SUCCESS: Int = 0
+        const val DAVE_DECRYPTOR_RESULT_SUCCESS: Int = 0
+    }
+}
+
+/**
+ * libdave-backed [FrameEncryptor]. Owns one DAVEEncryptorHandle + one
+ * DAVEKeyRatchetHandle; both freed on [close].
+ *
+ * NOT thread-safe. Caller must serialize encrypt calls (the capture loop is
+ * single-threaded so this is fine in practice).
+ */
+private class LibdaveFrameEncryptor(
+    private val lib: LibdaveBindings,
+    private val encryptor: com.sun.jna.Pointer,
+    private val ratchet: com.sun.jna.Pointer,
+    private val ssrc: Int,
+) : FrameEncryptor {
+    private var closed = false
+    private val logger = Logger.withTag("dave.FrameEncryptor")
+
+    override fun encrypt(plaintext: ByteArray): ByteArray {
+        check(!closed) { "FrameEncryptor closed" }
+        val maxOut = lib.daveEncryptorGetMaxCiphertextByteSize(
+            encryptor,
+            LibdaveMlsClient.DAVE_MEDIA_TYPE_AUDIO,
+            plaintext.size.toLong(),
+        )
+        val out = ByteArray(maxOut.toInt().coerceAtLeast(plaintext.size + DAVE_TRAILER_GUARD))
+        val written = LongArray(1)
+        val rc = lib.daveEncryptorEncrypt(
+            encryptor,
+            LibdaveMlsClient.DAVE_MEDIA_TYPE_AUDIO,
+            ssrc,
+            plaintext,
+            plaintext.size.toLong(),
+            out,
+            out.size.toLong(),
+            written,
+        )
+        if (rc != LibdaveMlsClient.DAVE_ENCRYPTOR_RESULT_SUCCESS) {
+            logger.w { "daveEncryptorEncrypt rc=$rc — passing through plaintext" }
+            return plaintext
+        }
+        return out.copyOf(written[0].toInt())
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        runCatching { lib.daveEncryptorDestroy(encryptor) }
+        runCatching { lib.daveKeyRatchetDestroy(ratchet) }
+    }
+
+    private companion object {
+        // Conservative slack when libdave's GetMaxCiphertextByteSize is unavailable;
+        // DAVE trailer is fixed-size (≤ 64 B in practice).
+        const val DAVE_TRAILER_GUARD = 64
+    }
+}
+
+/** libdave-backed [FrameDecryptor]. Mirror image of [LibdaveFrameEncryptor]. */
+private class LibdaveFrameDecryptor(
+    private val lib: LibdaveBindings,
+    private val decryptor: com.sun.jna.Pointer,
+    private val ratchet: com.sun.jna.Pointer,
+    @Suppress("UnusedPrivateProperty") private val ssrc: Int,
+) : FrameDecryptor {
+    private var closed = false
+
+    override fun decrypt(ciphertext: ByteArray): ByteArray? {
+        check(!closed) { "FrameDecryptor closed" }
+        val maxOut = lib.daveDecryptorGetMaxPlaintextByteSize(
+            decryptor,
+            LibdaveMlsClient.DAVE_MEDIA_TYPE_AUDIO,
+            ciphertext.size.toLong(),
+        )
+        val out = ByteArray(maxOut.toInt().coerceAtLeast(ciphertext.size))
+        val written = LongArray(1)
+        val rc = lib.daveDecryptorDecrypt(
+            decryptor,
+            LibdaveMlsClient.DAVE_MEDIA_TYPE_AUDIO,
+            ciphertext,
+            ciphertext.size.toLong(),
+            out,
+            out.size.toLong(),
+            written,
+        )
+        if (rc != LibdaveMlsClient.DAVE_DECRYPTOR_RESULT_SUCCESS) return null
+        return out.copyOf(written[0].toInt())
+    }
+
+    override fun close() {
+        if (closed) return
+        closed = true
+        runCatching { lib.daveDecryptorDestroy(decryptor) }
+        runCatching { lib.daveKeyRatchetDestroy(ratchet) }
     }
 }
