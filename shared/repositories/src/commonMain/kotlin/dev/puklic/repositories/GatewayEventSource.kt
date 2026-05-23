@@ -28,6 +28,10 @@ public sealed interface GatewayDomainEvent {
     public data class MessageCreated(val message: ChatMessage) : GatewayDomainEvent
     public data class MessageUpdated(val message: ChatMessage) : GatewayDomainEvent
     public data class MessageDeleted(val channelId: ChannelId, val messageId: MessageId) : GatewayDomainEvent
+    public data class MessageDeletedBulk(
+        val channelId: ChannelId,
+        val messageIds: List<MessageId>,
+    ) : GatewayDomainEvent
     public data class PresenceUpdated(val userId: UserId, val state: PresenceState) : GatewayDomainEvent
     public data class TypingStarted(
         val channelId: ChannelId,

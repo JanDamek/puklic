@@ -65,6 +65,7 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.MessageCreated -> GatewayDomainEvent.MessageCreated(ev.message)
         is DiscordDomainEvent.MessageUpdated -> GatewayDomainEvent.MessageUpdated(ev.message)
         is DiscordDomainEvent.MessageDeleted -> GatewayDomainEvent.MessageDeleted(ev.channelId, ev.messageId)
+        is DiscordDomainEvent.MessageDeletedBulk -> GatewayDomainEvent.MessageDeletedBulk(ev.channelId, ev.messageIds)
         is DiscordDomainEvent.PresenceUpdated -> GatewayDomainEvent.PresenceUpdated(
             userId = ev.userId,
             state = parsePresence(ev.rawStatus),

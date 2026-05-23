@@ -39,7 +39,8 @@ Goal: a usable read+write client for everyday text communication.
 - [ ] Attachments (upload, download, image preview, video thumbnail)
   - 2026-05-23: image preview (bounded, aspect-preserving) + full-size viewer dialog + video tile (play icon, duration, click-to-open) + file tile (extension badge, click-to-open via PlatformOpen.openUrl) landed; upload still pending.
 - [x] Reactions UI (add/remove, list)
-- [ ] Message edit/delete sync via gateway
+- [x] Message edit/delete sync via gateway
+  - 2026-05-23: MESSAGE_UPDATE merges payload while preserving existing reactions; MESSAGE_DELETE + MESSAGE_DELETE_BULK remove from local storage; MessageRow shows "(edited)" next to the timestamp when `editedTimestamp != null`.
 - [ ] Email+password login (ADR-0002 Option B)
 
 ## Phase 3 — Voice

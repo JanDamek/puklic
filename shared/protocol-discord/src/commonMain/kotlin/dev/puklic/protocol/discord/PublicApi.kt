@@ -54,6 +54,10 @@ public sealed interface DiscordDomainEvent {
     public data class MessageCreated(val message: ChatMessage) : DiscordDomainEvent
     public data class MessageUpdated(val message: ChatMessage) : DiscordDomainEvent
     public data class MessageDeleted(val channelId: ChannelId, val messageId: MessageId) : DiscordDomainEvent
+    public data class MessageDeletedBulk(
+        val channelId: ChannelId,
+        val messageIds: List<MessageId>,
+    ) : DiscordDomainEvent
 
     /** Coarse presence state: ONLINE / IDLE / DND / OFFLINE / INVISIBLE as raw strings from Discord. */
     public data class PresenceUpdated(val userId: UserId, val rawStatus: String) : DiscordDomainEvent
@@ -186,6 +190,15 @@ public class DiscordGatewayBridge(
                         channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong()),
                         messageId = MessageId(obj.getValue("id").jsonPrimitive.content.toLong()),
                     ))
+                }
+                "MESSAGE_DELETE_BULK" -> {
+                    val obj = payload.jsonObject
+                    val channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong())
+                    val idsArray = obj["ids"] as? kotlinx.serialization.json.JsonArray
+                    val ids = idsArray
+                        ?.mapNotNull { (it as? JsonPrimitive)?.content?.toLongOrNull()?.let(::MessageId) }
+                        .orEmpty()
+                    listOf(DiscordDomainEvent.MessageDeletedBulk(channelId, ids))
                 }
                 "PRESENCE_UPDATE" -> {
                     val obj = payload.jsonObject

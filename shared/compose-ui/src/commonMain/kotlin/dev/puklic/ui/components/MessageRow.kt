@@ -91,6 +91,14 @@ public fun MessageRow(
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    if (message.editedTimestamp != null) {
+                        Spacer(Modifier.width(spacing.space2))
+                        Text(
+                            text = "(edited)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 

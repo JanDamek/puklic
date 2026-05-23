@@ -59,8 +59,21 @@ public class MessageOrchestrator(
             .onEach { event ->
                 when (event) {
                     is GatewayDomainEvent.MessageCreated -> persistWithAuthor(event.message)
-                    is GatewayDomainEvent.MessageUpdated -> persistWithAuthor(event.message)
+                    is GatewayDomainEvent.MessageUpdated -> {
+                        // MESSAGE_UPDATE payloads may omit reactions; preserve any existing
+                        // reactions on the locally cached copy so they don't visually vanish.
+                        val existing = storage.findById(event.message.id)
+                        val merged = if (existing != null && event.message.reactions.isEmpty()) {
+                            event.message.copy(reactions = existing.reactions)
+                        } else {
+                            event.message
+                        }
+                        persistWithAuthor(merged)
+                    }
                     is GatewayDomainEvent.MessageDeleted -> storage.delete(event.messageId)
+                    is GatewayDomainEvent.MessageDeletedBulk -> event.messageIds.forEach { id ->
+                        storage.delete(id)
+                    }
                     is GatewayDomainEvent.ReactionAdded -> mutate(event.messageId) { msg ->
                         msg.copy(reactions = ReactionMutator.add(
                             msg.reactions,
