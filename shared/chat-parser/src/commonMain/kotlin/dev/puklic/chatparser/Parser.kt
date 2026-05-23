@@ -50,6 +50,19 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
                 out.add(RichTextBlock.CodeBlock(language, contentLines.joinToString("\n")))
                 i = if (closed) j + 1 else j
             }
+            // Triple-quote block — consumes rest of message
+            line.startsWith(">>> ") || line == ">>>" -> {
+                val first = if (line == ">>>") "" else line.substring(4)
+                val rest = mutableListOf(first)
+                var j = i + 1
+                while (j < lines.size) {
+                    rest.add(lines[j])
+                    j++
+                }
+                val inner = parseBlocks(rest.joinToString("\n"))
+                out.add(RichTextBlock.Quote(inner))
+                i = j
+            }
             // Quote block — consume consecutive `>` lines
             line.startsWith("> ") || line == ">" -> {
                 val quoteLines = mutableListOf<String>()
@@ -59,6 +72,16 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
                 }
                 val inner = parseBlocks(quoteLines.joinToString("\n"))
                 out.add(RichTextBlock.Quote(inner))
+            }
+            // Bullet list — consecutive `- ` or `* ` lines
+            isBulletLine(line) -> {
+                val items = mutableListOf<RichTextBlock.ListItem>()
+                while (i < lines.size && isBulletLine(lines[i])) {
+                    val content = lines[i].substring(2)
+                    items.add(RichTextBlock.ListItem(listOf(RichTextBlock.Paragraph(parseInlines(content)))))
+                    i++
+                }
+                out.add(RichTextBlock.List(ordered = false, items = items))
             }
             // Heading 1..3 — requires `# ` `## ` `### ` (with space)
             isHeadingLine(line) -> {
@@ -77,7 +100,9 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
                     if (l.isBlank()) break
                     if (l.trimStart().startsWith("```")) break
                     if (l.startsWith("> ") || l == ">") break
+                    if (l.startsWith(">>> ") || l == ">>>") break
                     if (isHeadingLine(l)) break
+                    if (isBulletLine(l)) break
                     paraLines.add(l)
                     i++
                 }
@@ -89,6 +114,12 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
         }
     }
     return out
+}
+
+private fun isBulletLine(line: String): Boolean {
+    if (line.length < 2) return false
+    if (line[0] != '-') return false
+    return line[1] == ' '
 }
 
 private fun isHeadingLine(line: String): Boolean {

@@ -232,6 +232,23 @@ class ParserTest {
     }
 
     @Test
+    fun `triple-quote consumes rest`() {
+        val doc = parseRichText(">>> line one\nline two\nline three")
+        assertEquals(1, doc.blocks.size)
+        val q = doc.blocks[0] as RichTextBlock.Quote
+        assertTrue(q.content.isNotEmpty())
+    }
+
+    @Test
+    fun `bullet list with two items`() {
+        val doc = parseRichText("- one\n- two")
+        assertEquals(1, doc.blocks.size)
+        val list = doc.blocks[0] as RichTextBlock.List
+        assertEquals(false, list.ordered)
+        assertEquals(2, list.items.size)
+    }
+
+    @Test
     fun `quote then plain paragraph`() {
         val doc = parseRichText("> quoted\n\nplain")
         assertEquals(2, doc.blocks.size)

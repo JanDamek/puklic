@@ -34,7 +34,8 @@ Goal: a usable read+write client for everyday text communication.
 - [ ] Mentions (user, channel, role) — parser + renderer + resolve
 - [ ] Custom emoji (Discord CDN, disk cache)
 - [ ] Link detection + preview (OpenGraph fetch)
-- [ ] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
+- [x] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
+  - 2026-05-23: AST + parser already covered inline styles, spoilers, headings, fenced code, single-line quotes, mentions, links, timestamps, unicode + custom emoji. This pass adds `>>>` triple-quote (consumes to EOF), `- ` bullet lists (parser+renderer), and click-to-reveal spoiler (`SpoilerInline` composable: hidden block flips to revealed on tap).
 - [ ] Syntax-highlighted code blocks
 - [ ] Attachments (upload, download, image preview, video thumbnail)
   - 2026-05-23: image preview (bounded, aspect-preserving) + full-size viewer dialog + video tile (play icon, duration, click-to-open) + file tile (extension badge, click-to-open via PlatformOpen.openUrl) landed; upload still pending.

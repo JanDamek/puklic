@@ -6,11 +6,16 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -135,9 +140,34 @@ private fun InlineRow(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 is InlineSegment.CustomEmoji -> CustomEmojiInline(seg.ref)
+                is InlineSegment.SpoilerSeg -> SpoilerInline(seg.index, seg.content, baseStyle, resolvedMentions)
             }
         }
     }
+}
+
+@Composable
+private fun SpoilerInline(
+    @Suppress("UnusedParameter") index: Int,
+    content: List<RichTextInline>,
+    baseStyle: SpanStyle,
+    labels: MentionLabels,
+) {
+    var revealed by remember { mutableStateOf(false) }
+    val hiddenBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+    val revealedBg = MaterialTheme.colorScheme.surfaceVariant
+    val text = buildSegmentText(content, baseStyle, labels)
+    val mod = Modifier
+        .clip(RoundedCornerShape(3.dp))
+        .background(if (revealed) revealedBg else hiddenBg)
+        .clickable { revealed = true }
+        .padding(horizontal = 3.dp)
+    Text(
+        text = text,
+        style = MaterialTheme.typography.bodyMedium,
+        color = if (revealed) MaterialTheme.colorScheme.onSurface else hiddenBg,
+        modifier = mod,
+    )
 }
 
 @Composable
@@ -160,11 +190,13 @@ private fun defaultCustomEmojiUrl(ref: EmojiRef.Custom): String {
 private sealed interface InlineSegment {
     data class TextRun(val runs: List<RichTextInline>) : InlineSegment
     data class CustomEmoji(val ref: EmojiRef.Custom) : InlineSegment
+    data class SpoilerSeg(val index: Int, val content: List<RichTextInline>) : InlineSegment
 }
 
 private fun segmentInlines(runs: List<RichTextInline>): List<InlineSegment> {
     val out = mutableListOf<InlineSegment>()
     val buf = mutableListOf<RichTextInline>()
+    var spoilerIdx = 0
     fun flush() {
         if (buf.isNotEmpty()) {
             out.add(InlineSegment.TextRun(buf.toList()))
@@ -173,11 +205,16 @@ private fun segmentInlines(runs: List<RichTextInline>): List<InlineSegment> {
     }
     runs.forEach { run ->
         val customEmoji = (run as? RichTextInline.Emoji)?.ref as? EmojiRef.Custom
-        if (customEmoji != null) {
-            flush()
-            out.add(InlineSegment.CustomEmoji(customEmoji))
-        } else {
-            buf.add(run)
+        when {
+            customEmoji != null -> {
+                flush()
+                out.add(InlineSegment.CustomEmoji(customEmoji))
+            }
+            run is RichTextInline.Spoiler -> {
+                flush()
+                out.add(InlineSegment.SpoilerSeg(spoilerIdx++, run.content))
+            }
+            else -> buf.add(run)
         }
     }
     flush()
