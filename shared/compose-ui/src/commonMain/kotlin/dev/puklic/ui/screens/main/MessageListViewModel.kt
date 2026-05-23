@@ -4,7 +4,9 @@ import co.touchlab.kermit.Logger
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.ChannelId
+import dev.puklic.ids.MessageId
 import dev.puklic.repositories.MessageOrchestrator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -119,6 +121,12 @@ public class MessageListViewModel(
     public fun sendMessage(content: String) {
         if (content.isBlank()) return
         scope.launch { orchestrator.send(channelId, content) }
+    }
+
+    public fun toggleReaction(messageId: MessageId, emoji: EmojiRef, alreadyReacted: Boolean) {
+        scope.launch {
+            orchestrator.toggleReaction(channelId, messageId, emoji, alreadyReacted)
+        }
     }
 
     public fun loadOlder() {

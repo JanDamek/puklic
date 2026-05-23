@@ -15,6 +15,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.puklic.domain.ChatMessage
+import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.EmojiId
 import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
@@ -35,6 +36,7 @@ public fun MessageList(
     @Suppress("UnusedParameter") onLoadOlder: () -> Unit,
     @Suppress("UnusedParameter") onMessageAction: (MessageAction) -> Unit,
     modifier: Modifier = Modifier,
+    onReact: (ChatMessage, EmojiRef) -> Unit = { _, _ -> },
 ) {
     val spacing = LocalPuklicSpacing.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -84,7 +86,11 @@ public fun MessageList(
                             kotlin.math.abs(
                                 msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
                             ) <= GROUPING_WINDOW_SECONDS
-                        MessageRow(message = msgs[idx], groupedWithPrevious = grouped)
+                        MessageRow(
+                            message = msgs[idx],
+                            groupedWithPrevious = grouped,
+                            onReact = { emoji -> onReact(msgs[idx], emoji) },
+                        )
                     }
                     if (state.isLoadingOlder) {
                         item { CircularProgressIndicator() }

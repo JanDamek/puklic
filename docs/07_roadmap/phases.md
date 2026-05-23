@@ -37,7 +37,7 @@ Goal: a usable read+write client for everyday text communication.
 - [ ] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
 - [ ] Syntax-highlighted code blocks
 - [ ] Attachments (upload, download, image preview, video thumbnail)
-- [ ] Reactions UI (add/remove, list)
+- [x] Reactions UI (add/remove, list)
 - [ ] Message edit/delete sync via gateway
 - [ ] Email+password login (ADR-0002 Option B)
 

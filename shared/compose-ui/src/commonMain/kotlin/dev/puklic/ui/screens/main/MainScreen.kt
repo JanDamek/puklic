@@ -420,6 +420,10 @@ private fun ChannelMessages(
                 onLoadOlder = viewModel.viewModel::loadOlder,
                 onMessageAction = {},
                 modifier = Modifier.fillMaxWidth(),
+                onReact = { message, emoji ->
+                    val alreadyReacted = message.reactions.any { it.me && it.emoji == emoji }
+                    viewModel.viewModel.toggleReaction(message.id, emoji, alreadyReacted)
+                },
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

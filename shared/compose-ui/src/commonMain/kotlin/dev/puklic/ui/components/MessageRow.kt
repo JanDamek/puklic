@@ -19,6 +19,10 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,7 +60,7 @@ public fun MessageRow(
     groupedWithPrevious: Boolean = false,
     deliveryState: MessageDeliveryState = MessageDeliveryState.Committed,
     isMentionedUser: Boolean = false,
-    @Suppress("UnusedParameter") onReact: (EmojiRef) -> Unit = {},
+    onReact: (EmojiRef) -> Unit = {},
     @Suppress("UnusedParameter") onEdit: () -> Unit = {},
     @Suppress("UnusedParameter") onDelete: () -> Unit = {},
     @Suppress("UnusedParameter") onCopyLink: () -> Unit = {},
@@ -127,6 +131,28 @@ public fun MessageRow(
             if (message.embeds.isNotEmpty()) {
                 Spacer(Modifier.height(spacing.space2))
                 EmbedList(embeds = message.embeds)
+            }
+
+            if (message.reactions.isNotEmpty()) {
+                Spacer(Modifier.height(spacing.space2))
+                var pickerOpen by remember { mutableStateOf(false) }
+                var recent by remember { mutableStateOf<List<EmojiRef>>(emptyList()) }
+                ReactionsRow(
+                    reactions = message.reactions,
+                    onToggle = onReact,
+                    onPickerOpen = { pickerOpen = true },
+                )
+                if (pickerOpen) {
+                    EmojiPickerDialog(
+                        onDismiss = { pickerOpen = false },
+                        onPick = { emoji ->
+                            recent = (listOf(emoji) + recent).distinct().take(16)
+                            onReact(emoji)
+                            pickerOpen = false
+                        },
+                        recent = recent,
+                    )
+                }
             }
 
             if (deliveryState is MessageDeliveryState.Failed) {
