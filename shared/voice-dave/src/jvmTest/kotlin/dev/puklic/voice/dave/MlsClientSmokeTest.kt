@@ -74,10 +74,25 @@ class MlsClientSmokeTest {
             // Both at the same post-add epoch (1, after one Commit on top of epoch 0).
             alice.currentEpoch(groupId) shouldBe bob.currentEpoch(groupId)
 
-            // Exporter parity: identical bytes on both sides at the same epoch.
-            val aliceExporter = alice.exportSecret(groupId, "Discord Secure Frames v0", EXPORTER_LEN)
-            val bobExporter = bob.exportSecret(groupId, "Discord Secure Frames v0", EXPORTER_LEN)
+            // Exporter parity: identical bytes on both sides at the same epoch when called
+            // with identical (label, context). Wire 4.2.0 cannot honour the DAVE label
+            // on the wire (see MlsClient.exportSecret KDoc), but the local HKDF post-process
+            // makes the call site label+context sensitive.
+            val ctx = byteArrayOf(0x01, 0x02, 0x03, 0x04, 0x00, 0x00, 0x00, 0x07)
+            val aliceExporter = alice.exportSecret(groupId, DAVE_LABEL, ctx, EXPORTER_LEN)
+            val bobExporter = bob.exportSecret(groupId, DAVE_LABEL, ctx, EXPORTER_LEN)
             aliceExporter.toList() shouldContainExactly bobExporter.toList()
+
+            // Changing label produces different bytes (label-sensitive).
+            val otherLabel = alice.exportSecret(groupId, "different-label", ctx, EXPORTER_LEN)
+            (otherLabel.contentEquals(aliceExporter)).let { sameBytes ->
+                check(!sameBytes) { "exporter must be label-sensitive but bytes matched" }
+            }
+            // Changing context produces different bytes (context-sensitive).
+            val otherCtx = alice.exportSecret(groupId, DAVE_LABEL, ByteArray(EXPORTER_LEN), EXPORTER_LEN)
+            (otherCtx.contentEquals(aliceExporter)).let { sameBytes ->
+                check(!sameBytes) { "exporter must be context-sensitive but bytes matched" }
+            }
         } finally {
             alice.close()
             bob.close()
@@ -91,5 +106,6 @@ class MlsClientSmokeTest {
         // A KeyPackage TLS-encodes pub keys + extensions + a signature; ~200 bytes minimum.
         const val MIN_KEY_PACKAGE_BYTES = 100
         const val EXPORTER_LEN = 32
+        const val DAVE_LABEL = "Discord Secure Frames v0"
     }
 }

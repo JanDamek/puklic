@@ -15,6 +15,7 @@
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -29,6 +30,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.serialization.json)
             implementation(libs.kermit)
         }
         commonTest.dependencies {
@@ -41,6 +43,9 @@ kotlin {
             // 4.2.0 pinned per ADR-0007. 9.x exists but is unverified against DAVE spike;
             // upgrade only after a focused regression pass.
             implementation(libs.wire.core.crypto.jvm)
+            // BouncyCastle HKDF for local Expand-on-top-of-Wire's MLS exporter, until
+            // a backend exposes a labelled MLS-Exporter (Phase 3.2 libdave-JNI).
+            implementation(libs.bouncycastle.bcprov)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)

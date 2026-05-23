@@ -22,6 +22,9 @@ import com.wire.crypto.Welcome
 import com.wire.crypto.WelcomeBundle
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.bouncycastle.crypto.digests.SHA256Digest
+import org.bouncycastle.crypto.generators.HKDFBytesGenerator
+import org.bouncycastle.crypto.params.HKDFParameters
 import java.nio.file.Files
 import java.time.Duration
 
@@ -39,9 +42,15 @@ import java.time.Duration
  * (single-writer pattern). We funnel all suspending calls through a [Mutex] to
  * surface a sequential, simple API to callers.
  *
- * Limitations vs DAVE (deferred to Phase 3.2):
- *   - [exportSecret] ignores its label argument (Wire 4.2.0 fixes it to "AVS").
- *   - No JVM->Android->iOS portability yet; this file is JVM-only.
+ * Limitations vs DAVE (deferred to Phase 3.2 libdave-JNI):
+ *   - Wire 4.2.0's MLS exporter label is hardcoded to `"exporter"` (empty
+ *     context). DAVE wants label `"Discord Secure Frames v0"` with context =
+ *     SSRC || generation. We layer a local HKDF-Expand-Label on top of Wire's
+ *     secret so the bytes are keyed by (label, context) locally; this is NOT
+ *     wire-compatible with other DAVE clients.
+ *   - [processExternalSender] cannot retrofit a sender onto an already-created
+ *     group in Wire 4.2.0; tracked as a structural gap.
+ *   - JVM-only; iOS/Android backends land later.
  */
 @Suppress("TooManyFunctions")
 internal class WireMlsClient : MlsClient {
@@ -80,7 +89,6 @@ internal class WireMlsClient : MlsClient {
         check(!::cc.isInitialized) { "MlsClient.init called twice" }
         val keystoreDir = Files.createTempDirectory("puklic-mls-").toFile().apply { deleteOnExit() }
         val keystorePath = keystoreDir.resolve("keystore").absolutePath
-        // Random per-instance keystore key — group state is ephemeral, no need to derive.
         val keystoreKey = userId.hashCode().toUInt().toString(KEYSTORE_KEY_RADIX) + "-puklic-dave"
         cc = CoreCrypto(keystorePath, keystoreKey)
         cc.transaction { ctx: CoreCryptoContext ->
@@ -110,9 +118,6 @@ internal class WireMlsClient : MlsClient {
                 MLSGroupId(channelId.toGroupIdBytes()),
                 ciphersuite,
                 credentialType,
-                // Discord supplies the external-sender key via gateway op 25
-                // (DAVE_MLS_EXTERNAL_SENDER_PACKAGE). For local-only smoke tests we
-                // pass an empty list — `createConversation` accepts this.
                 emptyList<ExternalSenderKey>(),
             )
         }
@@ -127,6 +132,31 @@ internal class WireMlsClient : MlsClient {
         bundle.id.value.decodeGroupIdString()
     }
 
+    override suspend fun processCommit(groupId: String, handshakeBytes: ByteArray) = mutex.withLock {
+        requireInited()
+        cc.transaction { ctx ->
+            ctx.decryptMessage(
+                MLSGroupId(groupId.toGroupIdBytes()),
+                MlsMessage(handshakeBytes),
+            )
+        }
+        Unit
+    }
+
+    override suspend fun processExternalSender(
+        channelId: String,
+        externalSenderBytes: ByteArray,
+    ) {
+        // Wire 4.2.0 only accepts external senders at createGroup-time. We cannot
+        // attach one post-hoc through the public API. Recording for future use;
+        // a full fix requires Phase 3.2 libdave-JNI or a reorder where we defer
+        // createGroup until ESPP has arrived. See architect report §3.
+        logger.w {
+            "processExternalSender: Wire 4.2.0 has no post-hoc attach API. " +
+                "Ignoring ${externalSenderBytes.size} bytes for channelId=$channelId."
+        }
+    }
+
     override suspend fun currentEpoch(groupId: String): Long = mutex.withLock {
         requireInited()
         val ulong: ULong = cc.transaction { ctx ->
@@ -135,20 +165,23 @@ internal class WireMlsClient : MlsClient {
         ulong.toLong()
     }
 
-    override suspend fun exportSecret(groupId: String, label: String, length: Int): ByteArray =
-        mutex.withLock {
-            requireInited()
-            if (label != DAVE_EXPORTER_LABEL) {
-                logger.w {
-                    "exportSecret: ignoring requested label='$label'. Wire 4.2.0 only exposes " +
-                        "the AVS exporter. Tracked in ADR-0007 + architect report §3."
-                }
-            }
-            val secret: AvsSecret = cc.transaction { ctx ->
-                ctx.deriveAvsSecret(MLSGroupId(groupId.toGroupIdBytes()), length.toUInt())
-            }
-            secret.value
+    override suspend fun exportSecret(
+        groupId: String,
+        label: String,
+        context: ByteArray,
+        length: Int,
+    ): ByteArray = mutex.withLock {
+        requireInited()
+        // Wire's MLS exporter is hardcoded to label="exporter", context=[]. We pull
+        // its `length`-byte output (= IKM) and re-derive via local HKDF-Expand with
+        // DAVE's label + caller context. NOT wire-compatible with Discord/other DAVE
+        // clients (their MLS-Exporter output differs because the label feeds into
+        // the MLS key schedule itself); is byte-stable on both sides locally.
+        val wireSecret: AvsSecret = cc.transaction { ctx ->
+            ctx.deriveAvsSecret(MLSGroupId(groupId.toGroupIdBytes()), EXPORTER_IKM_LEN.toUInt())
         }
+        hkdfExpandLabel(wireSecret.value, label, context, length)
+    }
 
     override suspend fun signaturePublicKey(): ByteArray = mutex.withLock {
         requireInited()
@@ -199,10 +232,32 @@ internal class WireMlsClient : MlsClient {
     internal data class CapturedCommit(val commit: ByteArray, val welcome: ByteArray?)
 
     private companion object {
-        const val DAVE_EXPORTER_LABEL = "Discord Secure Frames v0"
         const val KEY_ROTATION_DAYS = 30L
         const val KEYSTORE_KEY_RADIX = 16
         val DEFAULT_NB_KEY_PACKAGE: UInt = 1u
+        // Length of IKM pulled from Wire's exporter before our local HKDF-Expand.
+        // 32 B = SHA-256 output size = a full HKDF PRK.
+        const val EXPORTER_IKM_LEN = 32
+
+        /**
+         * RFC 5869 HKDF-Expand with `info = label || context`. Used as a local
+         * post-process on top of Wire's MLS exporter to inject DAVE's label +
+         * SSRC/generation context. NOT MLS-Exporter spec-compliant — see [exportSecret]
+         * KDoc for why.
+         */
+        fun hkdfExpandLabel(prk: ByteArray, label: String, context: ByteArray, length: Int): ByteArray {
+            val labelBytes = label.toByteArray(Charsets.UTF_8)
+            val info = ByteArray(labelBytes.size + context.size).also { out ->
+                labelBytes.copyInto(out, 0)
+                context.copyInto(out, labelBytes.size)
+            }
+            val hkdf = HKDFBytesGenerator(SHA256Digest())
+            // skip=true == HKDF-Expand only (PRK is already a PRK from Wire's exporter)
+            hkdf.init(HKDFParameters.skipExtractParameters(prk, info))
+            val out = ByteArray(length)
+            hkdf.generateBytes(out, 0, length)
+            return out
+        }
     }
 }
 

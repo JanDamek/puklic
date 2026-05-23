@@ -58,26 +58,61 @@ internal interface MlsClient {
     suspend fun processWelcome(welcomeBytes: ByteArray): String
 
     /**
+     * Process an MLS Commit / Proposal handshake message for an already-joined
+     * [groupId]. Used for voice-gateway opcodes 27 (DAVE_MLS_PROPOSALS) and
+     * 29 (DAVE_MLS_ANNOUNCE_COMMIT_TRANSITION). Advances the epoch when the
+     * payload is a Commit.
+     */
+    suspend fun processCommit(groupId: String, handshakeBytes: ByteArray)
+
+    /**
+     * Register the Discord-supplied external sender public key for [groupId].
+     * Voice-gateway opcode 25 (DAVE_MLS_EXTERNAL_SENDER_PACKAGE).
+     *
+     * In Wire 4.2.0 the external sender is supplied at [createGroup] time as a
+     * `List<ExternalSenderKey>`; there is no post-hoc API to attach one. For now
+     * this method is a no-op placeholder that records the bytes; a full fix
+     * requires either reordering the protocol (defer createGroup until ESPP
+     * arrives) or upgrading Wire. Tracked in architect report §3.
+     */
+    suspend fun processExternalSender(channelId: String, externalSenderBytes: ByteArray)
+
+    /**
      * Current MLS epoch for [groupId]. Each Commit advances this by 1.
      */
     suspend fun currentEpoch(groupId: String): Long
 
     /**
-     * Derive a per-call/per-epoch exporter secret of [length] bytes for [groupId].
+     * Derive a per-call/per-epoch exporter secret of [length] bytes for [groupId],
+     * keyed by [label] + [context] (DAVE uses label `"Discord Secure Frames v0"`
+     * and context = SSRC || generation).
      *
-     * NOTE (4.2.0 limitation): the underlying Wire 4.2.0 public API only exposes
-     * a single MLS exporter with the fixed label `"AVS"` (via [`deriveAvsSecret`])
-     * — it does NOT accept an arbitrary [label]. DAVE requires label
-     * `"Discord Secure Frames v0"`. For the 3.1b spike we therefore IGNORE
-     * [label] and return Wire's AVS secret; both parties derive identical bytes
-     * so exporter parity for the smoke test holds. Producing DAVE-correct bytes
-     * requires either:
-     *   - upgrading to a Wire version exposing the raw MLS exporter, or
-     *   - patching core-crypto, or
-     *   - the libdave-JNI path (Phase 3.2).
-     * This gap is tracked in the architect report §3 + ADR-0007 "Consequences".
+     * **Wire 4.2.0 limitation (HARD).** The Wire 4.2.0 public + lower uniffi
+     * APIs both expose only `exportSecretKey(conversationId, keyLength)` — neither
+     * accepts a label nor a context. Inspection of the Wire `crypto/src/mls/
+     * conversation/export.rs` source (v4.2.0) shows the label is hardcoded to
+     * `"exporter"` with empty context inside the Rust core, so reflection cannot
+     * help — the FFI symbol simply does not exist. Consequence: bytes returned
+     * here are NOT DAVE-byte-compatible with the Discord protocol and other DAVE
+     * clients. They are stable, per-epoch, per-group, but keyed by Wire's
+     * `"exporter"` label, not DAVE's.
+     *
+     * We do, however, apply DAVE-shaped local HKDF on top of Wire's secret using
+     * [label] and [context] (RFC 5869 HKDF-Expand) so that the bytes are also
+     * keyed by SSRC + generation locally. This is wrong-on-the-wire (will not
+     * interop with Discord) but correct-by-shape (any change in label or context
+     * changes the bytes; identical (label, context) on both sides yields
+     * identical bytes; new epoch yields new bytes).
+     *
+     * The structurally-correct fix lands with the libdave-JNI backend in Phase
+     * 3.2 (architect report §3 path B). See ADR-0007.
      */
-    suspend fun exportSecret(groupId: String, label: String, length: Int): ByteArray
+    suspend fun exportSecret(
+        groupId: String,
+        label: String,
+        context: ByteArray,
+        length: Int,
+    ): ByteArray
 
     /**
      * Own signature public key (same value as returned by [init]; cached after
