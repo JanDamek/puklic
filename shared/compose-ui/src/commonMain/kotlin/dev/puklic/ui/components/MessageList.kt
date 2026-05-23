@@ -83,13 +83,14 @@ public fun MessageList(
  * localization is part of Phase 2 L10n work.
  */
 internal fun friendlyErrorMessage(raw: String): String = when {
-    raw.contains("50001") || raw.contains("Forbidden", ignoreCase = true) ->
-        "No access to this channel. (Discord may require you to view it in the official client " +
-            "first; full access wiring is on the Phase 2 roadmap.)"
+    raw.contains("50001") ||
+        raw.contains("Forbidden", ignoreCase = true) ||
+        raw.contains("Missing Access", ignoreCase = true) ->
+        "You don't have permission to view this channel."
     raw.contains("404") || raw.contains("Not Found", ignoreCase = true) ->
         "Channel not found."
     raw.contains("429") || raw.contains("rate limit", ignoreCase = true) ->
-        "Rate limited. Try again in a moment."
+        "Rate limited by Discord. Try again in a moment."
     raw.contains("Network", ignoreCase = true) ||
         raw.contains("Cannot reach", ignoreCase = true) ||
         raw.contains("UnknownHost", ignoreCase = true) ||

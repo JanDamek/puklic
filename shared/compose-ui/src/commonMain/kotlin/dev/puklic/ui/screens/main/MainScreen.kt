@@ -100,6 +100,7 @@ public fun MainScreen(viewModel: MainViewModel) {
             selectedChannelId = state.selectedChannelId,
             selectedChannelName = displayName,
             selectedChannelTopic = topic,
+            selectedChannel = selectedChannel,
             messageOrchestrator = viewModel.orchestrators?.messages,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
@@ -318,10 +319,12 @@ private fun MessagePane(
     selectedChannelId: ChannelId?,
     selectedChannelName: String?,
     selectedChannelTopic: String?,
+    selectedChannel: Channel?,
     messageOrchestrator: MessageOrchestrator?,
     modifier: Modifier = Modifier,
 ) {
     Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
+        val nonTextEmptyState = selectedChannel?.let { nonTextChannelEmptyState(it.type) }
         when {
             selectedChannelId == null -> EmptyState(
                 title = "Select a channel to start chatting",
@@ -330,6 +333,10 @@ private fun MessagePane(
             messageOrchestrator == null -> EmptyState(
                 title = "No active session",
                 body = "Sign in to start receiving messages.",
+            )
+            nonTextEmptyState != null -> EmptyState(
+                title = nonTextEmptyState.first,
+                body = nonTextEmptyState.second,
             )
             else -> ChannelMessages(
                 channelId = selectedChannelId,
@@ -340,6 +347,29 @@ private fun MessagePane(
         }
     }
 }
+
+/**
+ * Returns (title, body) for non-text channel types so MessagePane can render an EmptyState
+ * instead of attempting a REST `loadInitial` that would fail or return nothing. Returns null
+ * for text-capable channel types (GUILD_TEXT, GUILD_ANNOUNCEMENT, DM, GROUP_DM, threads, forum/
+ * media post channels).
+ */
+private fun nonTextChannelEmptyState(type: dev.puklic.domain.ChannelType): Pair<String, String>? =
+    when (type) {
+        dev.puklic.domain.ChannelType.GUILD_VOICE ->
+            "Voice channel" to
+                "Voice channels aren't supported yet. (Phase 3 roadmap covers voice.)"
+        dev.puklic.domain.ChannelType.GUILD_STAGE_VOICE ->
+            "Stage channel" to
+                "Stage channels aren't supported yet. (Phase 3 roadmap covers voice.)"
+        dev.puklic.domain.ChannelType.GUILD_DIRECTORY ->
+            "Server directory" to
+                "Server directories aren't supported yet."
+        dev.puklic.domain.ChannelType.GUILD_CATEGORY ->
+            "Category" to
+                "Categories group channels and don't contain messages."
+        else -> null
+    }
 
 @Composable
 private fun ChannelMessages(
