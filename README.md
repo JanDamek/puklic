@@ -46,17 +46,16 @@ TBD — the Gradle multimodule scaffold is in place (Steps 1–2 landed). Run `.
 
 ### Voice prerequisites (Phase 3)
 
-The `:shared:voice` module loads system **libopus** at runtime via JNA. Install before building or running voice tests:
+None — the `:shared:voice` module bundles its native dependencies via JavaCPP. The Opus
+encoder/decoder are loaded from the FFmpeg GPL build
+(`org.bytedeco:ffmpeg-platform-gpl:7.1-1.5.11`, which ships `libopus` inside). Natives are
+extracted to a per-user cache (`$HOME/.javacpp/cache/` by default) on first use; tests use
+the project `build/javacpp-cache/` to keep them hermetic. No `brew install opus` / `apt
+install libopus0` is needed.
 
-| Platform | Command |
-|---|---|
-| macOS (Homebrew) | `brew install opus` |
-| Debian / Ubuntu | `sudo apt install libopus0` |
-| Fedora | `sudo dnf install opus` |
-| Arch | `sudo pacman -S opus` |
-| Windows | `vcpkg install opus`, or ship `opus.dll` alongside the binary |
-
-If libopus is missing, `OpusCodecFactory.createEncoder()` throws `OpusException` with installation instructions.
+GPL note: because `ffmpeg-platform-gpl` bundles libx264 (GPL-2.0), distributed binaries
+that include it must comply with GPL-2.0+. The Puklic source itself stays Apache-2.0; see
+`docs/06_ops/licensing.md` (to be added) for the bundle disclosure.
 
 ## Contributing
 

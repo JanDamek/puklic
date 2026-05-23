@@ -49,6 +49,10 @@ jlleitschuh-ktlint-gradle = "12.1.2"
 jna = "5.16.0"
 dbus-java = "4.3.1"
 
+# Native multimedia (JavaCPP bundled libavcodec / FFmpeg GPL build incl. libopus, libx264)
+javacpp = "1.5.11"
+ffmpeg = "7.1-1.5.11"
+
 # Voice (Phase 3, jvm-only)
 # Opus codec: JNA bindings to system libopus (brew install opus / apt install libopus0).
 # Pure-JVM concentus (com.github.jitsi:concentus:1.0.2) was blocked — jitpack-only, and
@@ -123,6 +127,11 @@ ktlint-compose-rules = { module = "io.nlopez.compose.rules:ktlint", version.ref 
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
+
+# JavaCPP + FFmpeg (libavcodec/libavformat/libavdevice/libavutil; GPL build incl. libopus + libx264)
+javacpp = { group = "org.bytedeco", name = "javacpp", version.ref = "javacpp" }
+ffmpeg-bindings = { group = "org.bytedeco", name = "ffmpeg", version.ref = "ffmpeg" }
+ffmpeg-platform-gpl = { group = "org.bytedeco", name = "ffmpeg-platform-gpl", version.ref = "ffmpeg" }
 
 # Voice (Phase 3, jvm-only)
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }

@@ -3,15 +3,15 @@ package dev.puklic.voice.codec
 /**
  * Opus encoder / decoder facade for Puklic voice.
  *
- * Phase 3.0 backend (jvm): JNA bindings to system libopus
- * (see `shared/voice/src/jvmMain/.../codec/LibOpus.kt`). User must install:
- *   - macOS: `brew install opus`
- *   - Debian/Ubuntu: `apt install libopus0`
- *   - Fedora: `dnf install opus`
+ * JVM backend (self-contained phase 1, 2026-05-23): libavcodec via JavaCPP FFmpeg GPL
+ * (`org.bytedeco:ffmpeg-platform-gpl:7.1-1.5.11`). The libopus wrapper inside that build
+ * provides Opus encoder/decoder — no system libopus install needed. See
+ * `shared/voice/src/jvmMain/.../codec/OpusCodec.jvm.kt`.
  *
  * History: pure-JVM `concentus` was blocked (jitpack-only, internal Gradle init script
  * strips non-mavenCentral repos). The restcomm `opus-java` JNI bundle ships native libs
- * only for Linux. JNA to libopus is the portable middle ground.
+ * only for Linux. JNA to system libopus was the bridge in Phase 3.0; we now bundle
+ * natives via JavaCPP to make installers self-contained.
  *
  * All frames are mono 48 kHz 20 ms (960 samples). Sample-rate / channel / frame-size
  * variants are out of scope for Phase 3.0 — see `AudioConstants` in `PublicApi.kt`.
