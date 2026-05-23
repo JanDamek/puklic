@@ -13,6 +13,8 @@ import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.repositories.Orchestrators
 import dev.puklic.session.SessionTransport
+import dev.puklic.voice.screenshare.ScreenShareState
+import dev.puklic.voice.screenshare.ScreenSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -147,6 +149,25 @@ public class MainViewModel(
             runCatching { client.connect(guildId, channelId) }
                 .onFailure { Logger.w("MainViewModel", it) { "voice connect failed gid=$guildId cid=$channelId" } }
         }
+    }
+
+    /**
+     * Convenience accessors for the screen-share facade. The dock can also call
+     * `voiceClient.screenShare` directly; these are provided for symmetry with the spec in
+     * `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md` §9 and for testability.
+     */
+    public val screenShareState: StateFlow<ScreenShareState>?
+        get() = (voiceClient as? dev.puklic.voice.VoiceClient)?.screenShare?.state
+
+    public suspend fun listScreenSources(): List<ScreenSource> =
+        (voiceClient as? dev.puklic.voice.VoiceClient)?.screenShare?.listSources() ?: emptyList()
+
+    public suspend fun startScreenShare(source: ScreenSource, shareAudio: Boolean) {
+        (voiceClient as? dev.puklic.voice.VoiceClient)?.screenShare?.start(source, shareAudio)
+    }
+
+    public suspend fun stopScreenShare() {
+        (voiceClient as? dev.puklic.voice.VoiceClient)?.screenShare?.stop()
     }
 
     public fun selectChannel(id: ChannelId) {

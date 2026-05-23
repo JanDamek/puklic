@@ -60,15 +60,21 @@ Goal: a usable read+write client for everyday text communication.
 - [x] Voice state indicators in channel list
   - VoiceStatusBar (slice 10) shows connecting/connected/failed; speaking indicator wired through SSRC ↔ UserId resolver (Op 5 Speaking events). Channel-row click-to-join deferred — `GuildVoiceChannel` data class is not yet in the domain model; users connect through the status bar's Settings affordance for now.
 
-## Phase 4 — Wayland screenshare
+## Phase 4 — Screenshare
 
-- [ ] xdg-desktop-portal D-Bus binding
-- [ ] PipeWire stream capture
-- [ ] Window picker (via portal RequestScreenCast)
-- [ ] Monitor picker
-- [ ] H.264 / VP8 encoder (libav / native)
-- [ ] Share with audio (PipeWire audio capture)
-- [ ] Video send via voice gateway transport
+macOS MVP (4.0) landed 2026-05-23 via the ffmpeg-subprocess pipeline on top of the existing
+voice UDP socket + AEAD + gateway. See architect report
+`docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md`. Linux Wayland support
+is deferred to 4.1.
+
+- [ ] xdg-desktop-portal D-Bus binding (4.1, Wayland)
+- [ ] PipeWire stream capture (4.1, Wayland; macOS uses AVFoundation via ffmpeg, captured 2026-05-23)
+- [~] Window picker (via portal RequestScreenCast) — deferred to 4.0.1; monitor-only picker shipped
+- [x] Monitor picker (ScreenSharePickerDialog, slice 6)
+- [x] H.264 encoder (libx264 via ffmpeg subprocess; slice 3)
+- [ ] VP8 encoder (Linux 4.1)
+- [~] Share with audio — macOS routes via BlackHole 2ch (user-installed); PipeWire audio capture in 4.1
+- [x] Video send via voice gateway transport (RTP FU-A + AEAD on Ready.video_ssrc; slices 4–5)
 
 ## Phase 5 — Optimisation
 
