@@ -9,7 +9,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalUriHandler
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
@@ -69,17 +71,26 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
         BootstrappingScreen()
         return
     }
-    MainScreen(
-        viewModel = MainViewModel(
+    val viewModel = remember(activeSession, pos) {
+        MainViewModel(
             componentContext = root,
             orchestrators = activeSession?.orchestrators,
             sessionTransport = activeSession?.transport,
             preferences = root.preferences,
             initialPosition = pos,
             voiceClient = activeSession?.voiceClient,
-        ),
-        platformOpen = platformOpen,
-    )
+        )
+    }
+    val uriHandler = LocalUriHandler.current
+    val appRouter = remember(viewModel, uriHandler) {
+        AppRouter(
+            openChannel = { viewModel.selectChannel(it) },
+            openExternal = { uriHandler.openUri(it) },
+        )
+    }
+    CompositionLocalProvider(LocalAppRouter provides appRouter) {
+        MainScreen(viewModel = viewModel, platformOpen = platformOpen)
+    }
 }
 
 @Composable

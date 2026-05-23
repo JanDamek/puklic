@@ -42,6 +42,7 @@ import dev.puklic.domain.RichTextInline
 import dev.puklic.domain.TextStyle
 import dev.puklic.chatparser.CodeHighlighter
 import dev.puklic.chatparser.CodeTokenKind
+import dev.puklic.ui.LocalAppRouter
 import dev.puklic.ui.resolvers.EmojiDisplay
 import dev.puklic.ui.resolvers.LocalEmojiResolver
 import dev.puklic.ui.resolvers.LocalMentionResolver
@@ -319,9 +320,14 @@ private fun buildSegmentText(
     val linkColor = MaterialTheme.colorScheme.primary
     val codeBg = MaterialTheme.colorScheme.surfaceVariant
     val spoilerBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
+    val appRouter = LocalAppRouter.current
+    val onUrlClick: (String) -> Unit = { url -> appRouter.open(url) }
     return buildAnnotatedString {
         withStyle(baseStyle) {
-            appendInlines(runs, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg, onChannelClick, onUserClick)
+            appendInlines(
+                runs, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
+                onChannelClick, onUserClick, onUrlClick,
+            )
         }
     }
 }
@@ -337,6 +343,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
     spoilerBg: Color,
     onChannelClick: ((ChannelId) -> Unit)? = null,
     onUserClick: ((UserId) -> Unit)? = null,
+    onUrlClick: ((String) -> Unit)? = null,
 ) {
     val linkStyles = TextLinkStyles(
         style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline),
@@ -353,12 +360,23 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 ),
             ) { append(run.content) }
-            is RichTextInline.Link -> withLink(LinkAnnotation.Url(url = run.url, styles = linkStyles)) {
-                if (run.display.isEmpty()) append(run.url)
-                else appendInlines(
-                    run.display, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
-                    onChannelClick, onUserClick,
-                )
+            is RichTextInline.Link -> {
+                val listener = onUrlClick?.let { cb ->
+                    androidx.compose.ui.text.LinkInteractionListener { cb(run.url) }
+                }
+                withLink(
+                    LinkAnnotation.Url(
+                        url = run.url,
+                        styles = linkStyles,
+                        linkInteractionListener = listener,
+                    ),
+                ) {
+                    if (run.display.isEmpty()) append(run.url)
+                    else appendInlines(
+                        run.display, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
+                        onChannelClick, onUserClick, onUrlClick,
+                    )
+                }
             }
             is RichTextInline.Mention -> {
                 val target = run.target
@@ -389,7 +407,7 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
             is RichTextInline.Spoiler -> withStyle(SpanStyle(background = spoilerBg, color = spoilerBg)) {
                 appendInlines(
                     run.content, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
-                    onChannelClick, onUserClick,
+                    onChannelClick, onUserClick, onUrlClick,
                 )
             }
             is RichTextInline.Timestamp -> withStyle(
