@@ -12,6 +12,7 @@ kotlin {
             implementation(projects.shared.session)
             implementation(projects.shared.platformApi)
             implementation(projects.shared.persistenceApi)
+            implementation(projects.shared.voice)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
@@ -35,7 +36,6 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmMain.dependencies {
-            implementation(projects.shared.voice)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)

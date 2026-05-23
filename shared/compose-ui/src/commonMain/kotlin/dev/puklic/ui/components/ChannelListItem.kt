@@ -7,7 +7,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material3.Badge
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -15,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
+import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ui.theme.LocalPuklicSpacing
 
 @Composable
@@ -31,6 +35,7 @@ public fun ChannelListItem(
     val background = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
     val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
     val opacity = if (isMuted) 0.5f else 1f
+    val isVoice = channel is GuildVoiceChannel
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -41,11 +46,27 @@ public fun ChannelListItem(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = "# ${channel.name.orEmpty()}",
-            style = MaterialTheme.typography.labelMedium,
-            color = textColor,
-        )
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            if (isVoice) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.VolumeUp,
+                    contentDescription = "Voice channel",
+                    tint = textColor,
+                    modifier = Modifier.height(16.dp),
+                )
+                Text(
+                    text = " ${channel.name.orEmpty()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = textColor,
+                )
+            } else {
+                Text(
+                    text = "# ${channel.name.orEmpty()}",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = textColor,
+                )
+            }
+        }
         if (mentionCount > 0) {
             Badge(containerColor = MaterialTheme.colorScheme.error) { Text(mentionCount.toString()) }
         } else if (unreadCount > 0) {

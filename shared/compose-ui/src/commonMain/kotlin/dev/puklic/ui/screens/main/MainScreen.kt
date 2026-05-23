@@ -46,6 +46,7 @@ import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
+import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ui.components.CategoryHeader
@@ -88,6 +89,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     channels = state.channelsForSelectedGuild,
                     selectedChannelId = state.selectedChannelId,
                     onSelectChannel = viewModel::selectChannel,
+                    onJoinVoiceChannel = { guildId, channelId -> viewModel.joinVoiceChannel(guildId, channelId) },
                     modifier = paneModifier,
                 )
             }
@@ -246,6 +248,7 @@ private fun ChannelListPane(
     channels: List<Channel>,
     selectedChannelId: ChannelId?,
     onSelectChannel: (ChannelId) -> Unit,
+    onJoinVoiceChannel: (GuildId, ChannelId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalPuklicSpacing.current
@@ -271,6 +274,9 @@ private fun ChannelListPane(
             val textChannels = channels
                 .filterIsInstance<GuildTextChannel>()
                 .sortedBy { it.position }
+            val voiceChannels = channels
+                .filterIsInstance<GuildVoiceChannel>()
+                .sortedBy { it.position }
             val categories = channels
                 .filterIsInstance<GuildCategoryChannel>()
                 .sortedBy { it.position }
@@ -281,6 +287,7 @@ private fun ChannelListPane(
             // `parentId == cat.id` filter dropped every channel whose parent category was not in
             // the visible list.
             val orphanText = textChannels.filter { it.parentId == null || it.parentId !in categoryIds }
+            val orphanVoice = voiceChannels.filter { it.parentId == null || it.parentId !in categoryIds }
             Logger.i("ChannelListPane") {
                 "incoming channels: ${channels.size}, " +
                     "types: ${channels.groupBy { it::class.simpleName }.mapValues { it.value.size }}"
@@ -300,6 +307,15 @@ private fun ChannelListPane(
                         )
                     }
                 }
+                if (orphanVoice.isNotEmpty()) {
+                    items(orphanVoice, key = { "voi-${it.id.value}" }) { ch ->
+                        ChannelListItem(
+                            channel = ch,
+                            isSelected = false,
+                            onClick = { onJoinVoiceChannel(ch.guildId, ch.id) },
+                        )
+                    }
+                }
                 categories.forEach { cat ->
                     item(key = "cat-${cat.id.value}") {
                         CategoryHeader(
@@ -308,14 +324,24 @@ private fun ChannelListPane(
                             onToggle = {},
                         )
                     }
-                    val under = textChannels
+                    val underText = textChannels
                         .filter { it.parentId == cat.id }
                         .sortedBy { it.position }
-                    items(under, key = { "txt-${it.id.value}" }) { ch ->
+                    items(underText, key = { "txt-${it.id.value}" }) { ch ->
                         ChannelListItem(
                             channel = ch,
                             isSelected = ch.id == selectedChannelId,
                             onClick = { onSelectChannel(ch.id) },
+                        )
+                    }
+                    val underVoice = voiceChannels
+                        .filter { it.parentId == cat.id }
+                        .sortedBy { it.position }
+                    items(underVoice, key = { "voi-${it.id.value}" }) { ch ->
+                        ChannelListItem(
+                            channel = ch,
+                            isSelected = false,
+                            onClick = { onJoinVoiceChannel(ch.guildId, ch.id) },
                         )
                     }
                 }

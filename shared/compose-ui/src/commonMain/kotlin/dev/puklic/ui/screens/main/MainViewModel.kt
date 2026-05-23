@@ -136,6 +136,19 @@ public class MainViewModel(
         lazySubscribeGuildBootstrap(id)
     }
 
+    /**
+     * Initiate a voice connection for the given guild + voice channel. Does NOT update
+     * selectedChannelId — voice channels are not text-active. Fire-and-forget; the
+     * resulting [VoiceClient.state] transition drives the VoiceDock UI.
+     */
+    public fun joinVoiceChannel(guildId: GuildId, channelId: ChannelId) {
+        val client = voiceClient as? dev.puklic.voice.VoiceClient ?: return
+        scope.launch {
+            runCatching { client.connect(guildId, channelId) }
+                .onFailure { Logger.w("MainViewModel", it) { "voice connect failed gid=$guildId cid=$channelId" } }
+        }
+    }
+
     public fun selectChannel(id: ChannelId) {
         selectedChannel.value = id
         persistPosition()

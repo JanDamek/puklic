@@ -38,6 +38,18 @@ data class GuildTextChannel(
     override val type: ChannelType = ChannelType.GUILD_TEXT
 }
 
+data class GuildVoiceChannel(
+    override val id: ChannelId,
+    override val name: String?,
+    val guildId: GuildId,
+    val position: Int,
+    val parentId: ChannelId?,
+    val bitrate: Int?,
+    val userLimit: Int?,
+) : Channel {
+    override val type: ChannelType = ChannelType.GUILD_VOICE
+}
+
 data class GuildCategoryChannel(
     override val id: ChannelId,
     override val name: String?,

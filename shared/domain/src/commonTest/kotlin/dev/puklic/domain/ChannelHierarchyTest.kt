@@ -219,6 +219,7 @@ class ChannelHierarchyTest {
             // No `else` branch — compiler enforces exhaustiveness
             when (channel) {
                 is GuildTextChannel     -> "guild_text"
+                is GuildVoiceChannel    -> "guild_voice"
                 is DmChannel            -> "dm"
                 is GuildCategoryChannel -> "guild_category"
             }

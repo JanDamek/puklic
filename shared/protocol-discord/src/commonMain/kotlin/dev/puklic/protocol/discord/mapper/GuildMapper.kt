@@ -7,6 +7,7 @@ import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildFeature
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
+import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.UserId
@@ -18,6 +19,8 @@ private const val CHANNEL_TYPE_DM = 1
 private const val CHANNEL_TYPE_GROUP_DM = 3
 private const val CHANNEL_TYPE_GUILD_CATEGORY = 4
 private const val CHANNEL_TYPE_GUILD_ANNOUNCEMENT = 5
+private const val CHANNEL_TYPE_GUILD_VOICE = 2
+private const val CHANNEL_TYPE_GUILD_STAGE_VOICE = 13
 
 /**
  * Returns null when the DTO is an "unavailable guild" stub (no resolvable name) — caller skips it.
@@ -74,6 +77,15 @@ internal fun DiscordChannelDto.toDomain(): Channel? =
             position = position,
             rateLimitPerUser = rateLimitPerUser,
             nsfw = nsfw,
+        )
+        CHANNEL_TYPE_GUILD_VOICE, CHANNEL_TYPE_GUILD_STAGE_VOICE -> GuildVoiceChannel(
+            id = ChannelId(id.toLong()),
+            name = name,
+            guildId = GuildId((guildId ?: "0").toLong()),
+            position = position,
+            parentId = parentId?.toLongOrNull()?.let(::ChannelId),
+            bitrate = bitrate,
+            userLimit = userLimit,
         )
         CHANNEL_TYPE_GUILD_CATEGORY -> GuildCategoryChannel(
             id = ChannelId(id.toLong()),

@@ -7,6 +7,7 @@ import dev.puklic.domain.ChannelType
 import dev.puklic.domain.DmChannel
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
+import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
@@ -68,6 +69,23 @@ class ChannelRepositoryImpl(
                 position = channel.position.toLong(),
                 rate_limit_per_user = channel.rateLimitPerUser.toLong(),
                 nsfw = if (channel.nsfw) 1L else 0L,
+                bitrate = null,
+                user_limit = null,
+                last_message_id = null,
+                updated_at = nowEpochMs(),
+            )
+            is GuildVoiceChannel -> db.channelQueries.upsert(
+                id = channel.id.value,
+                guild_id = channel.guildId.value,
+                parent_id = channel.parentId?.value,
+                type = channel.type.ordinal.toLong(),
+                name = channel.name,
+                topic = null,
+                position = channel.position.toLong(),
+                rate_limit_per_user = 0L,
+                nsfw = 0L,
+                bitrate = channel.bitrate?.toLong(),
+                user_limit = channel.userLimit?.toLong(),
                 last_message_id = null,
                 updated_at = nowEpochMs(),
             )
@@ -81,6 +99,8 @@ class ChannelRepositoryImpl(
                 position = channel.position.toLong(),
                 rate_limit_per_user = 0L,
                 nsfw = 0L,
+                bitrate = null,
+                user_limit = null,
                 last_message_id = null,
                 updated_at = nowEpochMs(),
             )
@@ -94,6 +114,8 @@ class ChannelRepositoryImpl(
                 position = null,
                 rate_limit_per_user = 0L,
                 nsfw = 0L,
+                bitrate = null,
+                user_limit = null,
                 last_message_id = null,
                 updated_at = nowEpochMs(),
             )
@@ -113,6 +135,15 @@ class ChannelRepositoryImpl(
                 name = name,
                 guildId = GuildId(guild_id ?: return null),
                 position = (position ?: 0L).toInt(),
+            )
+            ChannelType.GUILD_VOICE, ChannelType.GUILD_STAGE_VOICE -> GuildVoiceChannel(
+                id = ChannelId(id),
+                name = name,
+                guildId = GuildId(guild_id ?: return null),
+                position = (position ?: 0L).toInt(),
+                parentId = parent_id?.let(::ChannelId),
+                bitrate = bitrate?.toInt(),
+                userLimit = user_limit?.toInt(),
             )
             ChannelType.GUILD_TEXT, ChannelType.GUILD_ANNOUNCEMENT -> GuildTextChannel(
                 id = ChannelId(id),

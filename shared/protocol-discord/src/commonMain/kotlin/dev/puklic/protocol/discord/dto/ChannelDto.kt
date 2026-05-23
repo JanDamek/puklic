@@ -14,6 +14,8 @@ internal data class DiscordChannelDto(
     val position: Int = 0,
     @SerialName("parent_id") val parentId: String? = null,
     @SerialName("rate_limit_per_user") val rateLimitPerUser: Int = 0,
+    val bitrate: Int? = null,
+    @SerialName("user_limit") val userLimit: Int? = null,
     // Bot-mode + Group-DM payloads typically populate `recipients` with full user objects.
     val recipients: List<DiscordUserDto> = emptyList(),
     // User-mode (web/desktop client) READY DM channels carry only `recipient_ids`; the actual

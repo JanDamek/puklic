@@ -2,6 +2,7 @@ package dev.puklic.protocol.discord.mapper
 
 import dev.puklic.domain.GuildCategoryChannel
 import dev.puklic.domain.GuildTextChannel
+import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.protocol.discord.DiscordJsonStrict
 import dev.puklic.protocol.discord.dto.DiscordChannelDto
 import kotlin.test.Test
@@ -45,15 +46,23 @@ class ChannelMapperTest {
     }
 
     @Test
-    fun type_2_voice_is_filtered_out() {
-        val dto = decode("""{"id":"103","type":2,"guild_id":"1","name":"General Voice"}""")
-        assertNull(dto.toDomain(), "voice channels are filtered in Phase 1")
+    fun type_2_voice_maps_to_guild_voice_channel() {
+        val dto = decode(
+            """{"id":"103","type":2,"guild_id":"1","name":"general-voice","bitrate":64000,"user_limit":10}""",
+        )
+        val channel = dto.toDomain()
+        assertIs<GuildVoiceChannel>(channel)
+        assertEquals("general-voice", channel.name)
+        assertEquals(64000, channel.bitrate)
+        assertEquals(10, channel.userLimit)
     }
 
     @Test
-    fun type_13_stage_voice_is_filtered_out() {
+    fun type_13_stage_voice_maps_to_guild_voice_channel() {
         val dto = decode("""{"id":"104","type":13,"guild_id":"1","name":"Stage"}""")
-        assertNull(dto.toDomain())
+        val channel = dto.toDomain()
+        assertIs<GuildVoiceChannel>(channel)
+        assertEquals("Stage", channel.name)
     }
 
     @Test

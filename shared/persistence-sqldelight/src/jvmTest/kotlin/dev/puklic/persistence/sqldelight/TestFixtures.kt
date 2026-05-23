@@ -48,6 +48,8 @@ internal fun PuklicDatabase.seedGuildChannelUser(
         position = 0L,
         rate_limit_per_user = 0L,
         nsfw = 0L,
+        bitrate = null,
+        user_limit = null,
         last_message_id = null,
         updated_at = 0L,
     )
