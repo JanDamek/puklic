@@ -10,6 +10,7 @@ kotlin {
             implementation(projects.shared.platformApi)
             implementation(projects.shared.domain)
             implementation(projects.shared.ids)
+            implementation(projects.shared.chatParser)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
             implementation(libs.kotlinx.serialization.json)

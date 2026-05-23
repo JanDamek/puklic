@@ -1,9 +1,15 @@
 package dev.puklic.persistence.sqldelight
 
+import dev.puklic.domain.EmojiRef
+import dev.puklic.domain.MentionTarget
+import dev.puklic.domain.RichTextBlock
+import dev.puklic.domain.RichTextInline
+import dev.puklic.domain.TextStyle
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -74,5 +80,40 @@ class MessageRepositoryJvmTest {
         repo.persistAll(batch)
 
         repo.observe(ChannelId(200L), limit = 200).first().size shouldBe 50
+    }
+
+    // Regression: messages loaded from the cache used to have parsedContent = empty, which made
+    // MessageRow fall back to raw text and show literal markdown / mention / emoji tokens. The
+    // mapper now re-parses rawContent on read so the UI gets a real RichTextDocument back.
+    @Test
+    fun observe_returns_messages_with_parsed_richtext_for_markdown_input() = runTest {
+        val db = newInMemoryDatabase().apply { seedGuildChannelUser() }
+        val repo = MessageRepositoryImpl(db, Dispatchers.Unconfined)
+
+        val raw = "**Junie Livestream #11** hi <@1273596342257582120> see " +
+            "<#1365290726698778654> <a:Cup:1357748311192244495> <:youtube:1242394824427049001>"
+        repo.persist(newMessage(id = 1, rawContent = raw))
+
+        val loaded = repo.observe(ChannelId(200L)).first().single()
+        loaded.parsedContent.blocks shouldNotBe emptyList<RichTextBlock>()
+
+        val runs = (loaded.parsedContent.blocks.first() as RichTextBlock.Paragraph).runs
+
+        // Bold marker is parsed.
+        runs.filterIsInstance<RichTextInline.Text>()
+            .any { TextStyle.BOLD in it.styles && it.content.contains("Junie") } shouldBe true
+
+        // User + channel mentions are parsed (not raw <@id> text).
+        runs.filterIsInstance<RichTextInline.Mention>()
+            .any { it.target is MentionTarget.User } shouldBe true
+        runs.filterIsInstance<RichTextInline.Mention>()
+            .any { it.target is MentionTarget.Channel } shouldBe true
+
+        // Both static and animated custom emoji parsed.
+        val customEmoji = runs.filterIsInstance<RichTextInline.Emoji>()
+            .map { it.ref }
+            .filterIsInstance<EmojiRef.Custom>()
+        customEmoji.any { it.animated && it.name == "Cup" } shouldBe true
+        customEmoji.any { !it.animated && it.name == "youtube" } shouldBe true
     }
 }

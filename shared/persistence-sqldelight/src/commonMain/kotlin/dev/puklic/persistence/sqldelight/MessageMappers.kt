@@ -1,5 +1,6 @@
 package dev.puklic.persistence.sqldelight
 
+import dev.puklic.chatparser.parseRichText
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.MessageFlags
 import dev.puklic.domain.MessageMentions
@@ -28,16 +29,17 @@ private val LongListSerializer = ListSerializer(Long.serializer())
  * domain [ChatMessage]. The caller is responsible for resolving the author from the user cache;
  * the row alone carries only `author_id`.
  *
- * `parsedContent` is intentionally left empty here — RichText parsing is the responsibility of
- * the repositories layer (it requires the parser + context resolvers). Persistence stores only
- * the raw content and re-parses on read at a higher layer.
+ * `parsedContent` is produced inline by [parseRichText] over [raw_content]. The parser is a
+ * pure, allocation-light function (no IO, no platform calls), so re-parsing on read is cheap
+ * and avoids storing duplicate AST blobs in the DB. Mention / emoji label resolution still
+ * happens in the UI layer via the `LocalMentionResolver` / `LocalEmojiResolver` composables.
  */
 internal fun MessageRow.toDomain(author: UserSummary): ChatMessage = ChatMessage(
     id = MessageId(id),
     channelId = ChannelId(channel_id),
     author = author,
     rawContent = raw_content,
-    parsedContent = RichTextDocument(emptyList()),
+    parsedContent = if (raw_content.isBlank()) RichTextDocument(emptyList()) else parseRichText(raw_content),
     attachments = PersistenceJson.decodeFromString(AttachmentListSerializer, attachments_json)
         .map { it.toDomain() },
     embeds = PersistenceJson.decodeFromString(EmbedListSerializer, embeds_json)
