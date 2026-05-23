@@ -33,18 +33,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Clone libdave (with full-history vcpkg submodule)
+      - name: Clone libdave (with FULL vcpkg submodule)
         shell: bash
         run: |
-          # libdave's vcpkg submodule needs full history for baseline commit lookup.
-          # --shallow-submodules breaks vcpkg ("git show baseline.json" fails).
-          # Do shallow main clone + full submodule clone separately.
+          # libdave's vcpkg submodule needs FULL history for baseline lookup
+          # (vcpkg.json pins baseline commit d07689ef...). Any shallow depth
+          # eventually misses it. vcpkg repo is small enough — full clone.
           git clone --depth 1 https://github.com/discord/libdave.git libdave
           cd libdave
-          git submodule update --init --depth 50 cpp/vcpkg
+          git submodule update --init cpp/vcpkg
           ls cpp/vcpkg/scripts/buildsystems/vcpkg.cmake
-          # Verify baseline reachable
-          ( cd cpp/vcpkg && git log --oneline -1 d07689ef165f033de5c0710e4f67c193a85373e1 || git fetch --depth 200 origin )
+          ( cd cpp/vcpkg && git log --oneline -1 d07689ef165f033de5c0710e4f67c193a85373e1 )
 
       - name: Linux build deps
         if: startsWith(matrix.os, 'ubuntu')
