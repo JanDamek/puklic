@@ -54,5 +54,21 @@ public object NoopEmojiResolver : EmojiResolver {
     }
 }
 
+/**
+ * [EmojiResolver] that computes the CDN URL directly from the emoji ID (no DB lookup
+ * required — Discord stores all custom emoji on `cdn.discordapp.com/emojis/{id}`).
+ */
+public object CdnEmojiResolver : EmojiResolver {
+    private const val SIZE = 32
+    override fun resolve(ref: EmojiRef): EmojiDisplay = when (ref) {
+        is EmojiRef.Unicode -> EmojiDisplay.Unicode(ref.codepoint)
+        is EmojiRef.Custom -> EmojiDisplay.Custom(
+            name = ref.name,
+            url = "https://cdn.discordapp.com/emojis/${ref.id.value}.${if (ref.animated) "gif" else "png"}" +
+                "?size=$SIZE&quality=lossless",
+        )
+    }
+}
+
 public val LocalEmojiResolver: androidx.compose.runtime.ProvidableCompositionLocal<EmojiResolver> =
     staticCompositionLocalOf { NoopEmojiResolver }

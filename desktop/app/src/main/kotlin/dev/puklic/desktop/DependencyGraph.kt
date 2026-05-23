@@ -43,6 +43,10 @@ import dev.puklic.session.adapter.GatewayEventSourceAdapter
 import dev.puklic.session.adapter.MessageGatewayAdapter
 import dev.puklic.session.adapter.SessionTransportImpl
 import dev.puklic.ui.navigation.RootComponent
+import dev.puklic.ui.resolvers.CdnEmojiResolver
+import dev.puklic.ui.resolvers.EmojiResolver
+import dev.puklic.ui.resolvers.MentionResolver
+import dev.puklic.ui.resolvers.RepositoryMentionResolver
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -87,6 +91,8 @@ public class DependencyGraph private constructor(
     public val rootComponent: RootComponent,
     public val httpClient: HttpClient,
     public val database: PuklicDatabase,
+    public val mentionResolver: MentionResolver,
+    public val emojiResolver: EmojiResolver,
 ) {
     public companion object {
         public fun create(): DependencyGraph {
@@ -170,6 +176,8 @@ public class DependencyGraph private constructor(
                 rootComponent = root,
                 httpClient = httpClient,
                 database = database,
+                mentionResolver = RepositoryMentionResolver(userStore, channelStore),
+                emojiResolver = CdnEmojiResolver,
             )
         }
 

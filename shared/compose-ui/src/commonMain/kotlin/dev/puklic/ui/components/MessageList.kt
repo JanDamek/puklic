@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -16,6 +15,8 @@ import dev.puklic.domain.ChatMessage
 import dev.puklic.ids.EmojiId
 import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
+
+private const val GROUPING_WINDOW_SECONDS: Long = 300L // 5 minutes per docs/04_ui/screens.md MessagePane
 
 /** Aggregated action surface for [MessageList]. */
 public sealed interface MessageAction {
@@ -61,8 +62,15 @@ public fun MessageList(
                 if (state.isLoadingOlder) {
                     item { CircularProgressIndicator() }
                 }
-                items(state.messages, key = { it.id.value }) { message ->
-                    MessageRow(message = message)
+                val msgs = state.messages
+                items(msgs.size, key = { idx -> msgs[idx].id.value }) { idx ->
+                    val prev = msgs.getOrNull(idx - 1)
+                    val grouped = prev != null &&
+                        prev.author.id == msgs[idx].author.id &&
+                        kotlin.math.abs(
+                            msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
+                        ) <= GROUPING_WINDOW_SECONDS
+                    MessageRow(message = msgs[idx], groupedWithPrevious = grouped)
                 }
             }
         }

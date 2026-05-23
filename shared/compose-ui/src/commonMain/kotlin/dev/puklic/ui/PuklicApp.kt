@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -14,6 +15,12 @@ import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.navigation.RouterState
+import dev.puklic.ui.resolvers.EmojiResolver
+import dev.puklic.ui.resolvers.LocalEmojiResolver
+import dev.puklic.ui.resolvers.LocalMentionResolver
+import dev.puklic.ui.resolvers.MentionResolver
+import dev.puklic.ui.resolvers.NoopEmojiResolver
+import dev.puklic.ui.resolvers.NoopMentionResolver
 import dev.puklic.ui.screens.bootstrap.BootstrappingScreen
 import dev.puklic.ui.screens.login.LoginScreen
 import dev.puklic.ui.screens.login.LoginViewModel
@@ -26,14 +33,23 @@ import dev.puklic.ui.theme.PuklicTheme
  * [MainScreen] based on [RootComponent.routerState].
  */
 @Composable
-public fun PuklicApp(root: RootComponent) {
+public fun PuklicApp(
+    root: RootComponent,
+    mentionResolver: MentionResolver = NoopMentionResolver,
+    emojiResolver: EmojiResolver = NoopEmojiResolver,
+) {
     val routerState by root.routerState.subscribeAsState()
     PuklicTheme {
-        Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-            when (routerState) {
-                RouterState.Bootstrapping -> BootstrappingScreen()
-                RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
-                RouterState.Main -> MainRoute(root)
+        CompositionLocalProvider(
+            LocalMentionResolver provides mentionResolver,
+            LocalEmojiResolver provides emojiResolver,
+        ) {
+            Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+                when (routerState) {
+                    RouterState.Bootstrapping -> BootstrappingScreen()
+                    RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
+                    RouterState.Main -> MainRoute(root)
+                }
             }
         }
     }

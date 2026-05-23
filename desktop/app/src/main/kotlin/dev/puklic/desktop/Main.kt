@@ -41,7 +41,11 @@ public fun main(): Unit = application {
         icon = painterResource(WINDOW_ICON_RESOURCE),
     ) {
         window.minimumSize = Dimension(480, 600)
-        PuklicApp(graph.rootComponent)
+        PuklicApp(
+            root = graph.rootComponent,
+            mentionResolver = graph.mentionResolver,
+            emojiResolver = graph.emojiResolver,
+        )
     }
 }
 

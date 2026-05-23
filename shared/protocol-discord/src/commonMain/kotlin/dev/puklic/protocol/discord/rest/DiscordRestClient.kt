@@ -81,15 +81,16 @@ public class DiscordRestClient(
         before: MessageId? = null,
         after: MessageId? = null,
         guildId: GuildId? = null,
+        channelType: Int = CHANNEL_TYPE_GUILD_TEXT,
     ): Result<List<DiscordMessageDto>> = runCatching {
         val url = "$baseUrl/channels/${channelId.value}/messages"
         Logger.i(REST_TAG) {
-            "getMessages url=$url limit=$limit before=${before?.value} after=${after?.value} guild=${guildId?.value}"
+            "getMessages url=$url limit=$limit before=${before?.value} after=${after?.value} guild=${guildId?.value} type=$channelType"
         }
         executeWithRetry {
             httpClient.get(url) {
                 applyAuth()
-                applyChannelContextProperties(channelId, guildId)
+                applyChannelContextProperties(channelId, guildId, channelType)
                 parameter("limit", limit)
                 before?.let { parameter("before", it.value.toString()) }
                 after?.let { parameter("after", it.value.toString()) }
@@ -302,13 +303,14 @@ public class DiscordRestClient(
     private fun io.ktor.client.request.HttpRequestBuilder.applyChannelContextProperties(
         channelId: ChannelId,
         guildId: GuildId?,
+        channelType: Int,
     ) {
         val json = if (guildId != null) {
             buildJsonObject {
                 put("location", "Guild Channel List")
                 put("location_guild_id", guildId.value.toString())
                 put("location_channel_id", channelId.value.toString())
-                put("location_channel_type", 0)
+                put("location_channel_type", channelType)
             }
         } else {
             buildJsonObject { put("location", "Channel") }
@@ -321,10 +323,15 @@ public class DiscordRestClient(
 
     private fun HttpStatusCode.isSuccess(): Boolean = value in SUCCESS_RANGE
 
-    private companion object {
-        val SUCCESS_RANGE = 200..299
-        val SERVER_ERROR_RANGE = 500..599
-        const val BODY_PREVIEW = 256
-        const val MILLIS_IN_SECOND = 1000.0
+    public companion object {
+        /** Discord channel type 0 — `GUILD_TEXT`. Default fallback for [getMessages]. */
+        public const val CHANNEL_TYPE_GUILD_TEXT: Int = 0
+        /** Discord channel type 5 — `GUILD_ANNOUNCEMENT`. */
+        public const val CHANNEL_TYPE_GUILD_ANNOUNCEMENT: Int = 5
+
+        internal val SUCCESS_RANGE = 200..299
+        internal val SERVER_ERROR_RANGE = 500..599
+        internal const val BODY_PREVIEW = 256
+        internal const val MILLIS_IN_SECOND = 1000.0
     }
 }

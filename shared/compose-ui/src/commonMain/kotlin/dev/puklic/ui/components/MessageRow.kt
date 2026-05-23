@@ -90,7 +90,7 @@ public fun MessageRow(
                     )
                     Spacer(Modifier.width(spacing.space3))
                     Text(
-                        text = message.timestamp.toString(),
+                        text = TimestampFormat.header(message.timestamp),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
