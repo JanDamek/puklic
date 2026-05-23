@@ -1,0 +1,16 @@
+CREATE TABLE IF NOT EXISTS user_preferences (
+    key TEXT NOT NULL PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+selectByKey:
+SELECT value FROM user_preferences WHERE key = ?;
+
+selectAll:
+SELECT key, value FROM user_preferences;
+
+upsert:
+INSERT OR REPLACE INTO user_preferences(key, value) VALUES (?, ?);
+
+delete:
+DELETE FROM user_preferences WHERE key = ?;

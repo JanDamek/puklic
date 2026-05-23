@@ -6,6 +6,7 @@ import com.arkivanov.decompose.value.Value
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.session.BootstrapPhase
 import dev.puklic.session.DiscordSession
 import dev.puklic.session.SessionManager
@@ -29,6 +30,7 @@ import kotlinx.coroutines.launch
 public class RootComponent(
     componentContext: ComponentContext,
     public val sessionManager: SessionManager,
+    public val preferences: UserPreferencesRepository? = null,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = lifecycleCoroutineScope(Dispatchers.Main.immediate)

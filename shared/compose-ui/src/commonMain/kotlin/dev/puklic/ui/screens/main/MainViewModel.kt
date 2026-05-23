@@ -9,6 +9,8 @@ import dev.puklic.domain.Guild
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.persistence.repository.LastPosition
+import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.repositories.Orchestrators
 import dev.puklic.session.SessionTransport
 import kotlinx.coroutines.CoroutineScope
@@ -62,13 +64,29 @@ public class MainViewModel(
     public val orchestrators: Orchestrators? = null,
     public val sessionTransport: SessionTransport? = null,
     externalScope: CoroutineScope? = null,
+    private val preferences: UserPreferencesRepository? = null,
+    initialPosition: LastPosition = LastPosition.Empty,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)
 
-    private val navScope = MutableStateFlow<NavigationScope>(NavigationScope.Empty)
-    private val selectedGuild = MutableStateFlow<GuildId?>(null)
-    private val selectedChannel = MutableStateFlow<ChannelId?>(null)
+    private val navScope = MutableStateFlow<NavigationScope>(
+        when (initialPosition) {
+            is LastPosition.Empty -> NavigationScope.Empty
+            is LastPosition.DmHome -> NavigationScope.DmHome
+            is LastPosition.Guild -> NavigationScope.GuildSelected(initialPosition.guildId)
+        },
+    )
+    private val selectedGuild = MutableStateFlow<GuildId?>(
+        (initialPosition as? LastPosition.Guild)?.guildId,
+    )
+    private val selectedChannel = MutableStateFlow<ChannelId?>(
+        when (initialPosition) {
+            is LastPosition.DmHome -> initialPosition.channelId
+            is LastPosition.Guild -> initialPosition.channelId
+            else -> null
+        },
+    )
 
     public val state: StateFlow<MainScreenState> = if (orchestrators == null) {
         MutableStateFlow(MainScreenState()).asStateFlow()
@@ -90,17 +108,41 @@ public class MainViewModel(
         }.stateIn(scope, SharingStarted.Eagerly, MainScreenState())
     }
 
+    init {
+        // If restoring into a guild, replay the lazy-subscribe so the gateway gets the
+        // subscription it needs for messages + member lists. Mirrors selectGuild's launch.
+        val initialGuild = (initialPosition as? LastPosition.Guild)?.guildId
+        if (initialGuild != null) {
+            lazySubscribeGuildBootstrap(initialGuild)
+            val initialChannel = initialPosition.channelId
+            if (initialChannel != null) lazySubscribeChannel(initialGuild, initialChannel)
+        }
+    }
+
     /** Switch to the DM "Home" view — clears guild selection. */
     public fun selectDmHome() {
         navScope.value = NavigationScope.DmHome
         selectedGuild.value = null
         selectedChannel.value = null
+        persistPosition()
     }
 
     public fun selectGuild(id: GuildId) {
         navScope.value = NavigationScope.GuildSelected(id)
         selectedGuild.value = id
         selectedChannel.value = null
+        persistPosition()
+        lazySubscribeGuildBootstrap(id)
+    }
+
+    public fun selectChannel(id: ChannelId) {
+        selectedChannel.value = id
+        persistPosition()
+        val gid = selectedGuild.value ?: return
+        lazySubscribeChannel(gid, id)
+    }
+
+    private fun lazySubscribeGuildBootstrap(id: GuildId) {
         // Lazy-subscribe to the first text channels of this guild. Required by Discord user-mode
         // so REST `getMessages` stops returning 50001 on member-list-gated channels and so
         // GUILD_MEMBER_LIST_UPDATE events flow.
@@ -119,17 +161,28 @@ public class MainViewModel(
         }
     }
 
-    public fun selectChannel(id: ChannelId) {
-        selectedChannel.value = id
-        val transport = sessionTransport ?: return
-        val gid = selectedGuild.value ?: return
+    private fun lazySubscribeChannel(gid: GuildId, cid: ChannelId) {
         // Re-subscribe with the focused channel so Discord lifts the 50001 gate before the next
         // REST `getMessages` issued by the messages orchestrator. A short settle delay gives
         // Discord time to register the subscription internally before REST runs — without it,
         // the gate may still be active and the first call returns 50001.
+        val transport = sessionTransport ?: return
         scope.launch {
-            transport.lazyRequestGuild(gid, listOf(id))
+            transport.lazyRequestGuild(gid, listOf(cid))
             delay(LAZY_SUBSCRIBE_SETTLE_MS)
+        }
+    }
+
+    private fun persistPosition() {
+        val prefs = preferences ?: return
+        val current: LastPosition = when (val s = navScope.value) {
+            NavigationScope.Empty -> LastPosition.Empty
+            NavigationScope.DmHome -> LastPosition.DmHome(selectedChannel.value)
+            is NavigationScope.GuildSelected -> LastPosition.Guild(s.id, selectedChannel.value)
+        }
+        scope.launch {
+            runCatching { prefs.setLastPosition(current) }
+                .onFailure { Logger.w("MainViewModel", it) { "persistPosition failed" } }
         }
     }
 

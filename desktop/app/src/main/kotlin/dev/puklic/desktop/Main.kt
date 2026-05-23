@@ -7,6 +7,10 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowState
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.network.ktor3.KtorNetworkFetcherFactory
+import coil3.request.crossfade
 import dev.puklic.ui.PuklicApp
 import java.awt.Dimension
 import java.awt.Taskbar
@@ -23,6 +27,12 @@ private const val DOCK_ICON_RESOURCE: String = "icons/puklic-512.png"
 public fun main(): Unit = application {
     configureDockIcon()
     val graph = remember { DependencyGraph.create() }
+    SingletonImageLoader.setSafe { context ->
+        ImageLoader.Builder(context)
+            .crossfade(true)
+            .components { add(KtorNetworkFetcherFactory(graph.httpClient)) }
+            .build()
+    }
     val windowState: WindowState = rememberWindowState(width = 1280.dp, height = 800.dp)
     Window(
         onCloseRequest = ::exitApplication,

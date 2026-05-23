@@ -13,6 +13,7 @@ import dev.puklic.persistence.sqldelight.LocalDraftRepositoryImpl
 import dev.puklic.persistence.sqldelight.MessageRepositoryImpl
 import dev.puklic.persistence.sqldelight.OutboundQueueImpl
 import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
+import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
@@ -112,6 +113,7 @@ public class DependencyGraph private constructor(
             val readState = ReadStateRepositoryImpl(database, ioDispatcher)
             @Suppress("UNUSED_VARIABLE")
             val attachmentCache = AttachmentCacheIndexImpl(database, ioDispatcher)
+            val userPreferences = UserPreferencesRepositoryImpl(database, ioDispatcher)
 
             val httpClient = HttpClient(CIO) {
                 install(ContentNegotiation) { json(discordJson()) }
@@ -144,7 +146,7 @@ public class DependencyGraph private constructor(
             val lifecycle = LifecycleRegistry()
             val ctx = DefaultComponentContext(lifecycle = lifecycle)
             lifecycle.resume()
-            val root = RootComponent(ctx, sessionManager)
+            val root = RootComponent(ctx, sessionManager, preferences = userPreferences)
 
             // Kick off auto-restore in the background. RootComponent observes
             // sessionManager.bootstrap + activeSession and renders BootstrappingScreen

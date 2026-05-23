@@ -46,7 +46,25 @@ class JvmDriverFactory(private val dbPath: DbPath) : DriverFactory {
         val driver = JdbcSqliteDriver(jdbcUrl, properties, schema = PuklicDatabase.Schema)
 
         applyPragmas(driver)
+        ensureAdditiveTables(driver)
         return driver
+    }
+
+    /**
+     * Additive table creation for schemas added after the original SQLDelight Schema.version
+     * baseline. SQLDelight only runs `Schema.create` on a fresh DB; existing user DBs would
+     * otherwise miss the newer tables until a real migration is wired. Each statement is
+     * idempotent (`CREATE TABLE IF NOT EXISTS`) and safe to run on every startup.
+     */
+    private fun ensureAdditiveTables(driver: SqlDriver) {
+        driver.execute(
+            null,
+            "CREATE TABLE IF NOT EXISTS user_preferences (" +
+                "key TEXT NOT NULL PRIMARY KEY, " +
+                "value TEXT NOT NULL" +
+                ")",
+            0,
+        )
     }
 
     private fun applyPragmas(driver: SqlDriver) {

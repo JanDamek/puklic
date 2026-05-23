@@ -10,6 +10,7 @@ kotlin {
             implementation(projects.shared.repositories)
             implementation(projects.shared.session)
             implementation(projects.shared.platformApi)
+            implementation(projects.shared.persistenceApi)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)

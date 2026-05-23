@@ -48,6 +48,7 @@ import dev.puklic.ui.components.CategoryHeader
 import dev.puklic.ui.components.ChannelListItem
 import dev.puklic.ui.components.EmptyState
 import dev.puklic.ui.components.GuildRailItem
+import dev.puklic.ui.components.PuklicAvatar
 import dev.puklic.ui.theme.LocalPuklicSpacing
 
 /**
@@ -182,11 +183,11 @@ private fun DmListPane(
             // would require persisting that field. For now we render in insertion order.
             LazyColumn {
                 items(dms, key = { "dm-${it.id.value}" }) { dm ->
-                    val label = dm.recipients.firstOrNull()
-                        ?.let { it.globalName ?: it.username }
-                        ?: "Unknown"
+                    val recipient = dm.recipients.firstOrNull()
+                    val label = recipient?.let { it.globalName ?: it.username } ?: "Unknown"
                     DmRow(
                         label = "@$label",
+                        avatar = recipient,
                         isSelected = dm.id == selectedChannelId,
                         onClick = { onSelectChannel(dm.id) },
                     )
@@ -197,17 +198,24 @@ private fun DmListPane(
 }
 
 @Composable
-private fun DmRow(label: String, isSelected: Boolean, onClick: () -> Unit) {
+private fun DmRow(
+    label: String,
+    avatar: dev.puklic.domain.UserSummary?,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+) {
     val bg = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
-    Box(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .height(36.dp)
             .background(bg)
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp),
-        contentAlignment = Alignment.CenterStart,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        if (avatar != null) PuklicAvatar(user = avatar, size = 24.dp)
         Text(label, style = MaterialTheme.typography.bodyMedium)
     }
 }
