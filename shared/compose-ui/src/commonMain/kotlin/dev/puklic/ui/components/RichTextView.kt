@@ -35,6 +35,8 @@ import dev.puklic.domain.RichTextBlock
 import dev.puklic.domain.RichTextDocument
 import dev.puklic.domain.RichTextInline
 import dev.puklic.domain.TextStyle
+import dev.puklic.chatparser.CodeHighlighter
+import dev.puklic.chatparser.CodeTokenKind
 import dev.puklic.ui.resolvers.EmojiDisplay
 import dev.puklic.ui.resolvers.LocalEmojiResolver
 import dev.puklic.ui.resolvers.LocalMentionResolver
@@ -77,7 +79,7 @@ private fun RenderBlock(block: RichTextBlock) {
         )
         is RichTextBlock.CodeBlock -> {
             Text(
-                text = block.content,
+                text = buildHighlightedCode(block.language, block.content),
                 style = MaterialTheme.typography.bodySmall.copy(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 ),
@@ -369,3 +371,78 @@ private fun Set<TextStyle>.toSpanStyle(): SpanStyle {
 // Suppress unused warning for explicit fallback `flowOf` import retention.
 @Suppress("unused")
 private val placeholderFlow: Flow<Nothing?> = flowOf(null)
+
+/**
+ * Dark-theme palette for fenced code-block syntax highlighting. Tuned to be
+ * legible on Material 3 `surfaceVariant`. See `CodeHighlighter` for token kinds.
+ */
+private data class CodeColors(
+    val keyword: Color,
+    val type: Color,
+    val string: Color,
+    val number: Color,
+    val comment: Color,
+    val function: Color,
+    val literal: Color,
+    val punctuation: Color,
+    val plain: Color,
+)
+
+@Composable
+private fun defaultCodeColors(): CodeColors = CodeColors(
+    keyword = Color(0xFFCC7832),     // orange
+    type = Color(0xFFA9B7C6),        // muted blue-grey
+    string = Color(0xFF6A8759),      // green
+    number = Color(0xFF6897BB),      // blue
+    comment = Color(0xFF808080),     // grey
+    function = Color(0xFFFFC66D),    // amber
+    literal = Color(0xFFCC7832),     // orange (same as keyword family)
+    punctuation = MaterialTheme.colorScheme.onSurface,
+    plain = MaterialTheme.colorScheme.onSurfaceVariant,
+)
+
+@Composable
+private fun buildHighlightedCode(language: String?, source: String): AnnotatedString {
+    val palette = defaultCodeColors()
+    val tokens = CodeHighlighter.tokenize(language, source)
+    if (tokens.isEmpty()) {
+        // No grammar match or empty source → plain text.
+        return AnnotatedString(source)
+    }
+    return buildAnnotatedString {
+        var cursor = 0
+        tokens.forEach { tok ->
+            if (tok.start > cursor) {
+                withStyle(SpanStyle(color = palette.plain)) {
+                    append(source.substring(cursor, tok.start))
+                }
+            }
+            val color = when (tok.kind) {
+                CodeTokenKind.Keyword -> palette.keyword
+                CodeTokenKind.Type -> palette.type
+                CodeTokenKind.String -> palette.string
+                CodeTokenKind.Number -> palette.number
+                CodeTokenKind.Comment -> palette.comment
+                CodeTokenKind.Function -> palette.function
+                CodeTokenKind.Literal -> palette.literal
+                CodeTokenKind.Punctuation -> palette.punctuation
+                CodeTokenKind.Plain -> palette.plain
+            }
+            val italic = tok.kind == CodeTokenKind.Comment
+            withStyle(
+                SpanStyle(
+                    color = color,
+                    fontStyle = if (italic) FontStyle.Italic else null,
+                ),
+            ) {
+                append(source.substring(tok.start, tok.end))
+            }
+            cursor = tok.end
+        }
+        if (cursor < source.length) {
+            withStyle(SpanStyle(color = palette.plain)) {
+                append(source.substring(cursor))
+            }
+        }
+    }
+}

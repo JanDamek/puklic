@@ -6,6 +6,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(projects.shared.domain)
+            implementation(projects.shared.chatParser)
             implementation(projects.shared.ids)
             implementation(projects.shared.repositories)
             implementation(projects.shared.session)

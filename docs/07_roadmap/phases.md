@@ -36,7 +36,8 @@ Goal: a usable read+write client for everyday text communication.
 - [ ] Link detection + preview (OpenGraph fetch)
 - [x] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
   - 2026-05-23: AST + parser already covered inline styles, spoilers, headings, fenced code, single-line quotes, mentions, links, timestamps, unicode + custom emoji. This pass adds `>>>` triple-quote (consumes to EOF), `- ` bullet lists (parser+renderer), and click-to-reveal spoiler (`SpoilerInline` composable: hidden block flips to revealed on tap).
-- [ ] Syntax-highlighted code blocks
+- [x] Syntax-highlighted code blocks
+  - 2026-05-23: Custom KMP tokeniser in `:shared:chat-parser` (`CodeHighlighter` + `CodeToken` + `CodeTokenKind`) covering kotlin/kt, java, python/py, javascript/js, typescript/ts, rust/rs, go, c, cpp/c++, bash/sh/shell, json, yaml/yml, xml/html, sql, swift. Token kinds: Keyword/Type/String/Number/Comment/Function/Literal/Punctuation/Plain. Renderer in `RichTextView` builds an `AnnotatedString` with a dark-theme palette (orange keywords, amber functions, green strings, blue numbers, grey italic comments). Unknown/null language → plain monospace fallback.
 - [ ] Attachments (upload, download, image preview, video thumbnail)
   - 2026-05-23: image preview (bounded, aspect-preserving) + full-size viewer dialog + video tile (play icon, duration, click-to-open) + file tile (extension badge, click-to-open via PlatformOpen.openUrl) landed; upload still pending.
 - [x] Reactions UI (add/remove, list)
