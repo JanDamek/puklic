@@ -261,4 +261,23 @@ internal class WireMlsClient : MlsClient {
     }
 }
 
-internal actual fun mlsClient(): MlsClient = WireMlsClient()
+/**
+ * JVM [MlsClient] factory.
+ *
+ * Backend is selected by the `puklic.voice.dave.backend` system property
+ * (defaults to `wire` until libdave is verified across all targeted platforms):
+ *   - `wire`    → [WireMlsClient] (GPL-3.0, byte-INcompatible exporter — see ADR-0007)
+ *   - `libdave` → [LibdaveMlsClient] (MIT, byte-compatible with Discord; macOS arm64 only in v1)
+ *
+ * Phase 3.2 follow-up: flip the default to `libdave` once the Linux + Windows
+ * dylibs are produced by CI and the frame-crypto path (Encryptor / Decryptor +
+ * KeyRatchet wiring) is integrated into the capture/playback pipelines.
+ */
+internal actual fun mlsClient(): MlsClient {
+    val backend = System.getProperty("puklic.voice.dave.backend", "wire")
+    return when (backend.lowercase()) {
+        "libdave" -> LibdaveMlsClient()
+        "wire" -> WireMlsClient()
+        else -> error("Unknown puklic.voice.dave.backend='$backend' (expected 'wire' or 'libdave')")
+    }
+}

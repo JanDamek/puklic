@@ -42,10 +42,14 @@ kotlin {
             // Wire core-crypto: MLS (RFC 9420) over a Rust JNI native lib. GPL-3.0-or-later.
             // 4.2.0 pinned per ADR-0007. 9.x exists but is unverified against DAVE spike;
             // upgrade only after a focused regression pass.
+            // Retained as fallback backend behind the puklic.voice.dave.backend system property.
             implementation(libs.wire.core.crypto.jvm)
             // BouncyCastle HKDF for local Expand-on-top-of-Wire's MLS exporter, until
             // a backend exposes a labelled MLS-Exporter (Phase 3.2 libdave-JNI).
             implementation(libs.bouncycastle.bcprov)
+            // JNA for libdave (Discord MIT C++ reference). Native lib bundled under
+            // src/jvmMain/resources/libdave/<os-arch>/libdave.{dylib,so,dll}.
+            implementation(libs.jna)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
