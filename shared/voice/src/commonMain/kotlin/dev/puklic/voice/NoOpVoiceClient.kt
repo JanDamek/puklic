@@ -25,6 +25,9 @@ public class NoOpVoiceClient : VoiceClient {
 
     override val screenShare: ScreenShareClient = NoOpScreenShareClient()
 
+    private val _incomingVideo = MutableStateFlow<Map<Int, IncomingVideoFrame>>(emptyMap())
+    override val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>> = _incomingVideo.asStateFlow()
+
     override suspend fun connect(guildId: GuildId, channelId: ChannelId) { /* no-op */ }
     override suspend fun disconnect() { /* no-op */ }
     override fun setSelfMute(muted: Boolean) { /* no-op */ }

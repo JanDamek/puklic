@@ -51,10 +51,46 @@ public sealed interface VoiceState {
     public data class Failed(val reason: String, val recoverable: Boolean) : VoiceState
 }
 
+/**
+ * One decoded frame of incoming remote video (screenshare receive — Phase 4.2).
+ *
+ * [rgba] is laid out as 8-bit R, G, B, A per pixel, row-major, no padding (so
+ * `rgba.size == width * height * 4`). The UI layer is expected to copy this byte array into
+ * a Compose `ImageBitmap` via `BufferedImage.setRGB` or equivalent.
+ *
+ * Public so `:shared:compose-ui` can render without importing internal transport types.
+ */
+public data class IncomingVideoFrame(
+    val rgba: ByteArray,
+    val width: Int,
+    val height: Int,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is IncomingVideoFrame) return false
+        return width == other.width && height == other.height && rgba.contentEquals(other.rgba)
+    }
+
+    override fun hashCode(): Int {
+        var h = width
+        h = 31 * h + height
+        h = 31 * h + rgba.contentHashCode()
+        return h
+    }
+}
+
 public interface VoiceClient {
     public val state: StateFlow<VoiceState>
     public val devices: StateFlow<List<AudioDevice>>
     public val screenShare: ScreenShareClient
+
+    /**
+     * Latest decoded frame per remote video SSRC. Empty when nobody in the channel is
+     * screensharing. Populated as soon as the H.264 decoder produces its first frame after
+     * an SPS/PPS+IDR sequence arrives.
+     */
+    public val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>>
+
     public suspend fun connect(guildId: GuildId, channelId: ChannelId)
     public suspend fun disconnect()
     public fun setSelfMute(muted: Boolean)

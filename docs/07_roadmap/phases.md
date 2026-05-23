@@ -78,6 +78,9 @@ is deferred to 4.1.
 - [ ] VP8 encoder (Linux 4.1)
 - [~] Share with audio — macOS routes via BlackHole 2ch (user-installed); PipeWire audio capture in 4.1
 - [x] Video send via voice gateway transport (RTP FU-A + AEAD on Ready.video_ssrc; slices 4–5)
+- [x] Receive incoming screenshare video (Phase 4.2, 2026-05-23) — VoicePacketDispatcher + H.264
+      depacketizer + in-process libavcodec H.264 decoder + Compose `IncomingVideoPane`. H.264 only;
+      VP8 receive deferred. See screenshare report §13.
 
 ## Distribution — self-contained installers (slice 5/6, landed 2026-05-23)
 
@@ -106,11 +109,14 @@ See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md
 
 ## Cross-cutting concerns (ongoing across all phases)
 
-- [ ] Crash reporting (local to `$XDG_DATA_HOME/puklic/crashes/`, opt-in upload)
-- [ ] Logging (structured, rotation, redact tokens)
+- [x] Crash reporting — local crash dumps to `<logDir>/crashes/crash-<ts>.txt` via `dev.puklic.desktop.crash.CrashReporter`; opt-in remote upload remains TODO
+- [x] Logging — SLF4J + Logback on desktop (10 MB rotation, 14-day history, 200 MB cap); Kermit (multiplatform call sites) bridged into SLF4J; token redaction via `RedactingPatternLayout` (Bearer / Authorization / `mfa.*`). Log dir: macOS `~/Library/Logs/Puklic`, Linux `$XDG_DATA_HOME/puklic/logs`, Windows `%LOCALAPPDATA%/Puklic/logs`
 - [ ] i18n framework (English + at least one additional locale)
 - [ ] Accessibility (Compose semantics, keyboard navigation)
-- [ ] Update mechanism (auto-update on desktop?)
+- [x] Update mechanism (auto-update on desktop) — opt-in check against GitHub Releases API
+      (`UpdateChecker` + `UpdateCheckerScheduler` in `:desktop:app`), banner notifies user, opens
+      release page in browser. No in-app installation; OS-native installer/store handles the
+      actual upgrade. Default ON, toggle via `-Dpuklic.update.autoCheck=false`.
 
 ## Platforms — when they are added
 

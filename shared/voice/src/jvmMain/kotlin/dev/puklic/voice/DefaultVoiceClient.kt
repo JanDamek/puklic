@@ -19,9 +19,11 @@ import dev.puklic.voice.gateway.VoiceGatewayConnection
 import dev.puklic.voice.gateway.VoiceGatewayEvent
 import dev.puklic.voice.gateway.VoiceWsTransportFactory
 import dev.puklic.voice.pipeline.CapturePipeline
+import dev.puklic.voice.pipeline.IncomingVideoPipeline
 import dev.puklic.voice.pipeline.PlaybackPipeline
 import dev.puklic.voice.transport.UdpRtpTransport
 import dev.puklic.voice.transport.VoicePacketCodec
+import dev.puklic.voice.transport.VoicePacketDispatcher
 import dev.puklic.voice.transport.discoverIp
 import dev.puklic.voice.transport.newUdpRtpTransport
 import kotlinx.coroutines.CoroutineScope
@@ -100,6 +102,9 @@ public class DefaultVoiceClient(
     private val _devices = MutableStateFlow<List<AudioDevice>>(emptyList())
     override val devices: StateFlow<List<AudioDevice>> = _devices.asStateFlow()
 
+    private val _incomingVideo = MutableStateFlow<Map<Int, IncomingVideoFrame>>(emptyMap())
+    override val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>> = _incomingVideo.asStateFlow()
+
     // Replaced with a [DefaultScreenShareClient] once SessionDescription arrives, reset to
     // [NoOpScreenShareClient] on disconnect. Backing field is `@Volatile` because the
     // gateway event collector writes it from a session coroutine while UI reads from main.
@@ -117,7 +122,11 @@ public class DefaultVoiceClient(
     private var udp: UdpRtpTransport? = null
     private var capture: CapturePipeline? = null
     private var playback: PlaybackPipeline? = null
+    private var incomingVideoPipeline: IncomingVideoPipeline? = null
+    private var packetDispatcher: VoicePacketDispatcher? = null
     private var packetCodec: VoicePacketCodec? = null
+    private var videoPacketCodec: VoicePacketCodec? = null
+    private var videoFramesCollectorJob: Job? = null
 
     private var activeGuildId: GuildId? = null
     private var activeChannelId: ChannelId? = null
@@ -260,6 +269,11 @@ public class DefaultVoiceClient(
         val codec = VoicePacketCodec(aead = aead, ssrc = ssrc)
         packetCodec = codec
 
+        // Single owner of UDP receive — fans out to audio and video consumers.
+        val dispatcher = VoicePacketDispatcher(udpT)
+        packetDispatcher = dispatcher
+        dispatcher.start(scope)
+
         val encoder = OpusCodecFactory.createEncoder()
         val cap = CapturePipeline(
             capture = audioCapture(),
@@ -280,11 +294,28 @@ public class DefaultVoiceClient(
             onSpeakers = { activeSsrcs ->
                 updateSpeakers(activeSsrcs)
             },
+            packetSource = { dispatcher.audioPackets() },
         )
         capture = cap
         playback = play
         cap.start(scope)
         play.start(scope)
+
+        // Incoming screenshare video — uses a separate VoicePacketCodec instance (same key,
+        // independent nonce counter sequence) per architect report 2026-05-23-screenshare.md §5.
+        // SSRC 0 is fine for *decode-only* — encode() / nonce counter is never invoked here.
+        val videoCodec = VoicePacketCodec(aead = xchacha20Poly1305(secretKey), ssrc = 0)
+        videoPacketCodec = videoCodec
+        val videoPipeline = IncomingVideoPipeline(dispatcher = dispatcher, packetCodec = videoCodec)
+        incomingVideoPipeline = videoPipeline
+        videoPipeline.start(scope)
+        videoFramesCollectorJob = scope.launch {
+            videoPipeline.frames.collect { byCodecSsrc ->
+                _incomingVideo.value = byCodecSsrc.mapValues { (_, f) ->
+                    IncomingVideoFrame(rgba = f.rgba, width = f.width, height = f.height)
+                }
+            }
+        }
     }
 
     private fun installScreenShareClient(secretKey: ByteArray) {
@@ -329,6 +360,9 @@ public class DefaultVoiceClient(
         screenShareImpl = NoOpScreenShareClient()
         runCatching { capture?.stop() }
         runCatching { playback?.stop() }
+        runCatching { incomingVideoPipeline?.stop() }
+        runCatching { packetDispatcher?.stop() }
+        runCatching { videoFramesCollectorJob?.cancel() }
         runCatching { voiceGateway?.close() }
         runCatching { udp?.close() }
         if (guildId != null) {
@@ -348,9 +382,14 @@ public class DefaultVoiceClient(
     private fun cleanup() {
         capture = null
         playback = null
+        incomingVideoPipeline = null
+        packetDispatcher = null
+        videoFramesCollectorJob = null
         voiceGateway = null
         udp = null
         packetCodec = null
+        videoPacketCodec = null
+        _incomingVideo.value = emptyMap()
         activeGuildId = null
         activeChannelId = null
         activeVideoSsrc = 0

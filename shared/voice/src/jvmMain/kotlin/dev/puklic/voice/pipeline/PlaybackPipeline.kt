@@ -3,6 +3,7 @@ package dev.puklic.voice.pipeline
 import dev.puklic.voice.AudioConstants
 import dev.puklic.voice.audio.AudioPlayback
 import dev.puklic.voice.codec.OpusDecoder
+import dev.puklic.voice.transport.RtpPacket
 import dev.puklic.voice.transport.UdpRtpTransport
 import dev.puklic.voice.transport.VoicePacketCodec
 import kotlinx.coroutines.CoroutineScope
@@ -31,6 +32,13 @@ internal class PlaybackPipeline(
     private val decoderFactory: () -> OpusDecoder,
     private val playback: AudioPlayback,
     private val onSpeakers: suspend (Set<Int>) -> Unit,
+    /**
+     * Optional override for the packet source. Defaults to reading directly from [transport],
+     * which is the legacy single-consumer mode used by tests. The wiring layer
+     * ([dev.puklic.voice.DefaultVoiceClient]) injects a dispatcher-fed source so audio and
+     * video pipelines can co-exist on the same UDP socket without contending on receive().
+     */
+    private val packetSource: (suspend () -> ByteArray)? = null,
 ) {
 
     private val streams = ConcurrentHashMap<Int, SsrcStream>()
@@ -55,9 +63,10 @@ internal class PlaybackPipeline(
     }
 
     private suspend fun receiveLoop() {
+        val source: suspend () -> ByteArray = packetSource ?: { transport.receive() }
         while (isActive()) {
             val packet = try {
-                transport.receive()
+                source()
             } catch (_: Exception) {
                 // Socket closed or interrupted — exit cleanly; mixer loop will catch up & exit.
                 return
@@ -66,7 +75,12 @@ internal class PlaybackPipeline(
                 packetCodec.decode(packet)
             } catch (_: IllegalArgumentException) {
                 continue
+            } catch (_: Exception) {
+                // AEAD failure on a non-Opus payload (video uses a separate counter sequence)
+                // — drop and continue.
+                continue
             }
+            if (decoded.header.payloadType != RtpPacket.PAYLOAD_TYPE_OPUS) continue
             val ssrc = decoded.header.ssrc
             val stream = streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
             stream.lastPacketNs = System.nanoTime()

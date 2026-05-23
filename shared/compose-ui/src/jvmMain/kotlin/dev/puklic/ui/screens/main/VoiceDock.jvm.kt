@@ -7,6 +7,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Column
+import dev.puklic.ui.components.voice.IncomingVideoPane
 import dev.puklic.ui.components.voice.ScreenSharePickerDialog
 import dev.puklic.ui.components.voice.VoiceSettingsDialog
 import dev.puklic.ui.components.voice.VoiceStatusBar
@@ -23,6 +25,7 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     val state by voiceClient.state.collectAsState()
     val devices by voiceClient.devices.collectAsState()
     val screenShareState by voiceClient.screenShare.state.collectAsState()
+    val incomingVideo by voiceClient.incomingVideo.collectAsState()
     var settingsOpen by remember { mutableStateOf(false) }
     var pickerOpen by remember { mutableStateOf(false) }
     var pickerSources by remember { mutableStateOf<List<ScreenSource>>(emptyList()) }
@@ -32,7 +35,9 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     val scope = rememberCoroutineScope()
     val label = (state as? VoiceState.Connected)?.let { "voice" }
 
-    VoiceStatusBar(
+    Column {
+        IncomingVideoPane(frames = incomingVideo)
+        VoiceStatusBar(
         state = state,
         channelLabel = label,
         onMicToggle = {
@@ -55,7 +60,8 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
             }
         },
         onScreenShareStop = { scope.launch { voiceClient.screenShare.stop() } },
-    )
+        )
+    }
 
     if (settingsOpen) {
         VoiceSettingsDialog(

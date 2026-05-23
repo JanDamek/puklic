@@ -200,3 +200,44 @@ Slice 4 originally landed monitors-only. 4.0.1 adds window enumeration on macOS:
   caption noting this. Per-window capture via ScreenCaptureKit is deferred to 4.0.2.
 - Privacy: `osascript` against `System Events` requires Automation permission; on first run
   macOS prompts. Denial → empty window list (graceful).
+
+## 13. Phase 4.2 — incoming video receive (2026-05-23)
+
+Slice 5 "view incoming" originally deferred to a later milestone is now implemented (H.264
+only; VP8 still dropped). New modules under `:shared:voice/jvmMain`:
+
+- `transport/VoicePacketDispatcher.kt` — single owner of the UDP receive loop. Reads each
+  packet once, peeks at RTP byte 1 payload type (no decrypt), and fans out to two
+  `Channel<ByteArray>` queues (audio cap 64, video cap 128). Decouples the playback and
+  video pipelines so they can co-exist on the same UDP socket without contending on
+  `transport.receive()`.
+- `transport/H264Depacketizer.kt` — inverse of `H264Fragmenter`. Reassembles FU-A
+  fragments (S/M/E flags), STAP-A aggregations, and Single NALs into Annex-B framed
+  access units. Marker bit closes the access unit.
+- `codec/H264Decoder.kt` — in-process libavcodec H.264 decoder (JavaCPP ffmpeg-gpl
+  bundle, no system dep). YUV → RGBA via `swscale`. One decoder per remote SSRC; emits
+  `DecodedFrame(rgba, width, height)`.
+- `pipeline/IncomingVideoPipeline.kt` — wires dispatcher → AEAD decrypt (separate
+  `VoicePacketCodec` instance, same secret key, decode-only — Discord uses independent
+  nonce counters per SSRC) → depacketizer → decoder → `StateFlow<Map<ssrc, DecodedFrame>>`.
+
+`PlaybackPipeline` gains a `packetSource: (suspend () -> ByteArray)? = null` constructor
+parameter; when null the legacy single-consumer transport read is used (keeps
+`PlaybackPipelineTest` green). `DefaultVoiceClient` now constructs the dispatcher and feeds
+both pipelines from it.
+
+Public API addition (`PublicApi.kt`):
+
+- `data class IncomingVideoFrame(rgba, width, height)` — UI-facing decoded frame type.
+- `VoiceClient.incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>>` — latest decoded
+  frame per remote video SSRC. Empty when nobody is screensharing.
+
+UI (`:shared:compose-ui/jvmMain`): new `IncomingVideoPane` renders each frame as an
+`Image` via `BufferedImage.TYPE_INT_ARGB` → `toComposeImageBitmap()`. `VoiceDock`
+wraps the existing status bar in a `Column` so the pane sits above the dock when
+non-empty. Performance: RGBA → ARGB conversion at 30 fps for 1080p is the bottleneck;
+Skia direct-path optimisation deferred.
+
+Slice deltas vs §10 plan: dispatcher pattern replaces the "PlaybackPipeline reads
+non-Opus" idea — cleaner separation, no AEAD counter pollution. UI is a simple stacked
+list, not a grid — grid + speaker focus is a later UX iteration.
