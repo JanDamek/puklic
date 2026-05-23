@@ -249,6 +249,37 @@ class ParserTest {
     }
 
     @Test
+    fun `asterisk bullet is recognized as list`() {
+        val doc = parseRichText("* alpha\n* beta")
+        assertEquals(1, doc.blocks.size)
+        val list = doc.blocks[0] as RichTextBlock.List
+        assertEquals(false, list.ordered)
+        assertEquals(2, list.items.size)
+        val first = (list.items[0].content[0] as RichTextBlock.Paragraph).runs[0] as RichTextInline.Text
+        assertEquals("alpha", first.content)
+    }
+
+    @Test
+    fun `mixed dash and asterisk bullets join into one list`() {
+        val doc = parseRichText("- one\n* two\n+ three\n• four")
+        val list = doc.blocks[0] as RichTextBlock.List
+        assertEquals(4, list.items.size)
+    }
+
+    @Test
+    fun `asterisk without space stays paragraph for bold italic`() {
+        // ***foo*** must remain bold-italic at start of line, not a bullet.
+        val doc = parseRichText("***foo***")
+        assertTrue(doc.blocks[0] is RichTextBlock.Paragraph)
+    }
+
+    @Test
+    fun `italic at start of line still works`() {
+        val doc = parseRichText("*foo*")
+        assertTrue(doc.blocks[0] is RichTextBlock.Paragraph)
+    }
+
+    @Test
     fun `quote then plain paragraph`() {
         val doc = parseRichText("> quoted\n\nplain")
         assertEquals(2, doc.blocks.size)
@@ -544,10 +575,11 @@ class ParserTest {
     // 13. Edge cases ─────────────────────────────────────────────────────────
 
     @Test
-    fun `single star followed by space is literal`() {
-        val runs = firstParagraphRuns("* a")
+    fun `single star without space is literal italic attempt`() {
+        // "*a" — no closing star → italic parse fails → stays literal.
+        val runs = firstParagraphRuns("*a")
         val t = runs[0] as RichTextInline.Text
-        assertTrue(t.content.startsWith("* "))
+        assertTrue(t.content.startsWith("*"))
     }
 
     @Test

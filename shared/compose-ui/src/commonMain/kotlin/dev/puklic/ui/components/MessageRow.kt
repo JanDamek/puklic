@@ -68,6 +68,8 @@ public fun MessageRow(
     @Suppress("UnusedParameter") onCopyLink: () -> Unit = {},
     @Suppress("UnusedParameter") onAuthorClick: (UserSummary) -> Unit = {},
     @Suppress("UnusedParameter") onAttachmentClick: (Attachment) -> Unit = {},
+    onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
+    onUserMentionClick: ((dev.puklic.ids.UserId) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalPuklicSpacing.current
@@ -120,6 +122,8 @@ public fun MessageRow(
                     onLinkClick = {},
                     onMentionClick = {},
                     modifier = Modifier.padding(top = if (groupedWithPrevious) 0.dp else spacing.space1),
+                    onChannelClick = onChannelMentionClick,
+                    onUserClick = onUserMentionClick,
                 )
             } else if (message.rawContent.isNotBlank()) {
                 Text(

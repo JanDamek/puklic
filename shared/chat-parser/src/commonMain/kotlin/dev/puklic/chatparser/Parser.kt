@@ -73,11 +73,11 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
                 val inner = parseBlocks(quoteLines.joinToString("\n"))
                 out.add(RichTextBlock.Quote(inner))
             }
-            // Bullet list — consecutive `- ` or `* ` lines
+            // Bullet list — consecutive `- `, `* `, `+ ` or `• ` lines
             isBulletLine(line) -> {
                 val items = mutableListOf<RichTextBlock.ListItem>()
                 while (i < lines.size && isBulletLine(lines[i])) {
-                    val content = lines[i].substring(2)
+                    val content = lines[i].substring(bulletMarkerLength(lines[i]))
                     items.add(RichTextBlock.ListItem(listOf(RichTextBlock.Paragraph(parseInlines(content)))))
                     i++
                 }
@@ -116,11 +116,19 @@ internal fun parseBlocks(raw: String): List<RichTextBlock> {
     return out
 }
 
+/**
+ * Discord-style bullet markers: `-`, `*`, `+`, `•` followed by a space.
+ * The trailing space is required to avoid swallowing bold/italic openers
+ * like `**foo**` or `*foo*` at the start of a line.
+ */
 private fun isBulletLine(line: String): Boolean {
     if (line.length < 2) return false
-    if (line[0] != '-') return false
+    val c = line[0]
+    if (c != '-' && c != '*' && c != '+' && c != '•') return false
     return line[1] == ' '
 }
+
+private fun bulletMarkerLength(@Suppress("UnusedParameter") line: String): Int = 2
 
 private fun isHeadingLine(line: String): Boolean {
     if (!line.startsWith("#")) return false

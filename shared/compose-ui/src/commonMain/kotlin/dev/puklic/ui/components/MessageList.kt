@@ -39,6 +39,8 @@ public fun MessageList(
     modifier: Modifier = Modifier,
     onReact: (ChatMessage, EmojiRef) -> Unit = { _, _ -> },
     onAttachmentClick: (Attachment) -> Unit = {},
+    onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
+    onUserMentionClick: ((dev.puklic.ids.UserId) -> Unit)? = null,
 ) {
     val spacing = LocalPuklicSpacing.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -93,6 +95,8 @@ public fun MessageList(
                             groupedWithPrevious = grouped,
                             onReact = { emoji -> onReact(msgs[idx], emoji) },
                             onAttachmentClick = onAttachmentClick,
+                            onChannelMentionClick = onChannelMentionClick,
+                            onUserMentionClick = onUserMentionClick,
                         )
                     }
                     if (state.isLoadingOlder) {

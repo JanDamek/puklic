@@ -21,12 +21,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.withLink
 import androidx.compose.ui.text.withStyle
+import dev.puklic.ids.ChannelId
+import dev.puklic.ids.UserId
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.puklic.domain.EmojiRef
@@ -59,16 +64,22 @@ public fun RichTextView(
     @Suppress("UnusedParameter") onLinkClick: (String) -> Unit,
     @Suppress("UnusedParameter") onMentionClick: (MentionTarget) -> Unit,
     modifier: Modifier = Modifier,
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
 ) {
     Column(modifier = modifier) {
-        document.blocks.forEach { block -> RenderBlock(block) }
+        document.blocks.forEach { block -> RenderBlock(block, onChannelClick, onUserClick) }
     }
 }
 
 @Composable
-private fun RenderBlock(block: RichTextBlock) {
+private fun RenderBlock(
+    block: RichTextBlock,
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
+) {
     when (block) {
-        is RichTextBlock.Paragraph -> InlineRow(block.runs)
+        is RichTextBlock.Paragraph -> InlineRow(block.runs, onChannelClick = onChannelClick, onUserClick = onUserClick)
         is RichTextBlock.Heading -> InlineRow(
             block.runs,
             baseStyle = when (block.level) {
@@ -76,6 +87,8 @@ private fun RenderBlock(block: RichTextBlock) {
                 2 -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.titleMedium.fontSize)
                 else -> SpanStyle(fontWeight = FontWeight.Bold, fontSize = MaterialTheme.typography.titleSmall.fontSize)
             },
+            onChannelClick = onChannelClick,
+            onUserClick = onUserClick,
         )
         is RichTextBlock.CodeBlock -> {
             Text(
@@ -93,7 +106,7 @@ private fun RenderBlock(block: RichTextBlock) {
         }
         is RichTextBlock.Quote -> Column(
             modifier = Modifier.padding(start = 8.dp),
-        ) { block.content.forEach { RenderBlock(it) } }
+        ) { block.content.forEach { RenderBlock(it, onChannelClick, onUserClick) } }
         is RichTextBlock.List -> Column {
             block.items.forEachIndexed { idx, item ->
                 Row(verticalAlignment = Alignment.Top) {
@@ -102,11 +115,13 @@ private fun RenderBlock(block: RichTextBlock) {
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Column { item.content.forEach { RenderBlock(it) } }
+                    Column { item.content.forEach { RenderBlock(it, onChannelClick, onUserClick) } }
                 }
             }
         }
-        is RichTextBlock.ListItem -> Column { block.content.forEach { RenderBlock(it) } }
+        is RichTextBlock.ListItem -> Column {
+            block.content.forEach { RenderBlock(it, onChannelClick, onUserClick) }
+        }
     }
 }
 
@@ -118,13 +133,15 @@ private fun RenderBlock(block: RichTextBlock) {
 private fun InlineRow(
     runs: List<RichTextInline>,
     baseStyle: SpanStyle = SpanStyle(),
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
 ) {
     val resolvedMentions = resolveMentionLabels(runs)
     val segments = segmentInlines(runs)
     if (segments.size == 1 && segments.single() is InlineSegment.TextRun) {
         val seg = segments.single() as InlineSegment.TextRun
         Text(
-            text = buildSegmentText(seg.runs, baseStyle, resolvedMentions),
+            text = buildSegmentText(seg.runs, baseStyle, resolvedMentions, onChannelClick, onUserClick),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -137,12 +154,14 @@ private fun InlineRow(
         segments.forEach { seg ->
             when (seg) {
                 is InlineSegment.TextRun -> Text(
-                    text = buildSegmentText(seg.runs, baseStyle, resolvedMentions),
+                    text = buildSegmentText(seg.runs, baseStyle, resolvedMentions, onChannelClick, onUserClick),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 is InlineSegment.CustomEmoji -> CustomEmojiInline(seg.ref)
-                is InlineSegment.SpoilerSeg -> SpoilerInline(seg.index, seg.content, baseStyle, resolvedMentions)
+                is InlineSegment.SpoilerSeg -> SpoilerInline(
+                    seg.index, seg.content, baseStyle, resolvedMentions, onChannelClick, onUserClick,
+                )
             }
         }
     }
@@ -154,11 +173,13 @@ private fun SpoilerInline(
     content: List<RichTextInline>,
     baseStyle: SpanStyle,
     labels: MentionLabels,
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
 ) {
     var revealed by remember { mutableStateOf(false) }
     val hiddenBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
     val revealedBg = MaterialTheme.colorScheme.surfaceVariant
-    val text = buildSegmentText(content, baseStyle, labels)
+    val text = buildSegmentText(content, baseStyle, labels, onChannelClick, onUserClick)
     val mod = Modifier
         .clip(RoundedCornerShape(3.dp))
         .background(if (revealed) revealedBg else hiddenBg)
@@ -290,6 +311,8 @@ private fun buildSegmentText(
     runs: List<RichTextInline>,
     baseStyle: SpanStyle,
     labels: MentionLabels,
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
 ): AnnotatedString {
     val mentionBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
     val mentionFg = MaterialTheme.colorScheme.primary
@@ -298,7 +321,7 @@ private fun buildSegmentText(
     val spoilerBg = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f)
     return buildAnnotatedString {
         withStyle(baseStyle) {
-            appendInlines(runs, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg)
+            appendInlines(runs, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg, onChannelClick, onUserClick)
         }
     }
 }
@@ -312,7 +335,15 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
     linkColor: Color,
     codeBg: Color,
     spoilerBg: Color,
+    onChannelClick: ((ChannelId) -> Unit)? = null,
+    onUserClick: ((UserId) -> Unit)? = null,
 ) {
+    val linkStyles = TextLinkStyles(
+        style = SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline),
+    )
+    val mentionLinkStyles = TextLinkStyles(
+        style = SpanStyle(background = mentionBg, color = mentionFg, fontWeight = FontWeight.Medium),
+    )
     runs.forEach { run ->
         when (run) {
             is RichTextInline.Text -> withStyle(run.styles.toSpanStyle()) { append(run.content) }
@@ -322,21 +353,44 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
                 ),
             ) { append(run.content) }
-            is RichTextInline.Link -> withStyle(
-                SpanStyle(color = linkColor, textDecoration = TextDecoration.Underline),
-            ) {
+            is RichTextInline.Link -> withLink(LinkAnnotation.Url(url = run.url, styles = linkStyles)) {
                 if (run.display.isEmpty()) append(run.url)
-                else appendInlines(run.display, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg)
+                else appendInlines(
+                    run.display, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
+                    onChannelClick, onUserClick,
+                )
             }
-            is RichTextInline.Mention -> withStyle(
-                SpanStyle(background = mentionBg, color = mentionFg, fontWeight = FontWeight.Medium),
-            ) { append(renderMention(run.target, labels)) }
+            is RichTextInline.Mention -> {
+                val target = run.target
+                val label = renderMention(target, labels)
+                val click: (() -> Unit)? = when (target) {
+                    is MentionTarget.Channel -> onChannelClick?.let { cb -> { cb(target.id) } }
+                    is MentionTarget.User -> onUserClick?.let { cb -> { cb(target.id) } }
+                    else -> null
+                }
+                if (click != null) {
+                    withLink(
+                        LinkAnnotation.Clickable(
+                            tag = "mention",
+                            styles = mentionLinkStyles,
+                            linkInteractionListener = { click() },
+                        ),
+                    ) { append(label) }
+                } else {
+                    withStyle(
+                        SpanStyle(background = mentionBg, color = mentionFg, fontWeight = FontWeight.Medium),
+                    ) { append(label) }
+                }
+            }
             is RichTextInline.Emoji -> when (val ref = run.ref) {
                 is EmojiRef.Unicode -> append(ref.codepoint)
                 is EmojiRef.Custom -> append(":${ref.name}:") // fallback when segmenter inlines text-only
             }
             is RichTextInline.Spoiler -> withStyle(SpanStyle(background = spoilerBg, color = spoilerBg)) {
-                appendInlines(run.content, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg)
+                appendInlines(
+                    run.content, labels, mentionBg, mentionFg, linkColor, codeBg, spoilerBg,
+                    onChannelClick, onUserClick,
+                )
             }
             is RichTextInline.Timestamp -> withStyle(
                 SpanStyle(background = codeBg, fontWeight = FontWeight.Medium),

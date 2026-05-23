@@ -107,6 +107,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             selectedChannel = selectedChannel,
             messageOrchestrator = viewModel.orchestrators?.messages,
             platformOpen = platformOpen,
+            onChannelMentionClick = viewModel::selectChannel,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
@@ -327,6 +328,7 @@ private fun MessagePane(
     selectedChannel: Channel?,
     messageOrchestrator: MessageOrchestrator?,
     platformOpen: PlatformOpen?,
+    onChannelMentionClick: ((ChannelId) -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -352,6 +354,7 @@ private fun MessagePane(
                 orchestrator = messageOrchestrator,
                 platformOpen = platformOpen,
                 uiScope = scope,
+                onChannelMentionClick = onChannelMentionClick,
             )
         }
     }
@@ -388,6 +391,7 @@ private fun ChannelMessages(
     orchestrator: MessageOrchestrator,
     platformOpen: PlatformOpen?,
     uiScope: CoroutineScope,
+    onChannelMentionClick: ((ChannelId) -> Unit)? = null,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
     // resumed for the lifetime of this composition and destroyed in onDispose.
@@ -439,6 +443,7 @@ private fun ChannelMessages(
                     val opener = platformOpen ?: return@MessageList
                     uiScope.launch { opener.openUrl(att.url) }
                 },
+                onChannelMentionClick = onChannelMentionClick,
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
