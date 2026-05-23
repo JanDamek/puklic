@@ -37,6 +37,10 @@ import dev.puklic.ui.components.MessageList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.puklic.platform.PlatformOpen
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import dev.puklic.domain.Channel
 import dev.puklic.domain.DmChannel
 import dev.puklic.domain.Guild
@@ -58,7 +62,7 @@ import dev.puklic.ui.theme.LocalPuklicSpacing
  * Renders live guilds + channels from the [MainViewModel] orchestrator-backed state.
  */
 @Composable
-public fun MainScreen(viewModel: MainViewModel) {
+public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = null) {
     val state by viewModel.state.collectAsState()
     Row(modifier = Modifier.fillMaxSize()) {
         GuildRail(
@@ -102,6 +106,7 @@ public fun MainScreen(viewModel: MainViewModel) {
             selectedChannelTopic = topic,
             selectedChannel = selectedChannel,
             messageOrchestrator = viewModel.orchestrators?.messages,
+            platformOpen = platformOpen,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
@@ -321,8 +326,10 @@ private fun MessagePane(
     selectedChannelTopic: String?,
     selectedChannel: Channel?,
     messageOrchestrator: MessageOrchestrator?,
+    platformOpen: PlatformOpen?,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
     Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
         val nonTextEmptyState = selectedChannel?.let { nonTextChannelEmptyState(it.type) }
         when {
@@ -343,6 +350,8 @@ private fun MessagePane(
                 channelName = selectedChannelName,
                 channelTopic = selectedChannelTopic,
                 orchestrator = messageOrchestrator,
+                platformOpen = platformOpen,
+                uiScope = scope,
             )
         }
     }
@@ -377,6 +386,8 @@ private fun ChannelMessages(
     channelName: String?,
     channelTopic: String?,
     orchestrator: MessageOrchestrator,
+    platformOpen: PlatformOpen?,
+    uiScope: CoroutineScope,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
     // resumed for the lifetime of this composition and destroyed in onDispose.
@@ -423,6 +434,10 @@ private fun ChannelMessages(
                 onReact = { message, emoji ->
                     val alreadyReacted = message.reactions.any { it.me && it.emoji == emoji }
                     viewModel.viewModel.toggleReaction(message.id, emoji, alreadyReacted)
+                },
+                onAttachmentClick = { att ->
+                    val opener = platformOpen ?: return@MessageList
+                    uiScope.launch { opener.openUrl(att.url) }
                 },
             )
         }

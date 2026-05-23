@@ -1,7 +1,6 @@
 package dev.puklic.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,8 +13,6 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,7 +25,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.puklic.domain.Attachment
@@ -47,9 +43,6 @@ public sealed interface MessageDeliveryState {
 }
 
 private val AvatarSize = 32.dp
-private const val KB: Long = 1024
-private const val MB: Long = KB * 1024
-private const val GB: Long = MB * 1024
 
 /**
  * Single message row. Renders avatar + header + body + attachments + embeds.
@@ -174,83 +167,9 @@ private fun AttachmentList(
     val spacing = LocalPuklicSpacing.current
     Column(verticalArrangement = Arrangement.spacedBy(spacing.space2)) {
         attachments.forEach { att ->
-            AttachmentCard(attachment = att, onClick = { onAttachmentClick(att) })
+            AttachmentRenderer(attachment = att, onOpen = { onAttachmentClick(att) })
         }
     }
-}
-
-@Composable
-private fun AttachmentCard(attachment: Attachment, onClick: () -> Unit) {
-    val spacing = LocalPuklicSpacing.current
-    val contentType = attachment.contentType.orEmpty()
-    val isImage = contentType.startsWith("image/")
-    val isAudio = contentType.startsWith("audio/")
-    val icon = when {
-        isImage -> "IMG"
-        isAudio -> "AUDIO"
-        contentType.startsWith("video/") -> "VIDEO"
-        else -> "FILE"
-    }
-
-    if (isImage) {
-        AsyncImage(
-            model = attachment.proxyUrl,
-            contentDescription = attachment.description ?: attachment.filename,
-            contentScale = ContentScale.Fit,
-            modifier = Modifier
-                .fillMaxWidth(0.7f)
-                .clip(RoundedCornerShape(8.dp))
-                .clickable(onClick = onClick),
-        )
-        return
-    }
-
-    Card(
-        modifier = Modifier
-            .fillMaxWidth(0.7f)
-            .clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-            contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        ),
-    ) {
-        Row(
-            modifier = Modifier.padding(spacing.space3),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(spacing.space3),
-        ) {
-            Text(text = icon, style = MaterialTheme.typography.titleLarge)
-            Column(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = attachment.filename,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                Text(
-                    text = formatFileSize(attachment.size),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-    }
-}
-
-private fun formatFileSize(bytes: Long): String = when {
-    bytes >= GB -> "${"%.1f".formatLocale(bytes.toDouble() / GB)} GB"
-    bytes >= MB -> "${"%.1f".formatLocale(bytes.toDouble() / MB)} MB"
-    bytes >= KB -> "${"%.1f".formatLocale(bytes.toDouble() / KB)} KB"
-    else -> "$bytes B"
-}
-
-private fun String.formatLocale(value: Double): String {
-    // Minimal cross-platform 1-decimal formatter; avoids kotlin.text.format expect/actual.
-    val scaled = (value * 10.0).toLong()
-    val whole = scaled / 10
-    val frac = scaled % 10
-    return "$whole.$frac"
 }
 
 @Composable

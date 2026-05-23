@@ -15,10 +15,13 @@ import dev.puklic.persistence.sqldelight.OutboundQueueImpl
 import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
+import dev.puklic.platform.PlatformOpen
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
+import dev.puklic.platform.linux.LinuxPlatformOpen
 import dev.puklic.platform.linux.LinuxPlatformPaths
 import dev.puklic.platform.linux.LinuxSecureStorage
+import dev.puklic.platform.macos.MacOsPlatformOpen
 import dev.puklic.platform.macos.MacOsPlatformPaths
 import dev.puklic.platform.macos.MacOsSecureStorage
 import dev.puklic.protocol.discord.DiscordGatewayBridge
@@ -86,6 +89,7 @@ private const val LOG_TAG = "DependencyGraph"
 public class DependencyGraph private constructor(
     public val applicationScope: CoroutineScope,
     public val platformPaths: PlatformPaths,
+    public val platformOpen: PlatformOpen,
     public val secureStorage: SecureStorage,
     public val sessionManager: SessionManager,
     public val rootComponent: RootComponent,
@@ -99,6 +103,7 @@ public class DependencyGraph private constructor(
             val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             val isMac = detectMac()
             val paths: PlatformPaths = if (isMac) MacOsPlatformPaths() else LinuxPlatformPaths()
+            val opener: PlatformOpen = if (isMac) MacOsPlatformOpen() else LinuxPlatformOpen()
             val storage: SecureStorage = if (isMac) MacOsSecureStorage() else LinuxSecureStorage()
 
             val driverFactory = JvmDriverFactory(
@@ -171,6 +176,7 @@ public class DependencyGraph private constructor(
             return DependencyGraph(
                 applicationScope = applicationScope,
                 platformPaths = paths,
+                platformOpen = opener,
                 secureStorage = storage,
                 sessionManager = sessionManager,
                 rootComponent = root,

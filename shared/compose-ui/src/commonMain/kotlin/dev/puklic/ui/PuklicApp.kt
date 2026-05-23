@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
+import dev.puklic.platform.PlatformOpen
 import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.navigation.RouterState
 import dev.puklic.ui.resolvers.EmojiResolver
@@ -37,6 +38,7 @@ public fun PuklicApp(
     root: RootComponent,
     mentionResolver: MentionResolver = NoopMentionResolver,
     emojiResolver: EmojiResolver = NoopEmojiResolver,
+    platformOpen: PlatformOpen? = null,
 ) {
     val routerState by root.routerState.subscribeAsState()
     PuklicTheme {
@@ -48,7 +50,7 @@ public fun PuklicApp(
                 when (routerState) {
                     RouterState.Bootstrapping -> BootstrappingScreen()
                     RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
-                    RouterState.Main -> MainRoute(root)
+                    RouterState.Main -> MainRoute(root, platformOpen)
                 }
             }
         }
@@ -56,7 +58,7 @@ public fun PuklicApp(
 }
 
 @Composable
-private fun MainRoute(root: RootComponent) {
+private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
     val activeSession by root.sessionManager.activeSession.collectAsState()
     val initialPosition by produceLastPosition(root.preferences)
     // produceState seeds with null while the (suspend) load runs. We render BootstrappingScreen
@@ -75,6 +77,7 @@ private fun MainRoute(root: RootComponent) {
             preferences = root.preferences,
             initialPosition = pos,
         ),
+        platformOpen = platformOpen,
     )
 }
 

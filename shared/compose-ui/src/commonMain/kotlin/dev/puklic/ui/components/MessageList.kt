@@ -14,6 +14,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import dev.puklic.domain.Attachment
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.EmojiId
@@ -37,6 +38,7 @@ public fun MessageList(
     @Suppress("UnusedParameter") onMessageAction: (MessageAction) -> Unit,
     modifier: Modifier = Modifier,
     onReact: (ChatMessage, EmojiRef) -> Unit = { _, _ -> },
+    onAttachmentClick: (Attachment) -> Unit = {},
 ) {
     val spacing = LocalPuklicSpacing.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -90,6 +92,7 @@ public fun MessageList(
                             message = msgs[idx],
                             groupedWithPrevious = grouped,
                             onReact = { emoji -> onReact(msgs[idx], emoji) },
+                            onAttachmentClick = onAttachmentClick,
                         )
                     }
                     if (state.isLoadingOlder) {

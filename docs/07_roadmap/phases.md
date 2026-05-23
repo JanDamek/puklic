@@ -37,6 +37,7 @@ Goal: a usable read+write client for everyday text communication.
 - [ ] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
 - [ ] Syntax-highlighted code blocks
 - [ ] Attachments (upload, download, image preview, video thumbnail)
+  - 2026-05-23: image preview (bounded, aspect-preserving) + full-size viewer dialog + video tile (play icon, duration, click-to-open) + file tile (extension badge, click-to-open via PlatformOpen.openUrl) landed; upload still pending.
 - [x] Reactions UI (add/remove, list)
 - [ ] Message edit/delete sync via gateway
 - [ ] Email+password login (ADR-0002 Option B)

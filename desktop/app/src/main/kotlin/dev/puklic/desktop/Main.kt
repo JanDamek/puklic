@@ -45,6 +45,7 @@ public fun main(): Unit = application {
             root = graph.rootComponent,
             mentionResolver = graph.mentionResolver,
             emojiResolver = graph.emojiResolver,
+            platformOpen = graph.platformOpen,
         )
     }
 }
