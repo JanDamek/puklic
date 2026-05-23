@@ -1,0 +1,7 @@
+-- Migration v1 -> v2
+-- Adds voice-channel columns (bitrate, user_limit) introduced by commit 1d550c1
+-- (feat(voice): GuildVoiceChannel domain + channel-row click-to-join + persistence).
+-- Both columns are nullable; existing rows get NULL for these fields, which the
+-- mapper interprets as "not a voice channel" / unset.
+ALTER TABLE channel ADD COLUMN bitrate INTEGER;
+ALTER TABLE channel ADD COLUMN user_limit INTEGER;

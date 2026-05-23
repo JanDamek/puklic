@@ -235,6 +235,12 @@ SQLDelight migrations = a sequence of `.sqm` files (`migrations/1.sqm`, `2.sqm`,
 - For a major schema change where migration is not possible, **WIPE DB** is acceptable (data is cache; the authoritative source is Discord) — but it **must be** an opt-in dialog in the UI, not a silent deletion
 - Cache wipe is a separate function in Settings → "Reset local cache"
 
+**Applied migrations:**
+
+| File | From → To | Change |
+|---|---|---|
+| `migrations/1.sqm` | v1 → v2 | Add nullable `channel.bitrate` + `channel.user_limit` columns (voice channels, commit 1d550c1) |
+
 ## Performance hints
 
 - `INSERT OR REPLACE` for upsert of events (gateway `MESSAGE_UPDATE` as full message replacement)
