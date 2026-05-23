@@ -1,6 +1,7 @@
 package dev.puklic.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,9 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -25,6 +30,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import dev.puklic.domain.Attachment
@@ -188,11 +197,21 @@ private fun EmbedList(embeds: List<MessageEmbed>) {
     }
 }
 
+private const val EmbedDescriptionMaxLines = 4
+private val EmbedThumbnailSize = 80.dp
+private val EmbedImageMaxWidth = 400.dp
+private val EmbedImageMaxHeight = 300.dp
+private val EmbedAuthorIconSize = 24.dp
+private val EmbedFooterIconSize = 16.dp
+
 @Composable
 private fun EmbedCard(embed: MessageEmbed) {
     val spacing = LocalPuklicSpacing.current
     val accent = embed.color?.let { Color(0xFF000000.toInt() or (it and 0xFFFFFF)) }
         ?: MaterialTheme.colorScheme.primary
+    val uri = LocalUriHandler.current
+    val linkColor = MaterialTheme.colorScheme.primary
+
     Row(
         modifier = Modifier
             .fillMaxWidth(0.8f)
@@ -201,62 +220,206 @@ private fun EmbedCard(embed: MessageEmbed) {
             .background(MaterialTheme.colorScheme.surfaceVariant),
     ) {
         Box(modifier = Modifier.width(4.dp).fillMaxHeight().background(accent))
+
         Column(
-            modifier = Modifier.padding(spacing.space3),
+            modifier = Modifier.weight(1f).padding(spacing.space3),
             verticalArrangement = Arrangement.spacedBy(spacing.space2),
         ) {
+            // Provider OR site (provider preferred — Discord sets it for OG link embeds).
+            val siteName = embed.provider?.name?.takeIf { it.isNotBlank() }
+            siteName?.let { name ->
+                Text(
+                    text = name,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = embed.provider?.url?.let { Modifier.clickable { uri.openUri(it) } }
+                        ?: Modifier,
+                )
+            }
+
+            // Author row: avatar + name (clickable if url).
             embed.author?.let { author ->
-                Text(
-                    text = author.name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            embed.title?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                )
-            }
-            embed.description?.takeIf { it.isNotBlank() }?.let {
-                Text(
-                    text = it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            if (embed.fields.isNotEmpty()) {
-                embed.fields.forEach { field ->
-                    Column {
-                        Text(
-                            field.name,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurface,
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space2),
+                ) {
+                    author.iconUrl?.let { icon ->
+                        AsyncImage(
+                            model = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(EmbedAuthorIconSize).clip(CircleShape),
                         )
-                        Text(
-                            field.value,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    }
+                    Text(
+                        text = author.name,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = author.url?.let { Modifier.clickable { uri.openUri(it) } } ?: Modifier,
+                    )
+                }
+            }
+
+            // Title + thumbnail row.
+            val titleText = embed.title?.takeIf { it.isNotBlank() }
+            val thumbnail = embed.thumbnail
+            if (titleText != null || thumbnail != null) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space3),
+                ) {
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        verticalArrangement = Arrangement.spacedBy(spacing.space2),
+                    ) {
+                        titleText?.let { title ->
+                            val clickable = embed.url?.let { url ->
+                                Modifier.clickable { uri.openUri(url) }
+                            } ?: Modifier
+                            Text(
+                                text = title,
+                                style = MaterialTheme.typography.titleSmall.copy(
+                                    fontWeight = FontWeight.SemiBold,
+                                    textDecoration = if (embed.url != null) TextDecoration.Underline else null,
+                                ),
+                                color = if (embed.url != null) linkColor else MaterialTheme.colorScheme.onSurface,
+                                modifier = clickable,
+                            )
+                        }
+                        embed.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                            Text(
+                                text = desc,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = EmbedDescriptionMaxLines,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
+                    thumbnail?.let { thumb ->
+                        AsyncImage(
+                            model = thumb.proxyUrl ?: thumb.url,
+                            contentDescription = null,
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier
+                                .size(EmbedThumbnailSize)
+                                .clip(RoundedCornerShape(4.dp))
+                                .let { m ->
+                                    val openUrl = embed.url
+                            if (openUrl != null) m.clickable { uri.openUri(openUrl) } else m
+                                },
                         )
                     }
                 }
+            } else {
+                // No title — still render description if any.
+                embed.description?.takeIf { it.isNotBlank() }?.let { desc ->
+                    Text(
+                        text = desc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = EmbedDescriptionMaxLines,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
             }
+
+            // Fields: two-column grid for consecutive inline runs, single-col otherwise.
+            if (embed.fields.isNotEmpty()) {
+                EmbedFields(embed.fields)
+            }
+
+            // Full image — wider than thumbnail, bounded.
             embed.image?.let { img ->
                 AsyncImage(
                     model = img.proxyUrl ?: img.url,
                     contentDescription = embed.title,
                     contentScale = ContentScale.Fit,
-                    modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(4.dp)),
+                    modifier = Modifier
+                        .widthIn(max = EmbedImageMaxWidth)
+                        .heightIn(max = EmbedImageMaxHeight)
+                        .clip(RoundedCornerShape(4.dp))
+                        .let { m ->
+                            val openUrl = embed.url
+                            if (openUrl != null) m.clickable { uri.openUri(openUrl) } else m
+                        },
                 )
             }
+
+            // Video without inline player — show "open in browser" cue via title click; nothing extra here.
+
+            // Footer: icon + text.
             embed.footer?.let { footer ->
-                Text(
-                    text = footer.text,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.space2),
+                ) {
+                    footer.iconUrl?.let { icon ->
+                        AsyncImage(
+                            model = icon,
+                            contentDescription = null,
+                            modifier = Modifier.size(EmbedFooterIconSize).clip(CircleShape),
+                        )
+                    }
+                    Text(
+                        text = footer.text,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
+    }
+}
+
+@Composable
+private fun EmbedFields(fields: List<dev.puklic.domain.EmbedField>) {
+    val spacing = LocalPuklicSpacing.current
+    // Group consecutive inline=true fields into rows of up to 2 (Discord uses 3 cols at full width,
+    // but we run at 80% width and reserve room for thumbnail — 2 cols reads cleaner).
+    val rows = mutableListOf<List<dev.puklic.domain.EmbedField>>()
+    var i = 0
+    while (i < fields.size) {
+        val f = fields[i]
+        if (f.inline) {
+            val group = mutableListOf(f)
+            var j = i + 1
+            while (j < fields.size && fields[j].inline && group.size < 2) {
+                group += fields[j]; j++
+            }
+            rows += group
+            i = j
+        } else {
+            rows += listOf(f)
+            i++
+        }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.space2)) {
+        rows.forEach { row ->
+            if (row.size == 1) {
+                EmbedFieldCell(row[0], Modifier.fillMaxWidth())
+            } else {
+                Row(horizontalArrangement = Arrangement.spacedBy(spacing.space3)) {
+                    row.forEach { f ->
+                        EmbedFieldCell(f, Modifier.weight(1f))
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmbedFieldCell(field: dev.puklic.domain.EmbedField, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(
+            field.name,
+            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            field.value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }

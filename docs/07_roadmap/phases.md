@@ -33,7 +33,8 @@ Goal: a usable read+write client for everyday text communication.
 
 - [ ] Mentions (user, channel, role) — parser + renderer + resolve
 - [ ] Custom emoji (Discord CDN, disk cache)
-- [ ] Link detection + preview (OpenGraph fetch)
+- [x] Link detection + preview (OpenGraph fetch)
+  - 2026-05-23: Bare URLs already autolinked by `:shared:chat-parser` (autolink pass for `http(s)://`). Discord delivers OG previews server-side as `message.embeds` (type=link/article/website/image/video). Renderer in `:shared:compose-ui` (`MessageRow.EmbedCard`) reworked into a rich card: left color bar (from `embed.color`), site/provider name, author row (avatar + name, clickable if `author.url`), title (semibold, link-coloured + underline, clickable to `embed.url`), description (max 4 lines, ellipsised), right-aligned 80x80dp thumbnail, full image bounded at 400x300dp, fields with two-column grid for consecutive inline fields, footer with icon. Title click + image click + thumbnail click all open via `LocalUriHandler`. No local OG fetcher — Discord's server-side embeds cover this slice (Option A).
 - [x] Full markdown (bold, italic, strikethrough, underline, quote, spoiler)
   - 2026-05-23: AST + parser already covered inline styles, spoilers, headings, fenced code, single-line quotes, mentions, links, timestamps, unicode + custom emoji. This pass adds `>>>` triple-quote (consumes to EOF), `- ` bullet lists (parser+renderer), and click-to-reveal spoiler (`SpoilerInline` composable: hidden block flips to revealed on tap).
 - [x] Syntax-highlighted code blocks
