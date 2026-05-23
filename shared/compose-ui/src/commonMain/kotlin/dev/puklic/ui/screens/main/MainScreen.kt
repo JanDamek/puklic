@@ -95,9 +95,11 @@ public fun MainScreen(viewModel: MainViewModel) {
             is DmChannel -> selectedChannel.recipients.firstOrNull()?.let { "@${it.globalName ?: it.username}" }
             else -> selectedChannel?.name
         }
+        val topic = (selectedChannel as? GuildTextChannel)?.topic
         MessagePane(
             selectedChannelId = state.selectedChannelId,
             selectedChannelName = displayName,
+            selectedChannelTopic = topic,
             messageOrchestrator = viewModel.orchestrators?.messages,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
@@ -168,7 +170,11 @@ private fun DmListPane(
 ) {
     val spacing = LocalPuklicSpacing.current
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface).padding(spacing.space4)) {
-        Text("Direct Messages", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Direct Messages",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Spacer(Modifier.height(spacing.space4))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(spacing.space4))
@@ -216,7 +222,11 @@ private fun DmRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         if (avatar != null) PuklicAvatar(user = avatar, size = 24.dp)
-        Text(label, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            label,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
     }
 }
 
@@ -229,7 +239,11 @@ private fun ChannelListPane(
 ) {
     val spacing = LocalPuklicSpacing.current
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface).padding(spacing.space4)) {
-        Text("Channels", style = MaterialTheme.typography.titleMedium)
+        Text(
+            "Channels",
+            style = MaterialTheme.typography.titleMedium,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Spacer(Modifier.height(spacing.space4))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(spacing.space4))
@@ -303,6 +317,7 @@ private fun ChannelListPane(
 private fun MessagePane(
     selectedChannelId: ChannelId?,
     selectedChannelName: String?,
+    selectedChannelTopic: String?,
     messageOrchestrator: MessageOrchestrator?,
     modifier: Modifier = Modifier,
 ) {
@@ -319,6 +334,7 @@ private fun MessagePane(
             else -> ChannelMessages(
                 channelId = selectedChannelId,
                 channelName = selectedChannelName,
+                channelTopic = selectedChannelTopic,
                 orchestrator = messageOrchestrator,
             )
         }
@@ -329,6 +345,7 @@ private fun MessagePane(
 private fun ChannelMessages(
     channelId: ChannelId,
     channelName: String?,
+    channelTopic: String?,
     orchestrator: MessageOrchestrator,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
@@ -350,8 +367,21 @@ private fun ChannelMessages(
 
     val displayName = channelName?.takeIf { it.isNotBlank() } ?: channelId.value.toString()
     Column(modifier = Modifier.fillMaxSize()) {
-        Box(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text("#$displayName", style = MaterialTheme.typography.titleMedium)
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+            Text(
+                "#$displayName",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (!channelTopic.isNullOrBlank()) {
+                Text(
+                    text = channelTopic,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                )
+            }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Box(modifier = Modifier.fillMaxWidth().weight(1f)) {

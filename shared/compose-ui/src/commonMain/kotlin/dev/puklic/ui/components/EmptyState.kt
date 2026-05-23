@@ -33,7 +33,11 @@ public fun EmptyState(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(spacing.space3),
         ) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
+            Text(
+                title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
             Text(
                 body,
                 style = MaterialTheme.typography.bodyMedium,
