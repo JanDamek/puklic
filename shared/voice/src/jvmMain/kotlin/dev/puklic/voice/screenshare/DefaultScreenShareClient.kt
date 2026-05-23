@@ -6,6 +6,7 @@ import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.gateway.VoiceGatewayConnection
 import dev.puklic.voice.screenshare.encoder.VideoEncoder
 import dev.puklic.voice.screenshare.encoder.ffmpegVideoEncoder
+import dev.puklic.voice.screenshare.encoder.libavVideoEncoder
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
 import dev.puklic.voice.transport.RtpPacket
 import dev.puklic.voice.transport.UdpRtpTransport
@@ -42,7 +43,13 @@ internal class DefaultScreenShareClient(
     private val enumerator: ScreenSourceEnumerator,
     private val scope: CoroutineScope,
     private val encoderFactory: (ScreenSource, Boolean) -> VideoEncoder = { src, audio ->
-        ffmpegVideoEncoder(src, audio)
+        // Self-contained Phase 2: default to in-process libavcodec encoder. Set
+        // `-Dpuklic.voice.encoder=cli` to force the legacy subprocess path (dev/debug only).
+        if (System.getProperty(ENCODER_PROPERTY, ENCODER_LIBAV) == ENCODER_CLI) {
+            ffmpegVideoEncoder(src, audio)
+        } else {
+            libavVideoEncoder(src, audio)
+        }
     },
     private val sendDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ScreenShareClient {
@@ -136,5 +143,8 @@ internal class DefaultScreenShareClient(
         const val TAG = "DefaultScreenShareClient"
         const val SPEAKING_MIC_ONLY = 1
         const val SPEAKING_MIC_AND_SOUNDSHARE = 3
+        const val ENCODER_PROPERTY = "puklic.voice.encoder"
+        const val ENCODER_LIBAV = "libav"
+        const val ENCODER_CLI = "cli"
     }
 }

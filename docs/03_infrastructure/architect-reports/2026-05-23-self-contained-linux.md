@@ -124,8 +124,8 @@ Pre-extract natives in deb `postinst` to remove first-launch ~3s delay (optional
 
 ## 10. Action checklist
 
-- [ ] Phase 1: Opus → javacpp libavcodec
-- [ ] Phase 2: in-process libx264 encoder
+- [x] Phase 1: Opus → javacpp libavcodec (abad861)
+- [x] Phase 2: in-process libx264 encoder (LibavVideoEncoder via libavformat+libavcodec+libavdevice+libswscale; feature-flagged `puklic.voice.encoder=libav|cli`, default `libav`; in-process avfoundation monitor enum with subprocess fallback B; lavfi-testsrc smoke test green)
 - [ ] Phase 3: Linux portal + PipeWire
 - [ ] Phase 4: macOS in-process avfoundation
 - [ ] Phase 5: jpackage per-OS installers

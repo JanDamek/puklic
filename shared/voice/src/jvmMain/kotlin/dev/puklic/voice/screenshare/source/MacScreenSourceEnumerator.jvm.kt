@@ -27,6 +27,25 @@ internal class MacScreenSourceEnumerator(
 ) : ScreenSourceEnumerator {
 
     override suspend fun list(): List<ScreenSource> = withContext(Dispatchers.IO) {
+        // Phase 2: prefer in-process libavdevice enumeration. Fall back to ffmpeg subprocess
+        // only when libavdevice returns nothing (some avfoundation builds return -ENOSYS).
+        // The CLI fallback is also skipped when the user has explicitly disabled it via
+        // -Dpuklic.voice.encoder=libav (the default), since the goal of the self-contained
+        // refactor is to avoid spawning ffmpeg at all.
+        val libavMonitors = runCatching {
+            LibavMonitorEnumerator.listMonitors("avfoundation")
+        }.getOrDefault(emptyList())
+
+        val monitors: List<ScreenSource> = if (libavMonitors.isNotEmpty() || !cliFallbackEnabled()) {
+            libavMonitors
+        } else {
+            subprocessMonitors()
+        }
+        val windows = runCatching { windowEnumerator.listWindows() }.getOrDefault(emptyList())
+        monitors + windows
+    }
+
+    private fun subprocessMonitors(): List<ScreenSource> {
         val proc = ProcessBuilder(
             ffmpegPath,
             "-hide_banner",
@@ -39,10 +58,12 @@ internal class MacScreenSourceEnumerator(
         if (!proc.waitFor(LIST_TIMEOUT_S, TimeUnit.SECONDS)) {
             proc.destroyForcibly()
         }
-        val monitors = AvfoundationListParser.parse(output)
-        val windows = runCatching { windowEnumerator.listWindows() }.getOrDefault(emptyList())
-        monitors + windows
+        return AvfoundationListParser.parse(output)
     }
+
+    private fun cliFallbackEnabled(): Boolean =
+        System.getProperty("puklic.voice.encoder", "libav") == "cli" ||
+            System.getProperty("puklic.voice.source-enum-fallback", "true") == "true"
 
     private companion object {
         const val LIST_TIMEOUT_S = 5L
