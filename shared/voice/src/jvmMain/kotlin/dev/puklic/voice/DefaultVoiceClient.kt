@@ -8,7 +8,12 @@ import dev.puklic.voice.audio.audioCapture
 import dev.puklic.voice.audio.audioPlayback
 import dev.puklic.voice.audio.listAudioDevices
 import dev.puklic.voice.codec.OpusCodecFactory
+import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.crypto.xchacha20Poly1305
+import dev.puklic.voice.screenshare.DefaultScreenShareClient
+import dev.puklic.voice.screenshare.NoOpScreenShareClient
+import dev.puklic.voice.screenshare.ScreenShareClient
+import dev.puklic.voice.screenshare.source.screenSourceEnumerator
 import dev.puklic.voice.gateway.DefaultVoiceGatewayConnection
 import dev.puklic.voice.gateway.VoiceGatewayConnection
 import dev.puklic.voice.gateway.VoiceGatewayEvent
@@ -95,6 +100,14 @@ public class DefaultVoiceClient(
     private val _devices = MutableStateFlow<List<AudioDevice>>(emptyList())
     override val devices: StateFlow<List<AudioDevice>> = _devices.asStateFlow()
 
+    // Replaced with a [DefaultScreenShareClient] once SessionDescription arrives, reset to
+    // [NoOpScreenShareClient] on disconnect. Backing field is `@Volatile` because the
+    // gateway event collector writes it from a session coroutine while UI reads from main.
+    @Volatile
+    private var screenShareImpl: ScreenShareClient = NoOpScreenShareClient()
+    override val screenShare: ScreenShareClient
+        get() = screenShareImpl
+
     private val mutex = Mutex()
 
     // Active session resources — null when Idle.
@@ -109,6 +122,7 @@ public class DefaultVoiceClient(
     private var activeGuildId: GuildId? = null
     private var activeChannelId: ChannelId? = null
     private var activeSsrc: Int = 0
+    private var activeVideoSsrc: Int = 0
 
     // SSRC ↔ UserId resolver, populated from Op 5 Speaking server events.
     private val ssrcToUser = ConcurrentHashMap<Int, UserId>()
@@ -191,6 +205,7 @@ public class DefaultVoiceClient(
                 is VoiceGatewayEvent.Ready -> {
                     ssrc = ev.ssrc
                     activeSsrc = ssrc
+                    activeVideoSsrc = ev.videoSsrc
                     runCatching { openUdpAndDiscover(gw, ev.ip, ev.port, ssrc, endpointHost) }
                         .onSuccess { udpReady = true }
                         .onFailure { t ->
@@ -202,6 +217,7 @@ public class DefaultVoiceClient(
                     aeadKey = ev.secretKey
                     if (udpReady) {
                         startPipelines(ssrc, ev.secretKey)
+                        installScreenShareClient(ev.secretKey)
                         emitConnected()
                     }
                 }
@@ -271,6 +287,22 @@ public class DefaultVoiceClient(
         play.start(scope)
     }
 
+    private fun installScreenShareClient(secretKey: ByteArray) {
+        val scope = sessionScope ?: return
+        val udpT = udp ?: return
+        val gw = voiceGateway ?: return
+        screenShareImpl = DefaultScreenShareClient(
+            voiceGateway = gw,
+            packetEncryptor = xchacha20Poly1305(secretKey),
+            nonceGen = NonceGenerator(VIDEO_NONCE_INITIAL),
+            udpTransport = udpT,
+            getAudioSsrc = { activeSsrc },
+            getVideoSsrc = { activeVideoSsrc },
+            enumerator = screenSourceEnumerator(),
+            scope = scope,
+        )
+    }
+
     private fun updateSpeakers(activeSsrcs: Set<Int>) {
         val current = _state.value
         if (current !is VoiceState.Connected) return
@@ -293,6 +325,8 @@ public class DefaultVoiceClient(
     override suspend fun disconnect(): Unit = mutex.withLock {
         if (_state.value is VoiceState.Idle) return
         val guildId = activeGuildId
+        runCatching { screenShareImpl.stop() }
+        screenShareImpl = NoOpScreenShareClient()
         runCatching { capture?.stop() }
         runCatching { playback?.stop() }
         runCatching { voiceGateway?.close() }
@@ -319,6 +353,7 @@ public class DefaultVoiceClient(
         packetCodec = null
         activeGuildId = null
         activeChannelId = null
+        activeVideoSsrc = 0
         ssrcToUser.clear()
         sessionScope?.cancel()
         sessionScope = null
@@ -390,5 +425,10 @@ public class DefaultVoiceClient(
         const val TAG = "DefaultVoiceClient"
         const val HANDSHAKE_TIMEOUT_MS = 10_000L
         const val AEAD_MODE = "aead_xchacha20_poly1305_rtpsize"
+
+        // Video uses a separate AEAD cipher instance (a fresh [NonceGenerator]). Both audio
+        // and video share the same 32 B SessionDescription key but increment independent
+        // counters because they target separate SSRCs (architect report screenshare §5).
+        const val VIDEO_NONCE_INITIAL = 0
     }
 }

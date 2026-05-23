@@ -3,6 +3,7 @@ package dev.puklic.voice
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.UserId
+import dev.puklic.voice.screenshare.ScreenShareClient
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -53,6 +54,7 @@ public sealed interface VoiceState {
 public interface VoiceClient {
     public val state: StateFlow<VoiceState>
     public val devices: StateFlow<List<AudioDevice>>
+    public val screenShare: ScreenShareClient
     public suspend fun connect(guildId: GuildId, channelId: ChannelId)
     public suspend fun disconnect()
     public fun setSelfMute(muted: Boolean)

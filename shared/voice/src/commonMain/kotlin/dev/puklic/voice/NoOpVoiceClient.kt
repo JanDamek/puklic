@@ -2,6 +2,8 @@ package dev.puklic.voice
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.voice.screenshare.NoOpScreenShareClient
+import dev.puklic.voice.screenshare.ScreenShareClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -20,6 +22,8 @@ public class NoOpVoiceClient : VoiceClient {
 
     private val _devices = MutableStateFlow<List<AudioDevice>>(emptyList())
     override val devices: StateFlow<List<AudioDevice>> = _devices.asStateFlow()
+
+    override val screenShare: ScreenShareClient = NoOpScreenShareClient()
 
     override suspend fun connect(guildId: GuildId, channelId: ChannelId) { /* no-op */ }
     override suspend fun disconnect() { /* no-op */ }
