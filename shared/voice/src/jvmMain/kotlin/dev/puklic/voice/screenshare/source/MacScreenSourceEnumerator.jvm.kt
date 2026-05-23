@@ -9,14 +9,21 @@ import java.util.concurrent.TimeUnit
 /**
  * macOS implementation: spawns `ffmpeg -f avfoundation -list_devices true -i ""` and parses
  * its stderr (merged into stdout via `redirectErrorStream`) for entries in the video section
- * that look like display captures.
+ * that look like display captures. Window enumeration is layered on top via `osascript` —
+ * see [AppleScriptWindowEnumerator] and architect report
+ * `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md` §7.
  *
- * Per architect report `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md` §7.
  * `ffmpeg -list_devices` exits non-zero (1) because the empty `-i ""` is invalid input — that's
  * expected and harmless; we read the listing from the merged stream before the process exits.
+ *
+ * NOTE on window capture: avfoundation cannot capture an individual window by id; the encoder
+ * falls back to fullscreen capture of monitor 0 when the chosen source is a [ScreenSource.Window].
+ * The picker still exposes the list so users can pick by window; precise per-window capture is
+ * deferred until a ScreenCaptureKit-based input lands (Phase 4.0.2).
  */
 internal class MacScreenSourceEnumerator(
     private val ffmpegPath: String = FfmpegVideoEncoder.locateFfmpeg(),
+    private val windowEnumerator: WindowEnumerator = AppleScriptWindowEnumerator(),
 ) : ScreenSourceEnumerator {
 
     override suspend fun list(): List<ScreenSource> = withContext(Dispatchers.IO) {
@@ -32,11 +39,103 @@ internal class MacScreenSourceEnumerator(
         if (!proc.waitFor(LIST_TIMEOUT_S, TimeUnit.SECONDS)) {
             proc.destroyForcibly()
         }
-        AvfoundationListParser.parse(output)
+        val monitors = AvfoundationListParser.parse(output)
+        val windows = runCatching { windowEnumerator.listWindows() }.getOrDefault(emptyList())
+        monitors + windows
     }
 
     private companion object {
         const val LIST_TIMEOUT_S = 5L
+    }
+}
+
+/** Pluggable window enumerator — separated for testability. */
+internal interface WindowEnumerator {
+    fun listWindows(): List<ScreenSource.Window>
+}
+
+/**
+ * Enumerates visible application windows via `osascript`. Requires "Automation" permission for
+ * the host JVM binary on first run (user is prompted by the OS). On non-mac hosts or when the
+ * permission is denied, returns an empty list.
+ */
+internal class AppleScriptWindowEnumerator(
+    private val timeoutSeconds: Long = OSASCRIPT_TIMEOUT_S,
+) : WindowEnumerator {
+
+    override fun listWindows(): List<ScreenSource.Window> {
+        if (!System.getProperty("os.name").orEmpty().startsWith("Mac")) return emptyList()
+        val proc = ProcessBuilder(
+            "osascript",
+            "-e", "tell application \"System Events\"",
+            "-e", "set winList to {}",
+            "-e", "repeat with proc in (application processes whose visible is true)",
+            "-e", "  try",
+            "-e", "    repeat with win in (windows of proc)",
+            "-e", "      try",
+            "-e", "        set winName to name of win",
+            "-e", "        if winName is not \"\" then set end of winList to " +
+                "(name of proc) & \"|\" & winName",
+            "-e", "      end try",
+            "-e", "    end repeat",
+            "-e", "  end try",
+            "-e", "end repeat",
+            "-e", "return winList",
+            "-e", "end tell",
+        ).redirectErrorStream(true).start()
+
+        val out = proc.inputStream.bufferedReader().use { it.readText() }
+        if (!proc.waitFor(timeoutSeconds, TimeUnit.SECONDS)) {
+            proc.destroyForcibly()
+            return emptyList()
+        }
+        if (proc.exitValue() != 0) return emptyList()
+        return AppleScriptWindowParser.parse(out)
+    }
+
+    private companion object {
+        const val OSASCRIPT_TIMEOUT_S = 4L
+    }
+}
+
+/**
+ * Parses the raw output of the AppleScript window-listing snippet into [ScreenSource.Window]s.
+ * Input form: comma-space-separated `App|Title` records, e.g. `"Safari|Apple, Terminal|zsh"`.
+ *
+ * The parser is intentionally simple: it splits on `, `, then each piece must contain a single
+ * `|` separating non-empty app and title halves. Records with commas inside titles will lose
+ * those titles — accepted as a v1 trade-off (see architect report 4.0.1).
+ *
+ * Ids are synthetic (`win:<index>`) because avfoundation cannot capture by window id; the
+ * encoder treats a window source as a fullscreen fallback (monitor 0).
+ */
+internal object AppleScriptWindowParser {
+    private const val ID_PREFIX = "win:"
+    private const val SEPARATOR = "|"
+    private const val RECORD_DELIMITER = ", "
+    private const val UNKNOWN_DIMENSION = 0
+
+    fun parse(raw: String): List<ScreenSource.Window> {
+        val trimmed = raw.trim()
+        if (trimmed.isEmpty()) return emptyList()
+        return trimmed.split(RECORD_DELIMITER)
+            .mapNotNull { it.trim().takeIf { s -> s.isNotEmpty() } }
+            .mapIndexedNotNull { index, record -> toWindow(index, record) }
+    }
+
+    private fun toWindow(index: Int, record: String): ScreenSource.Window? {
+        val pipe = record.indexOf(SEPARATOR)
+        if (pipe <= 0 || pipe == record.length - 1) return null
+        val app = record.substring(0, pipe).trim()
+        val title = record.substring(pipe + 1).trim()
+        if (app.isEmpty() || title.isEmpty()) return null
+        return ScreenSource.Window(
+            id = "$ID_PREFIX$index",
+            displayName = title,
+            appName = app,
+            widthPx = UNKNOWN_DIMENSION,
+            heightPx = UNKNOWN_DIMENSION,
+        )
     }
 }
 

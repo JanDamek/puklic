@@ -69,7 +69,10 @@ is deferred to 4.1.
 
 - [ ] xdg-desktop-portal D-Bus binding (4.1, Wayland)
 - [ ] PipeWire stream capture (4.1, Wayland; macOS uses AVFoundation via ffmpeg, captured 2026-05-23)
-- [~] Window picker (via portal RequestScreenCast) — deferred to 4.0.1; monitor-only picker shipped
+- [x] Window picker (macOS via `osascript` enumeration, 4.0.1) — picker shows windows in a
+      second tab; capture currently falls back to fullscreen of monitor 0 because avfoundation
+      has no per-window input. Per-window capture via ScreenCaptureKit is deferred to 4.0.2.
+      Linux Wayland window picker via portal RequestScreenCast remains in 4.1.
 - [x] Monitor picker (ScreenSharePickerDialog, slice 6)
 - [x] H.264 encoder (libx264 via ffmpeg subprocess; slice 3)
 - [ ] VP8 encoder (Linux 4.1)

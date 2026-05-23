@@ -14,12 +14,15 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.DesktopWindows
+import androidx.compose.material.icons.outlined.Window
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Tab
+import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -51,8 +54,13 @@ public fun ScreenSharePickerDialog(
     onShare: (ScreenSource, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    val monitors = remember(sources) { sources.filterIsInstance<ScreenSource.Monitor>() }
+    val windows = remember(sources) { sources.filterIsInstance<ScreenSource.Window>() }
+    var selectedTab by remember { mutableStateOf(if (monitors.isNotEmpty()) 0 else 1) }
     var selected by remember { mutableStateOf<ScreenSource?>(sources.firstOrNull()) }
     var shareAudio by remember { mutableStateOf(false) }
+
+    val visibleSources = if (selectedTab == 0) monitors else windows
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -65,13 +73,47 @@ public fun ScreenSharePickerDialog(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
+                    TabRow(selectedTabIndex = selectedTab) {
+                        Tab(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            text = { Text("Screens (${monitors.size})") },
+                            icon = {
+                                Icon(Icons.Outlined.DesktopWindows, contentDescription = null)
+                            },
+                        )
+                        Tab(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            text = { Text("Windows (${windows.size})") },
+                            icon = {
+                                Icon(Icons.Outlined.Window, contentDescription = null)
+                            },
+                        )
+                    }
+                    if (selectedTab == 1 && windows.isEmpty()) {
+                        Text(
+                            text = "No windows detected. Grant Automation permission in System " +
+                                "Settings → Privacy & Security → Automation if prompted.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    if (selectedTab == 1) {
+                        Text(
+                            text = "Window capture currently falls back to fullscreen of the " +
+                                "primary monitor (v1 limitation).",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     LazyVerticalGrid(
                         columns = GridCells.Adaptive(GRID_CELL_MIN_DP.dp),
                         modifier = Modifier.fillMaxWidth().heightIn(max = GRID_MAX_HEIGHT_DP.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        items(sources, key = { it.id }) { source ->
+                        items(visibleSources, key = { it.id }) { source ->
                             SourceCard(
                                 source = source,
                                 selected = selected?.id == source.id,
@@ -125,7 +167,8 @@ private fun SourceCard(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Icon(
-                imageVector = Icons.Outlined.DesktopWindows,
+                imageVector = if (source is ScreenSource.Window) Icons.Outlined.Window
+                else Icons.Outlined.DesktopWindows,
                 contentDescription = null,
                 modifier = Modifier.size(40.dp),
                 tint = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
@@ -139,6 +182,16 @@ private fun SourceCard(
                 color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (source is ScreenSource.Window) {
+                Text(
+                    text = source.appName,
+                    style = MaterialTheme.typography.labelSmall,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
         }
     }
 }

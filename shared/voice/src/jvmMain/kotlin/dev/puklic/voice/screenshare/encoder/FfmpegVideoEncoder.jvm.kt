@@ -166,7 +166,14 @@ internal class FfmpegVideoEncoder(
             framerate: Int,
         ): List<String> {
             val audioSpec = if (shareAudio) BLACKHOLE_DEVICE_NAME else "none"
-            val avInput = "${source.id}:$audioSpec"
+            // avfoundation cannot capture a single window by id (no window: input). When the
+            // user picks a window from the picker, we fall back to capturing monitor 0 — see
+            // architect report 4.0.1. Monitor sources keep their original avfoundation index.
+            val videoIndex = when (source) {
+                is ScreenSource.Window -> WINDOW_FALLBACK_MONITOR_INDEX
+                else -> source.id
+            }
+            val avInput = "$videoIndex:$audioSpec"
             return listOf(
                 "-f", "avfoundation",
                 "-capture_cursor", "1",
@@ -194,6 +201,7 @@ internal class FfmpegVideoEncoder(
         private const val X264_PARAMS = "keyint=60:min-keyint=60:scenecut=0:repeat-headers=1"
         private const val BUFSIZE_DIVISOR = 2
         private const val BLACKHOLE_DEVICE_NAME = "blackhole-2ch"
+        private const val WINDOW_FALLBACK_MONITOR_INDEX = "0"
     }
 }
 

@@ -186,3 +186,17 @@ Linux/Wayland portal + PipeWire = Phase 4.1.
 3. **No NACK / single MTU** — Wi-Fi loss → visible artifacts. Acceptable v1; document. RTX → 4.2.
 4. **Nonce-counter shared audio+video** — ~200 pps combined; wrap at 2^32 ≈ 0.68 yr. Phase 3 disconnect-on-wrap remains on combined counter.
 5. **Ffmpeg version skew** — `-f pipewire` requires ≥ 6.1. Minimum supported ffmpeg = 6.1; gate at startup.
+
+## 12. Addendum 4.0.1 — macOS window picker (2026-05-23)
+
+Slice 4 originally landed monitors-only. 4.0.1 adds window enumeration on macOS:
+
+- `AppleScriptWindowEnumerator` runs `osascript` and returns visible `App|Title` records
+- `AppleScriptWindowParser` (pure, unit-tested) turns the raw text into
+  `ScreenSource.Window` entries with synthetic ids (`win:<index>`)
+- `ScreenSharePickerDialog` gains a Screens / Windows tab pair
+- Capture limitation: avfoundation has no per-window input, so when the user picks a window
+  the encoder falls back to fullscreen capture of monitor 0. The picker shows a small
+  caption noting this. Per-window capture via ScreenCaptureKit is deferred to 4.0.2.
+- Privacy: `osascript` against `System Events` requires Automation permission; on first run
+  macOS prompts. Denial → empty window list (graceful).
