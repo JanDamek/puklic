@@ -33,9 +33,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Clone libdave
+      - name: Clone libdave (with vcpkg submodule)
         shell: bash
-        run: git clone --depth 1 https://github.com/discord/libdave.git libdave
+        run: |
+          git clone --depth 1 --recurse-submodules --shallow-submodules \
+            https://github.com/discord/libdave.git libdave
+          ls libdave/cpp/vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Linux build deps
         if: startsWith(matrix.os, 'ubuntu')
