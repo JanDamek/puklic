@@ -1,6 +1,11 @@
 package dev.puklic.desktop
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
@@ -11,7 +16,11 @@ import coil3.ImageLoader
 import coil3.SingletonImageLoader
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.crossfade
+import dev.puklic.desktop.crash.CrashReporter
+import dev.puklic.desktop.logging.LoggingBootstrap
+import dev.puklic.desktop.update.UpdateBanner
 import dev.puklic.ui.PuklicApp
+import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.awt.Taskbar
 import javax.imageio.ImageIO
@@ -25,6 +34,8 @@ private const val DOCK_ICON_RESOURCE: String = "icons/puklic-512.png"
  * (480×600 per `docs/04_ui/adaptive-layouts.md`).
  */
 public fun main(): Unit = application {
+    LoggingBootstrap.install()
+    CrashReporter.install()
     configureDockIcon()
     val graph = remember { DependencyGraph.create() }
     SingletonImageLoader.setSafe { context ->
@@ -41,12 +52,22 @@ public fun main(): Unit = application {
         icon = painterResource(WINDOW_ICON_RESOURCE),
     ) {
         window.minimumSize = Dimension(480, 600)
-        PuklicApp(
-            root = graph.rootComponent,
-            mentionResolver = graph.mentionResolver,
-            emojiResolver = graph.emojiResolver,
-            platformOpen = graph.platformOpen,
-        )
+        val update by graph.updateScheduler.update.collectAsState()
+        Column(modifier = Modifier.fillMaxSize()) {
+            UpdateBanner(
+                update = update,
+                onOpenRelease = { url ->
+                    graph.applicationScope.launch { graph.platformOpen.openUrl(url) }
+                },
+                onDismiss = { graph.updateScheduler.dismiss() },
+            )
+            PuklicApp(
+                root = graph.rootComponent,
+                mentionResolver = graph.mentionResolver,
+                emojiResolver = graph.emojiResolver,
+                platformOpen = graph.platformOpen,
+            )
+        }
     }
 }
 

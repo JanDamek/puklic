@@ -50,6 +50,8 @@ import dev.puklic.ui.resolvers.CdnEmojiResolver
 import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.MentionResolver
 import dev.puklic.ui.resolvers.RepositoryMentionResolver
+import dev.puklic.desktop.update.UpdateChecker
+import dev.puklic.desktop.update.UpdateCheckerScheduler
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
@@ -97,6 +99,7 @@ public class DependencyGraph private constructor(
     public val database: PuklicDatabase,
     public val mentionResolver: MentionResolver,
     public val emojiResolver: EmojiResolver,
+    public val updateScheduler: UpdateCheckerScheduler,
 ) {
     public companion object {
         public fun create(): DependencyGraph {
@@ -173,6 +176,17 @@ public class DependencyGraph private constructor(
                 applicationScope.launch { runAutoTest(sessionManager) }
             }
 
+            // Opt-in update check via GitHub Releases API. Default ON; user can disable later
+            // via `puklic.update.autoCheck` system property (set false) without restart logic
+            // needing to change — the scheduler re-reads `enabled()` on every tick.
+            val updateChecker = UpdateChecker(httpClient)
+            val updateScheduler = UpdateCheckerScheduler(
+                checker = updateChecker,
+                scope = applicationScope,
+                enabled = { System.getProperty("puklic.update.autoCheck", "true") != "false" },
+            )
+            updateScheduler.start()
+
             return DependencyGraph(
                 applicationScope = applicationScope,
                 platformPaths = paths,
@@ -184,6 +198,7 @@ public class DependencyGraph private constructor(
                 database = database,
                 mentionResolver = RepositoryMentionResolver(userStore, channelStore),
                 emojiResolver = CdnEmojiResolver,
+                updateScheduler = updateScheduler,
             )
         }
 
