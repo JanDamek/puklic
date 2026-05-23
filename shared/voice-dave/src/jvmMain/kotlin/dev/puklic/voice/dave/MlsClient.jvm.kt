@@ -273,7 +273,7 @@ internal class WireMlsClient : MlsClient {
  * dylibs are produced by CI and the frame-crypto path (Encryptor / Decryptor +
  * KeyRatchet wiring) is integrated into the capture/playback pipelines.
  */
-internal actual fun mlsClient(): MlsClient {
+public actual fun mlsClient(): MlsClient {
     val explicit = System.getProperty("puklic.voice.dave.backend")
     val backend = explicit ?: defaultBackendForHost()
     return when (backend.lowercase()) {
@@ -284,15 +284,12 @@ internal actual fun mlsClient(): MlsClient {
 }
 
 /**
- * Default backend selection. libdave only bundles a macOS arm64 dylib so far,
- * so we default to it there (byte-compatible with Discord) and fall back to
- * Wire core-crypto elsewhere. Phase 3.2 follow-up: produce Linux + Windows
- * dylibs in CI and unconditionally default to libdave.
+ * Default backend selection. Prefer libdave (byte-compatible with Discord) on
+ * any platform where a native library is bundled as a JAR resource at
+ * `/libdave/<os>-<arch>/<base><ext>`; otherwise fall back to Wire core-crypto.
+ *
+ * Native libraries for additional platforms are produced by the
+ * `.github/workflows/build-libdave.yml` CI matrix.
  */
-private fun defaultBackendForHost(): String {
-    val os = System.getProperty("os.name", "").lowercase()
-    val arch = System.getProperty("os.arch", "").lowercase()
-    val isMac = "mac" in os || "darwin" in os
-    val isArm64 = arch == "aarch64" || arch == "arm64"
-    return if (isMac && isArm64) "libdave" else "wire"
-}
+private fun defaultBackendForHost(): String =
+    if (LibdaveLoader.isBundledForCurrentPlatform()) "libdave" else "wire"
