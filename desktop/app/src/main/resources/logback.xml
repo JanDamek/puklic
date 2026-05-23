@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="false">
+    <!--
+        Puklic logging config.
+        LOG_DIR is set programmatically at startup by dev.puklic.desktop.logging.LoggingBootstrap
+        as the system property "puklic.log.dir". On macOS that's ~/Library/Logs/Puklic,
+        on Linux ${XDG_DATA_HOME:-~/.local/share}/puklic/logs, on Windows %LOCALAPPDATA%/Puklic/logs.
+        A safe fallback (~/.puklic/logs) is used if the property is unset (e.g. tests).
+    -->
+    <property name="LOG_DIR" value="${puklic.log.dir:-${user.home}/.puklic/logs}"/>
+
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <layout class="dev.puklic.desktop.logging.RedactingPatternLayout">
+                <pattern>%d{HH:mm:ss.SSS} %-5level [%logger{20}] %msg%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_DIR}/puklic.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_DIR}/puklic-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>10MB</maxFileSize>
+            <maxHistory>14</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
+        </rollingPolicy>
+        <encoder>
+            <layout class="dev.puklic.desktop.logging.RedactingPatternLayout">
+                <pattern>%d{ISO8601} [%thread] %-5level [%logger] - %msg%n</pattern>
+            </layout>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
+    </root>
+
+    <logger name="dev.puklic" level="DEBUG"/>
+    <logger name="io.ktor" level="WARN"/>
+</configuration>

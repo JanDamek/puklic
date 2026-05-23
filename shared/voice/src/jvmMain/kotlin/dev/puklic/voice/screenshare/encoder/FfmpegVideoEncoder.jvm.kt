@@ -1,5 +1,6 @@
 package dev.puklic.voice.screenshare.encoder
 
+import co.touchlab.kermit.Logger
 import dev.puklic.voice.screenshare.ScreenSource
 import dev.puklic.voice.transport.EncodedFrame
 import kotlinx.coroutines.Dispatchers
@@ -59,9 +60,7 @@ internal class FfmpegVideoEncoder(
                     if (line.contains("error", ignoreCase = true) ||
                         line.contains("fatal", ignoreCase = true)
                     ) {
-                        // TODO(phase-4.1): route via Kermit logger.
-                        @Suppress("ForbiddenComment")
-                        println("ffmpeg: $line")
+                        Logger.w("FfmpegVideoEncoder") { "ffmpeg: $line" }
                     }
                 }
             }

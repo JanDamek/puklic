@@ -33,13 +33,19 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(compose.desktop.currentOs)
+    implementation(compose.material3)
+    implementation(compose.materialIconsExtended)
     implementation(libs.coil)
     implementation(libs.coil.core)
     implementation(libs.coil.network.ktor3)
     implementation(libs.kermit)
+    implementation(libs.slf4j.api)
+    implementation(libs.logback.classic)
     testImplementation(libs.kotest.assertions.core)
+    testImplementation(libs.logback.classic)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation(libs.ktor.client.mock)
 }
 
 compose.desktop {
