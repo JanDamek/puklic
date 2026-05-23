@@ -27,6 +27,7 @@ internal class KtorVoiceGatewayTransport(
             session.incoming.consumeEach { frame ->
                 val mapped: VoiceFrameIn? = when (frame) {
                     is Frame.Text -> VoiceFrameIn.Text(frame.readText())
+                    is Frame.Binary -> VoiceFrameIn.Binary(frame.data)
                     is Frame.Close -> {
                         val reason = frame.readReason()
                         VoiceFrameIn.Close(
@@ -47,6 +48,10 @@ internal class KtorVoiceGatewayTransport(
 
     override suspend fun sendText(text: String) {
         session.send(Frame.Text(text))
+    }
+
+    override suspend fun sendBinary(bytes: ByteArray) {
+        session.send(Frame.Binary(true, bytes))
     }
 
     override suspend fun close(code: Int, reason: String) {

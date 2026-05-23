@@ -12,7 +12,7 @@ package dev.puklic.voice.dave.gateway
  *   binary = `(seq:u16 BE)(op:u8) || MLS bytes` on the WS binary channel
  *            (see [DaveBinaryFrame]).
  */
-internal object DaveOp {
+public object DaveOp {
     /** S→C JSON `{ protocol_version, transition_id }`. */
     const val PROTOCOL_PREPARE_TRANSITION: Int = 21
 

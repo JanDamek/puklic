@@ -230,6 +230,14 @@ class DefaultScreenShareClientTest {
         override suspend fun sendVideoStream(audioSsrc: Int, videoSsrc: Int, rtxSsrc: Int, active: Boolean) {
             videoStreams += VideoStreamCall(audioSsrc, videoSsrc, rtxSsrc, active)
         }
+        override suspend fun sendBinary(bytes: ByteArray) { /* no-op for screenshare tests */ }
+        override suspend fun sendDaveJson(op: Int, jsonBody: String) { /* no-op */ }
+        override fun setDaveBinaryHandler(
+            handler: suspend (op: Int, payload: ByteArray) -> Unit,
+        ) { /* no-op */ }
+        override fun setDaveJsonHandler(
+            handler: suspend (op: Int, body: kotlinx.serialization.json.JsonElement) -> Unit,
+        ) { /* no-op */ }
         override suspend fun close() {}
     }
 }

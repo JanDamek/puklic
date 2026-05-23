@@ -26,6 +26,7 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     val devices by voiceClient.devices.collectAsState()
     val screenShareState by voiceClient.screenShare.state.collectAsState()
     val incomingVideo by voiceClient.incomingVideo.collectAsState()
+    val daveState by voiceClient.daveState.collectAsState()
     var settingsOpen by remember { mutableStateOf(false) }
     var pickerOpen by remember { mutableStateOf(false) }
     var pickerSources by remember { mutableStateOf<List<ScreenSource>>(emptyList()) }
@@ -60,6 +61,7 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
             }
         },
         onScreenShareStop = { scope.launch { voiceClient.screenShare.stop() } },
+        daveState = daveState,
         )
     }
 

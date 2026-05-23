@@ -28,6 +28,9 @@ public class NoOpVoiceClient : VoiceClient {
     private val _incomingVideo = MutableStateFlow<Map<Int, IncomingVideoFrame>>(emptyMap())
     override val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>> = _incomingVideo.asStateFlow()
 
+    private val _daveState = MutableStateFlow<DaveUiState>(DaveUiState.Off)
+    override val daveState: StateFlow<DaveUiState> = _daveState.asStateFlow()
+
     override suspend fun connect(guildId: GuildId, channelId: ChannelId) { /* no-op */ }
     override suspend fun disconnect() { /* no-op */ }
     override fun setSelfMute(muted: Boolean) { /* no-op */ }

@@ -20,10 +20,11 @@ internal object VoiceOp {
     const val VIDEO_STREAM: Int = 12
     const val CLIENT_DISCONNECT: Int = 13
 
-    // DAVE — not implemented in Phase 3.0, reserved for 3.1+.
-    const val DAVE_PREPARE_TRANSITION: Int = 14
-    const val DAVE_EXECUTE_TRANSITION: Int = 15
-    const val DAVE_TRANSITION_READY: Int = 16
-    const val DAVE_PREPARE_EPOCH: Int = 17
-    const val DAVE_MLS_EXTERNAL_SENDER: Int = 18
+    // DAVE — verified opcodes 21-31 (see architect report 2026-05-23-dave-e2ee.md §5).
+    // The original 14-18 placeholders were inaccurate guesses; the public-facing
+    // constants live in :shared:voice-dave's DaveOp object. This range below is the
+    // routing window recognised by DefaultVoiceGatewayConnection for JSON DAVE ops.
+    const val DAVE_JSON_MIN: Int = 21
+    const val DAVE_JSON_MAX: Int = 24
+    const val DAVE_MLS_INVALID_COMMIT_WELCOME: Int = 31
 }

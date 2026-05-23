@@ -44,7 +44,7 @@ import kotlinx.serialization.json.jsonPrimitive
  * support — the call falls back to non-DAVE per-hop AEAD only.
  */
 @Suppress("LongParameterList")
-internal class DaveSession(
+public class DaveSession(
     private val mlsClient: MlsClient,
     private val channelId: String,
     private val userId: String,
@@ -174,6 +174,11 @@ internal class DaveSession(
         groupId = null
         mlsClient.init(userId)
         _state.value = State.Initialized
+    }
+
+    /** Release the underlying MLS client + native handles. Idempotent. */
+    fun close() {
+        runCatching { mlsClient.close() }
     }
 
     sealed interface State {

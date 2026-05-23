@@ -14,7 +14,7 @@ package dev.puklic.voice.dave.gateway
  *
  * Source: architect report `2026-05-23-dave-e2ee.md` §5.
  */
-internal object DaveBinaryFrame {
+public object DaveBinaryFrame {
 
     /** Smallest valid frame = 2 B seq + 1 B op + (>=0 B payload). */
     private const val HEADER_LEN: Int = 3

@@ -10,6 +10,11 @@ import dev.puklic.voice.audio.listAudioDevices
 import dev.puklic.voice.codec.OpusCodecFactory
 import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.crypto.xchacha20Poly1305
+import dev.puklic.voice.dave.DaveSession
+import dev.puklic.voice.dave.FrameDecryptor
+import dev.puklic.voice.dave.FrameEncryptor
+import dev.puklic.voice.dave.gateway.DaveBinaryFrame
+import dev.puklic.voice.dave.mlsClient
 import dev.puklic.voice.screenshare.DefaultScreenShareClient
 import dev.puklic.voice.screenshare.NoOpScreenShareClient
 import dev.puklic.voice.screenshare.ScreenShareClient
@@ -38,6 +43,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -105,6 +111,9 @@ public class DefaultVoiceClient(
     private val _incomingVideo = MutableStateFlow<Map<Int, IncomingVideoFrame>>(emptyMap())
     override val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>> = _incomingVideo.asStateFlow()
 
+    private val _daveState = MutableStateFlow<DaveUiState>(DaveUiState.Off)
+    override val daveState: StateFlow<DaveUiState> = _daveState.asStateFlow()
+
     // Replaced with a [DefaultScreenShareClient] once SessionDescription arrives, reset to
     // [NoOpScreenShareClient] on disconnect. Backing field is `@Volatile` because the
     // gateway event collector writes it from a session coroutine while UI reads from main.
@@ -132,6 +141,12 @@ public class DefaultVoiceClient(
     private var activeChannelId: ChannelId? = null
     private var activeSsrc: Int = 0
     private var activeVideoSsrc: Int = 0
+
+    private var daveSession: DaveSession? = null
+    private val daveSeq = AtomicInteger(0)
+    private var daveStateCollectorJob: Job? = null
+    private val daveEncryptors = ConcurrentHashMap<Int, FrameEncryptor>()
+    private val daveDecryptors = ConcurrentHashMap<Long, FrameDecryptor>()
 
     // SSRC ↔ UserId resolver, populated from Op 5 Speaking server events.
     private val ssrcToUser = ConcurrentHashMap<Int, UserId>()
@@ -225,6 +240,9 @@ public class DefaultVoiceClient(
                 is VoiceGatewayEvent.SessionDescription -> {
                     aeadKey = ev.secretKey
                     if (udpReady) {
+                        if (ev.daveProtocolVersion > 0) {
+                            initDaveSession(ssrc)
+                        }
                         startPipelines(ssrc, ev.secretKey)
                         installScreenShareClient(ev.secretKey)
                         emitConnected()
@@ -275,6 +293,25 @@ public class DefaultVoiceClient(
         dispatcher.start(scope)
 
         val encoder = OpusCodecFactory.createEncoder()
+        val daveSess = daveSession
+        val captureDaveHook: (suspend (ByteArray) -> ByteArray)? = daveSess?.let { sess ->
+            { opus ->
+                val enc = encryptorFor(sess, ssrc)
+                enc?.encrypt(opus) ?: opus
+            }
+        }
+        val playbackDaveHook: (suspend (ssrc: Int, ByteArray) -> ByteArray?)? = daveSess?.let { sess ->
+            { remoteSsrc, ciphertext ->
+                val uid = ssrcToUser[remoteSsrc]?.value?.toString()
+                if (uid == null) {
+                    // Sender unknown yet — pass through (will be re-encrypted on next Op 5).
+                    ciphertext
+                } else {
+                    val dec = decryptorFor(sess, uid, remoteSsrc)
+                    dec?.decrypt(ciphertext) ?: ciphertext
+                }
+            }
+        }
         val cap = CapturePipeline(
             capture = audioCapture(),
             encoder = encoder,
@@ -285,6 +322,7 @@ public class DefaultVoiceClient(
             onSpeakingChange = { speaking ->
                 voiceGateway?.sendSpeaking(if (speaking) 1 else 0, ssrc)
             },
+            daveEncrypt = captureDaveHook,
         )
         val play = PlaybackPipeline(
             transport = udpT,
@@ -295,6 +333,7 @@ public class DefaultVoiceClient(
                 updateSpeakers(activeSsrcs)
             },
             packetSource = { dispatcher.audioPackets() },
+            daveDecrypt = playbackDaveHook,
         )
         capture = cap
         playback = play
@@ -316,6 +355,59 @@ public class DefaultVoiceClient(
                 }
             }
         }
+    }
+
+    private fun initDaveSession(ssrc: Int) {
+        val scope = sessionScope ?: return
+        val gw = voiceGateway ?: return
+        val channelId = activeChannelId?.value?.toString() ?: return
+        val userId = selfUserIdProvider()?.value?.toString() ?: return
+        val session = DaveSession(
+            mlsClient = mlsClient(),
+            channelId = channelId,
+            userId = userId,
+            sendBinary = { op, payload ->
+                val seq = daveSeq.getAndIncrement().toUShort()
+                gw.sendBinary(DaveBinaryFrame.write(seq, op, payload))
+            },
+            sendJson = { op, json ->
+                gw.sendDaveJson(op, json)
+            },
+        )
+        daveSession = session
+        gw.setDaveBinaryHandler { op, payload -> session.handleBinaryOp(op, payload) }
+        gw.setDaveJsonHandler { op, body -> session.handleJsonOp(op, body) }
+        // Init + collect state updates into the UI flow.
+        scope.launch { runCatching { session.init() } }
+        daveStateCollectorJob = scope.launch {
+            session.state.collect { st ->
+                _daveState.value = when (st) {
+                    DaveSession.State.Idle,
+                    DaveSession.State.Initialized,
+                    DaveSession.State.Reinitializing,
+                    is DaveSession.State.PreparingTransition,
+                    -> DaveUiState.Connecting
+                    is DaveSession.State.Active -> DaveUiState.Active(st.currentEpoch)
+                    is DaveSession.State.Disabled -> DaveUiState.Disabled(st.reason)
+                }
+            }
+        }
+        Logger.i(TAG) { "DAVE session initialized for ssrc=$ssrc channel=$channelId" }
+    }
+
+    private suspend fun encryptorFor(sess: DaveSession, ssrc: Int): FrameEncryptor? {
+        daveEncryptors[ssrc]?.let { return it }
+        val fresh = sess.frameEncryptor(ssrc) ?: return null
+        daveEncryptors[ssrc] = fresh
+        return fresh
+    }
+
+    private suspend fun decryptorFor(sess: DaveSession, userId: String, ssrc: Int): FrameDecryptor? {
+        val key = (ssrc.toLong() and 0xFFFFFFFFL) or (userId.hashCode().toLong() shl 32)
+        daveDecryptors[key]?.let { return it }
+        val fresh = sess.frameDecryptor(userId, ssrc) ?: return null
+        daveDecryptors[key] = fresh
+        return fresh
     }
 
     private fun installScreenShareClient(secretKey: ByteArray) {
@@ -363,6 +455,14 @@ public class DefaultVoiceClient(
         runCatching { incomingVideoPipeline?.stop() }
         runCatching { packetDispatcher?.stop() }
         runCatching { videoFramesCollectorJob?.cancel() }
+        runCatching { daveStateCollectorJob?.cancel() }
+        runCatching { daveEncryptors.values.forEach { it.close() } }
+        runCatching { daveDecryptors.values.forEach { it.close() } }
+        daveEncryptors.clear()
+        daveDecryptors.clear()
+        runCatching { daveSession?.close() }
+        daveSession = null
+        _daveState.value = DaveUiState.Off
         runCatching { voiceGateway?.close() }
         runCatching { udp?.close() }
         if (guildId != null) {

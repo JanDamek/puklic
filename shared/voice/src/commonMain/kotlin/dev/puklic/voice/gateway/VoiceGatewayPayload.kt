@@ -27,6 +27,7 @@ internal data class VoiceIdentify(
     @SerialName("user_id") val userId: String,
     @SerialName("session_id") val sessionId: String,
     val token: String,
+    @SerialName("max_dave_protocol_version") val maxDaveProtocolVersion: Int = 1,
 )
 
 @Serializable
@@ -100,6 +101,7 @@ internal data class Op12VideoStream(
 internal data class VoiceSessionDescription(
     val mode: String,
     @SerialName("secret_key") val secretKey: List<Int>,
+    @SerialName("dave_protocol_version") val daveProtocolVersion: Int? = null,
 )
 
 @Serializable

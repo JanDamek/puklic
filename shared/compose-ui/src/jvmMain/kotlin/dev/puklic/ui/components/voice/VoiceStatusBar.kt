@@ -14,6 +14,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Settings
@@ -30,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import dev.puklic.voice.DaveUiState
 import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
 
@@ -57,6 +60,7 @@ public fun VoiceStatusBar(
     onScreenSharePick: () -> Unit,
     onScreenShareStop: () -> Unit,
     modifier: Modifier = Modifier,
+    daveState: DaveUiState = DaveUiState.Off,
 ) {
     when (state) {
         is VoiceState.Idle -> Box(modifier = modifier)
@@ -72,6 +76,7 @@ public fun VoiceStatusBar(
             onScreenSharePick = onScreenSharePick,
             onScreenShareStop = onScreenShareStop,
             modifier = modifier,
+            daveState = daveState,
         )
         is VoiceState.Failed -> FailedBar(state.reason, onRetry, modifier)
     }
@@ -108,6 +113,7 @@ private fun ConnectedBar(
     onScreenSharePick: () -> Unit,
     onScreenShareStop: () -> Unit,
     modifier: Modifier,
+    daveState: DaveUiState = DaveUiState.Off,
 ) {
     val sharing = screenShareState is ScreenShareState.Active
     Column(
@@ -136,6 +142,7 @@ private fun ConnectedBar(
                 color = if (sharing) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            DaveLockIcon(daveState)
         }
         Row(
             modifier = Modifier.fillMaxWidth().height(36.dp),
@@ -182,6 +189,23 @@ private fun ConnectedBar(
             }
         }
     }
+}
+
+@Composable
+private fun DaveLockIcon(daveState: DaveUiState) {
+    val active = daveState is DaveUiState.Active
+    val description = when (daveState) {
+        is DaveUiState.Active -> "End-to-end encrypted (DAVE epoch ${daveState.epoch})"
+        is DaveUiState.Connecting -> "DAVE handshake in progress"
+        is DaveUiState.Disabled -> "DAVE disabled: ${daveState.reason}"
+        DaveUiState.Off -> "Not end-to-end encrypted"
+    }
+    Icon(
+        imageVector = if (active) Icons.Filled.Lock else Icons.Filled.LockOpen,
+        contentDescription = description,
+        tint = if (active) Color(0xFF22C55E) else MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.size(12.dp),
+    )
 }
 
 @Composable

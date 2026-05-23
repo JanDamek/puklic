@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.Flow
  */
 internal sealed interface VoiceFrameIn {
     data class Text(val text: String) : VoiceFrameIn
+    data class Binary(val bytes: ByteArray) : VoiceFrameIn
     data class Close(val code: Int, val reason: String) : VoiceFrameIn
 }
 
@@ -18,6 +19,7 @@ internal sealed interface VoiceFrameIn {
 internal interface VoiceGatewayTransport {
     val incoming: Flow<VoiceFrameIn>
     suspend fun sendText(text: String)
+    suspend fun sendBinary(bytes: ByteArray)
     suspend fun close(code: Int = NORMAL_CLOSURE, reason: String = "")
 
     companion object {

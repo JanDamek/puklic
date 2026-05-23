@@ -51,10 +51,17 @@ internal sealed interface VoiceGatewayEvent {
         val modes: List<String>,
         val videoSsrc: Int = 0,
     ) : VoiceGatewayEvent
-    data class SessionDescription(val mode: String, val secretKey: ByteArray) : VoiceGatewayEvent {
+    data class SessionDescription(
+        val mode: String,
+        val secretKey: ByteArray,
+        val daveProtocolVersion: Int = 0,
+    ) : VoiceGatewayEvent {
         override fun equals(other: Any?): Boolean =
-            other is SessionDescription && mode == other.mode && secretKey.contentEquals(other.secretKey)
-        override fun hashCode(): Int = 31 * mode.hashCode() + secretKey.contentHashCode()
+            other is SessionDescription && mode == other.mode &&
+                secretKey.contentEquals(other.secretKey) &&
+                daveProtocolVersion == other.daveProtocolVersion
+        override fun hashCode(): Int =
+            31 * (31 * mode.hashCode() + secretKey.contentHashCode()) + daveProtocolVersion
     }
     data class Speaking(val userId: String, val ssrc: Int, val flags: Int) : VoiceGatewayEvent
     data class ClientDisconnect(val userId: String) : VoiceGatewayEvent
@@ -67,6 +74,14 @@ internal interface VoiceGatewayConnection {
     suspend fun sendSelectProtocol(externalIp: String, externalPort: Int, mode: String)
     suspend fun sendSpeaking(speaking: Int, ssrc: Int)
     suspend fun sendVideoStream(audioSsrc: Int, videoSsrc: Int, rtxSsrc: Int, active: Boolean)
+    /** Send a raw binary frame (used for DAVE opcodes 25-30). */
+    suspend fun sendBinary(bytes: ByteArray)
+    /** Send a raw JSON envelope `{ "op": op, "d": <jsonBody> }` (used for DAVE 21-24, 31). */
+    suspend fun sendDaveJson(op: Int, jsonBody: String)
+    /** Install a handler for incoming DAVE binary frames (opcodes 25-30). */
+    fun setDaveBinaryHandler(handler: suspend (op: Int, payload: ByteArray) -> Unit)
+    /** Install a handler for incoming DAVE JSON ops (21-24, 31). */
+    fun setDaveJsonHandler(handler: suspend (op: Int, body: kotlinx.serialization.json.JsonElement) -> Unit)
     suspend fun close()
 }
 
@@ -104,6 +119,41 @@ internal class DefaultVoiceGatewayConnection(
     private var missedAcks: Int = 0
     private var heartbeatNonce: Long = 0
     private var ssrc: Int = 0
+
+    @Volatile
+    private var daveBinaryHandler: (suspend (op: Int, payload: ByteArray) -> Unit)? = null
+
+    @Volatile
+    private var daveJsonHandler: (suspend (op: Int, body: JsonElement) -> Unit)? = null
+
+    override fun setDaveBinaryHandler(handler: suspend (op: Int, payload: ByteArray) -> Unit) {
+        daveBinaryHandler = handler
+    }
+
+    override fun setDaveJsonHandler(handler: suspend (op: Int, body: JsonElement) -> Unit) {
+        daveJsonHandler = handler
+    }
+
+    override suspend fun sendBinary(bytes: ByteArray) {
+        val transport = activeTransport ?: run {
+            Logger.w(TAG) { "DAVE sendBinary skipped: no active transport" }
+            return
+        }
+        transport.sendBinary(bytes)
+    }
+
+    override suspend fun sendDaveJson(op: Int, jsonBody: String) {
+        val transport = activeTransport ?: run {
+            Logger.w(TAG) { "DAVE sendDaveJson skipped: no active transport" }
+            return
+        }
+        val body = JSON.parseToJsonElement(jsonBody)
+        val payload = buildJsonObject {
+            put("op", JsonPrimitive(op))
+            put("d", body)
+        }
+        transport.sendText(JSON.encodeToString(JsonElement.serializer(), payload))
+    }
 
     override suspend fun connect(
         endpoint: String,
@@ -253,6 +303,7 @@ internal class DefaultVoiceGatewayConnection(
         transport.incoming.collect { frame ->
             when (frame) {
                 is VoiceFrameIn.Text -> handleText(transport, frame.text)
+                is VoiceFrameIn.Binary -> handleBinary(frame.bytes)
                 is VoiceFrameIn.Close -> {
                     Logger.i(TAG) { "voice WS closed code=${frame.code} reason=${frame.reason}" }
                     closedCleanly = frame.code == VoiceGatewayTransport.NORMAL_CLOSURE
@@ -263,8 +314,32 @@ internal class DefaultVoiceGatewayConnection(
         return closedCleanly
     }
 
+    private suspend fun handleBinary(bytes: ByteArray) {
+        // DAVE binary frame layout: (seq:u16 BE)(op:u8) || MLS payload bytes.
+        if (bytes.size < DAVE_BINARY_HEADER_LEN) {
+            Logger.w(TAG) { "DAVE binary frame too short: ${bytes.size}" }
+            return
+        }
+        val op = bytes[2].toInt() and 0xFF
+        val payload = bytes.copyOfRange(DAVE_BINARY_HEADER_LEN, bytes.size)
+        daveBinaryHandler?.invoke(op, payload) ?: Logger.d(TAG) {
+            "DAVE binary op=$op received but no handler installed"
+        }
+    }
+
     private suspend fun handleText(transport: VoiceGatewayTransport, text: String) {
         val envelope = JSON.decodeFromString(VoiceFrame.serializer(), text)
+        // DAVE JSON ops (21-24, 31) — route to installed handler if any.
+        if (envelope.op in VoiceOp.DAVE_JSON_MIN..VoiceOp.DAVE_JSON_MAX ||
+            envelope.op == VoiceOp.DAVE_MLS_INVALID_COMMIT_WELCOME) {
+            val body = envelope.d
+            if (body != null) {
+                daveJsonHandler?.invoke(envelope.op, body) ?: Logger.d(TAG) {
+                    "DAVE json op=${envelope.op} received but no handler installed"
+                }
+            }
+            return
+        }
         when (envelope.op) {
             VoiceOp.HELLO -> {
                 val hello = JSON.decodeFromJsonElement(VoiceHello.serializer(), requireD(envelope))
@@ -290,7 +365,13 @@ internal class DefaultVoiceGatewayConnection(
             VoiceOp.SESSION_DESCRIPTION -> {
                 val sd = JSON.decodeFromJsonElement(VoiceSessionDescription.serializer(), requireD(envelope))
                 val key = ByteArray(sd.secretKey.size) { sd.secretKey[it].toByte() }
-                _events.tryEmit(VoiceGatewayEvent.SessionDescription(sd.mode, key))
+                _events.tryEmit(
+                    VoiceGatewayEvent.SessionDescription(
+                        mode = sd.mode,
+                        secretKey = key,
+                        daveProtocolVersion = sd.daveProtocolVersion ?: 0,
+                    ),
+                )
             }
             VoiceOp.SPEAKING -> {
                 val sp = JSON.decodeFromJsonElement(VoiceSpeaking.serializer(), requireD(envelope))
@@ -372,6 +453,7 @@ internal class DefaultVoiceGatewayConnection(
         const val BASE_BACKOFF_MS = 1_000L
         const val MAX_BACKOFF_EXPONENT = 4 // caps at 8 s (1<<3)
         const val HEARTBEAT_TIMEOUT_CODE = 4009
+        const val DAVE_BINARY_HEADER_LEN = 3
         val JSON = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
         // Codec advertisement sent in Op 1 SelectProtocol. Audio = encode+decode (we send and

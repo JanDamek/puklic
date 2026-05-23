@@ -41,6 +41,8 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmMain.dependencies {
+            // DAVE end-to-end voice encryption (Phase 3.1d wiring).
+            implementation(projects.shared.voiceDave)
             // Opus codec: libavcodec via JavaCPP FFmpeg GPL bundle (self-contained, no system
             // libopus needed). Opus ships *inside* org.bytedeco:ffmpeg-platform-gpl 7.1-1.5.11;
             // there is no separate `opus-platform` artifact on Maven Central.

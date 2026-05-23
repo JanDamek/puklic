@@ -24,6 +24,8 @@ private class FakeVoiceTransport : VoiceGatewayTransport {
 
     override val incoming: Flow<VoiceFrameIn> = inbox.consumeAsFlow()
     override suspend fun sendText(text: String) { sent.add(text) }
+    val sentBinary = mutableListOf<ByteArray>()
+    override suspend fun sendBinary(bytes: ByteArray) { sentBinary.add(bytes) }
     override suspend fun close(code: Int, reason: String) {
         closedWith.complete(code to reason)
         inbox.send(VoiceFrameIn.Close(code, reason))

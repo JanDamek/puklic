@@ -79,10 +79,28 @@ public data class IncomingVideoFrame(
     }
 }
 
+/**
+ * UI-facing view of the DAVE E2EE state for the current voice session. Maps from
+ * the internal `dev.puklic.voice.dave.DaveSession.State` so UI doesn't depend on
+ * `:shared:voice-dave`.
+ */
+public sealed interface DaveUiState {
+    /** No DAVE session (server didn't advertise it, or call is idle). */
+    public data object Off : DaveUiState
+    /** DAVE handshake in progress (Initialized / PreparingTransition). */
+    public data object Connecting : DaveUiState
+    /** DAVE active — frames are E2E-encrypted. */
+    public data class Active(val epoch: Long) : DaveUiState
+    /** Server advertised an unsupported version — falling back to per-hop AEAD only. */
+    public data class Disabled(val reason: String) : DaveUiState
+}
+
 public interface VoiceClient {
     public val state: StateFlow<VoiceState>
     public val devices: StateFlow<List<AudioDevice>>
     public val screenShare: ScreenShareClient
+    /** Current DAVE end-to-end encryption state. [DaveUiState.Off] when not negotiated. */
+    public val daveState: StateFlow<DaveUiState>
 
     /**
      * Latest decoded frame per remote video SSRC. Empty when nobody in the channel is

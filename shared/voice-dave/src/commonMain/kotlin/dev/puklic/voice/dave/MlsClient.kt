@@ -20,7 +20,7 @@ package dev.puklic.voice.dave
  * Lifecycle: build via [mlsClient], call [init] exactly once, use group methods,
  * call [close] when done.
  */
-internal interface MlsClient {
+public interface MlsClient {
 
     /**
      * Initialize a fresh MLS identity bound to [userId] (typically the Discord
@@ -147,7 +147,7 @@ internal interface MlsClient {
  * One-shot DAVE frame encryptor. Wraps a libdave Encryptor + KeyRatchet pair.
  * NOT thread-safe; one per (session, SSRC) on the producer coroutine.
  */
-internal interface FrameEncryptor {
+public interface FrameEncryptor {
     /** Encrypt one Opus media frame; returns ciphertext (Opus + DAVE trailer). */
     fun encrypt(plaintext: ByteArray): ByteArray
 
@@ -156,7 +156,7 @@ internal interface FrameEncryptor {
 }
 
 /** One-shot DAVE frame decryptor. NOT thread-safe; one per (sender userId, SSRC). */
-internal interface FrameDecryptor {
+public interface FrameDecryptor {
     /** Decrypt one ciphertext frame; returns plaintext or null on integrity failure. */
     fun decrypt(ciphertext: ByteArray): ByteArray?
 
@@ -165,4 +165,4 @@ internal interface FrameDecryptor {
 }
 
 /** Backend factory. JVM actual returns the Wire core-crypto-backed impl. */
-internal expect fun mlsClient(): MlsClient
+public expect fun mlsClient(): MlsClient

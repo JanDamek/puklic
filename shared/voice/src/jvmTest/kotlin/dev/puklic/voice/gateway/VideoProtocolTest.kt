@@ -30,6 +30,7 @@ private class FakeVoiceTransportV : VoiceGatewayTransport {
     val closedWith = CompletableDeferred<Pair<Int, String>>()
     override val incoming: Flow<VoiceFrameIn> = inbox.consumeAsFlow()
     override suspend fun sendText(text: String) { sent.add(text) }
+    override suspend fun sendBinary(bytes: ByteArray) { /* no-op for video proto tests */ }
     override suspend fun close(code: Int, reason: String) {
         closedWith.complete(code to reason)
         inbox.send(VoiceFrameIn.Close(code, reason))
