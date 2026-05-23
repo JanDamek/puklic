@@ -129,7 +129,7 @@ Pre-extract natives in deb `postinst` to remove first-launch ~3s delay (optional
 - [ ] Phase 3: Linux portal + PipeWire
 - [ ] Phase 4: macOS in-process avfoundation
 - [ ] Phase 5: jpackage per-OS installers
-- [ ] Phase 6: CI matrix
-- [ ] NOTICE / licensing docs (GPL bundle disclosure)
+- [x] Phase 6: CI matrix (`.github/workflows/build-installers.yml` — linux-x86_64 deb+AppImage, macos-arm64 dmg, macos-x86_64 dmg; windows-x86_64 + linux-arm64 deferred)
+- [x] NOTICE / licensing docs (`LICENSE-third-party.txt` + `docs/06_ops/licensing.md`)
 - [ ] `docs/05_platforms/linux-wayland.md` portal flow diagram
 - [ ] `docs/03_infrastructure/native-dependencies.md` (new)

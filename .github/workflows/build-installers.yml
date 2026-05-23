@@ -1,0 +1,107 @@
+name: Build installers
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: build-installers-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: linux-x86_64
+            artifact-glob: |
+              desktop/app/build/compose/binaries/main/deb/*.deb
+              desktop/app/build/compose/binaries/main/appimage/*.AppImage
+          - os: macos-14
+            target: macos-arm64
+            artifact-glob: |
+              desktop/app/build/compose/binaries/main/dmg/*.dmg
+          - os: macos-13
+            target: macos-x86_64
+            artifact-glob: |
+              desktop/app/build/compose/binaries/main/dmg/*.dmg
+          # windows-x86_64 deferred: build.gradle.kts already supports MSI,
+          # but project owner has not yet validated Windows host build.
+          # Uncomment to enable.
+          # - os: windows-2022
+          #   target: windows-x86_64
+          #   artifact-glob: |
+          #     desktop/app/build/compose/binaries/main/msi/*.msi
+          #
+          # linux-arm64 deferred: ubuntu-22.04-arm runners require a paid
+          # GitHub plan. Enable when a self-hosted arm64 runner is available.
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+
+      - name: Linux deb tooling
+        if: startsWith(matrix.os, 'ubuntu')
+        run: sudo apt-get update && sudo apt-get install -y fakeroot binutils dpkg-dev
+
+      - name: Build installer (packageDistributionForCurrentOS)
+        run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache --stacktrace
+
+      - name: List built artifacts
+        shell: bash
+        run: |
+          echo "--- compose binaries tree ---"
+          find desktop/app/build/compose/binaries -maxdepth 6 -type f 2>/dev/null || true
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: puklic-${{ matrix.target }}
+          path: ${{ matrix.artifact-glob }}
+          if-no-files-found: warn
+          retention-days: 14
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all installers
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: List downloaded artifacts
+        run: ls -la dist || true
+
+      - name: Create GitHub Release (draft)
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/**/*
+          generate_release_notes: true
+          draft: true
+          body: |
+            Puklic installers built by GitHub Actions.
+
+            **Distribution licensing**: these binaries bundle FFmpeg with libx264
+            (GPL-2.0). Puklic source code remains Apache-2.0. The combined
+            distributed binary is therefore GPL-2.0. See `LICENSE-third-party.txt`
+            and `docs/06_ops/licensing.md`.

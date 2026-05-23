@@ -1,0 +1,77 @@
+Puklic — third-party software notices
+=====================================
+
+Puklic source code is licensed under the Apache License, Version 2.0 (see
+LICENSE). Distributed binary installers, however, bundle additional third-
+party software with different license terms. This file enumerates those
+components and the effect on the combined work.
+
+----------------------------------------------------------------------------
+1. FFmpeg (bundled via org.bytedeco:ffmpeg-platform-gpl 7.1-1.5.11)
+----------------------------------------------------------------------------
+
+The Puklic installers embed a GPL build of FFmpeg that includes:
+
+  - libavcodec, libavformat, libavutil, libavdevice, libswscale, libswresample
+  - libx264 (H.264 encoder) ............ GPL-2.0-or-later
+  - libx265 (H.265 encoder) ............ GPL-2.0-or-later
+  - libopus (Opus audio codec) ......... BSD-3-Clause
+
+Because libx264 and libx265 are GPL-2.0-or-later, the **distributed binary
+installer as a whole is licensed under GPL-2.0-or-later**. Puklic's own
+source code remains Apache-2.0 and may be reused under those terms.
+
+FFmpeg upstream: https://ffmpeg.org/
+libx264 upstream: https://www.videolan.org/developers/x264.html
+libx265 upstream: https://www.videolan.org/developers/x265.html
+libopus upstream: https://opus-codec.org/
+
+----------------------------------------------------------------------------
+2. dbus-java-core (com.github.hypfvieh:dbus-java-core 5.1.1)
+----------------------------------------------------------------------------
+
+License: MIT
+Project:  https://github.com/hypfvieh/dbus-java
+
+----------------------------------------------------------------------------
+3. JavaCPP runtime (org.bytedeco:javacpp 1.5.11)
+----------------------------------------------------------------------------
+
+License: Apache-2.0 (with GPLv2+CE option)
+Project:  https://github.com/bytedeco/javacpp
+
+----------------------------------------------------------------------------
+4. JetBrains Compose Multiplatform / Kotlin standard library
+----------------------------------------------------------------------------
+
+License: Apache-2.0
+Project:  https://github.com/JetBrains/compose-multiplatform
+
+----------------------------------------------------------------------------
+5. Ktor, kotlinx.coroutines, kotlinx.serialization
+----------------------------------------------------------------------------
+
+License: Apache-2.0
+Project:  https://github.com/Kotlin
+
+----------------------------------------------------------------------------
+6. SQLDelight, Koin, Decompose, Essenty, Coil, Kermit
+----------------------------------------------------------------------------
+
+Licenses: Apache-2.0 / MIT (see each upstream project)
+
+----------------------------------------------------------------------------
+Source code availability
+----------------------------------------------------------------------------
+
+Per the GPL obligation triggered by the bundled libx264/libx265, the
+complete corresponding source code for the FFmpeg build distributed with
+Puklic is available from the upstream JavaCPP project at:
+
+  https://github.com/bytedeco/javacpp-presets/tree/master/ffmpeg
+
+Puklic source code is hosted at:
+
+  https://github.com/JanDamek/puklic
+
+For questions about licensing, contact: damek@mazlusek.com
