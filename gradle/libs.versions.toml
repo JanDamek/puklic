@@ -50,7 +50,13 @@ jna = "5.16.0"
 dbus-java = "4.3.1"
 
 # Voice (Phase 3, jvm-only)
-concentus = "1.0.2"
+# Opus codec: JNA bindings to system libopus (brew install opus / apt install libopus0).
+# Pure-JVM concentus (com.github.jitsi:concentus:1.0.2) was blocked — jitpack-only, and
+# the local Gradle init script strips non-mavenCentral repos. The restcomm opus-java
+# JNI bundle (org.restcomm.media.core.codec.opus:opus-java) ships native libs only for
+# linux (libopus_jni_linux); no macOS/Windows/arm64 classifiers exist on Maven Central.
+# JNA to system libopus.{dylib,so,dll} is portable, < 100 lines, and requires only a
+# package install. See shared/voice/src/jvmMain/kotlin/dev/puklic/voice/codec/LibOpus.kt.
 bouncycastle = "1.78"
 
 [libraries]
@@ -119,7 +125,6 @@ jna-platform = { module = "net.java.dev.jna:jna-platform", version.ref = "jna" }
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbus-java" }
 
 # Voice (Phase 3, jvm-only)
-concentus = { group = "com.github.jitsi", name = "concentus", version.ref = "concentus" }
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 
 [bundles]

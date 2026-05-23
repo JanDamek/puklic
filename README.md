@@ -44,6 +44,20 @@ See [docs/07_roadmap/phases.md](docs/07_roadmap/phases.md). Currently before Pha
 
 TBD — the Gradle multimodule scaffold is in place (Steps 1–2 landed). Run `./gradlew help` to validate. Application entry points (`:desktop:app`) come online in Phase 1 implementation steps.
 
+### Voice prerequisites (Phase 3)
+
+The `:shared:voice` module loads system **libopus** at runtime via JNA. Install before building or running voice tests:
+
+| Platform | Command |
+|---|---|
+| macOS (Homebrew) | `brew install opus` |
+| Debian / Ubuntu | `sudo apt install libopus0` |
+| Fedora | `sudo dnf install opus` |
+| Arch | `sudo pacman -S opus` |
+| Windows | `vcpkg install opus`, or ship `opus.dll` alongside the binary |
+
+If libopus is missing, `OpusCodecFactory.createEncoder()` throws `OpusException` with installation instructions.
+
 ## Contributing
 
 Contributions welcome. Read [`CONTRIBUTING.md`](CONTRIBUTING.md) first, then check the [open issues](https://github.com/JanDamek/puklic/issues) or [discussions](https://github.com/JanDamek/puklic/discussions).

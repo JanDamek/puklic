@@ -41,15 +41,15 @@ kotlin {
             implementation(libs.kotlinx.coroutines.test)
         }
         jvmMain.dependencies {
-            // TODO(voice slice 6): re-enable when an Opus/concentus artifact mirror is available.
-            //   concentus only ships via jitpack (com.github.jitsi:concentus:1.0.2), and the
-            //   local Gradle init script `~/.gradle/init.d/cbl-public-repos.gradle` strips all
-            //   non-mavenCentral repositories at projectsLoaded, so the jitpack registration
-            //   in settings.gradle.kts gets removed before resolution. Until that's resolved
-            //   (mirror to internal Nexus, or vendored JAR, or jitpack auth), the Opus codec
-            //   backend in `dev.puklic.voice.codec` will stay stubbed. The current scaffold
-            //   only uses the NoOpVoiceClient, which has no codec/AEAD dependencies.
-            // implementation(libs.concentus)
+            // Opus codec: JNA bindings to system libopus (Maven Central, no jitpack).
+            // The user must install libopus via their package manager:
+            //   macOS:   brew install opus
+            //   Debian:  apt install libopus0
+            //   Fedora:  dnf install opus
+            //   Windows: vcpkg install opus  (or ship opus.dll alongside the binary)
+            // See shared/voice/src/jvmMain/kotlin/dev/puklic/voice/codec/LibOpus.kt
+            // for the JNA interface and OpusCodec.jvm.kt for the high-level wrapper.
+            implementation(libs.jna)
             implementation(libs.bouncycastle.bcprov)
         }
         jvmTest.dependencies {
