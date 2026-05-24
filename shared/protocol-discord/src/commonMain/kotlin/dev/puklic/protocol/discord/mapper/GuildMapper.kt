@@ -10,6 +10,7 @@ import dev.puklic.domain.GuildTextChannel
 import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
 import dev.puklic.protocol.discord.dto.DiscordChannelDto
 import dev.puklic.protocol.discord.dto.DiscordGuildDto
@@ -96,6 +97,7 @@ internal fun DiscordChannelDto.toDomain(): Channel? =
         CHANNEL_TYPE_DM, CHANNEL_TYPE_GROUP_DM -> DmChannel(
             id = ChannelId(id.toLong()),
             recipients = recipients.map { it.toDomain() },
+            lastMessageId = lastMessageId?.toLongOrNull()?.let(::MessageId),
         )
         else -> null
     }

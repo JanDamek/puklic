@@ -211,8 +211,6 @@ private fun DmListPane(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         } else {
-            // Discord doesn't return ordering inside private_channels; sorting by lastMessageId
-            // would require persisting that field. For now we render in insertion order.
             LazyColumn {
                 items(dms, key = { "dm-${it.id.value}" }) { dm ->
                     val recipient = dm.recipients.firstOrNull()

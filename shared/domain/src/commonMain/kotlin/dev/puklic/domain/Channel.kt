@@ -2,6 +2,7 @@ package dev.puklic.domain
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 
 enum class ChannelType {
     GUILD_TEXT,
@@ -62,6 +63,7 @@ data class GuildCategoryChannel(
 data class DmChannel(
     override val id: ChannelId,
     val recipients: List<UserSummary>,
+    val lastMessageId: MessageId? = null,
 ) : Channel {
     override val name: String? = null
     override val type: ChannelType = ChannelType.DM

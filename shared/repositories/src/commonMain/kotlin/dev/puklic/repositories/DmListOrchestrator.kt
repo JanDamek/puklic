@@ -3,6 +3,7 @@ package dev.puklic.repositories
 import co.touchlab.kermit.Logger
 import dev.puklic.domain.DmChannel
 import dev.puklic.ids.ChannelId
+import dev.puklic.ids.MessageId
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -38,6 +39,10 @@ public class DmListOrchestrator(
                     is GatewayDomainEvent.ChannelCreated -> (event.channel as? DmChannel)?.let { upsert(it) }
                     is GatewayDomainEvent.ChannelUpdated -> (event.channel as? DmChannel)?.let { upsert(it) }
                     is GatewayDomainEvent.ChannelDeleted -> remove(event.channelId)
+                    is GatewayDomainEvent.MessageCreated -> bumpForMessage(
+                        event.message.channelId,
+                        event.message.id,
+                    )
                     else -> Unit
                 }
             }
@@ -51,11 +56,21 @@ public class DmListOrchestrator(
     }
 
     private fun upsert(channel: DmChannel) {
-        _dms.value = (_dms.value.filterNot { it.id == channel.id } + channel)
+        val previous = _dms.value.firstOrNull { it.id == channel.id }
+        val merged = channel.copy(
+            lastMessageId = channel.lastMessageId ?: previous?.lastMessageId,
+        )
+        _dms.value = (_dms.value.filterNot { it.id == channel.id } + merged)
+            .sortedByDescending { it.lastMessageId?.value ?: Long.MIN_VALUE }
         Logger.i(DM_LIST_TAG) {
             "dm-list orchestrator: upsert -> dms.size=${_dms.value.size} id=${channel.id.value} " +
-                "recipients=${channel.recipients.size}"
+                "recipients=${channel.recipients.size} lastMessageId=${merged.lastMessageId?.value}"
         }
+    }
+
+    private fun bumpForMessage(channelId: ChannelId, messageId: MessageId) {
+        val current = _dms.value.firstOrNull { it.id == channelId } ?: return
+        upsert(current.copy(lastMessageId = messageId))
     }
 
     private fun remove(id: ChannelId) {
