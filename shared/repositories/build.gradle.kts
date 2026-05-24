@@ -9,6 +9,7 @@ kotlin {
             implementation(projects.shared.ids)
             implementation(projects.shared.protocolDiscord)
             implementation(projects.shared.persistenceApi)
+            implementation(projects.shared.platformApi)
             implementation(projects.shared.chatParser)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kermit)

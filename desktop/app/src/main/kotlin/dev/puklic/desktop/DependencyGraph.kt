@@ -15,12 +15,15 @@ import dev.puklic.persistence.sqldelight.OutboundQueueImpl
 import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
+import dev.puklic.platform.NotificationService
 import dev.puklic.platform.PlatformOpen
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
+import dev.puklic.platform.linux.LinuxNotificationService
 import dev.puklic.platform.linux.LinuxPlatformOpen
 import dev.puklic.platform.linux.LinuxPlatformPaths
 import dev.puklic.platform.linux.LinuxSecureStorage
+import dev.puklic.platform.macos.MacOsNotificationService
 import dev.puklic.platform.macos.MacOsPlatformOpen
 import dev.puklic.platform.macos.MacOsPlatformPaths
 import dev.puklic.platform.macos.MacOsSecureStorage
@@ -34,6 +37,7 @@ import dev.puklic.protocol.discord.rest.DiscordRestClient
 import dev.puklic.repositories.ChannelOrchestrator
 import dev.puklic.repositories.GuildOrchestrator
 import dev.puklic.repositories.MessageOrchestrator
+import dev.puklic.repositories.NotificationDispatcher
 import dev.puklic.repositories.Orchestrators
 import dev.puklic.repositories.OutboundMessageWorker
 import dev.puklic.repositories.PresenceOrchestrator
@@ -108,6 +112,8 @@ public class DependencyGraph private constructor(
             val paths: PlatformPaths = if (isMac) MacOsPlatformPaths() else LinuxPlatformPaths()
             val opener: PlatformOpen = if (isMac) MacOsPlatformOpen() else LinuxPlatformOpen()
             val storage: SecureStorage = if (isMac) MacOsSecureStorage() else LinuxSecureStorage()
+            val notifications: NotificationService =
+                if (isMac) MacOsNotificationService() else LinuxNotificationService()
 
             val driverFactory = JvmDriverFactory(
                 JvmDriverFactory.DbPath.File(Paths.get(paths.databaseFile())),
@@ -145,6 +151,7 @@ public class DependencyGraph private constructor(
                     channelStore = channelStore,
                     userStore = userStore,
                     outboundQueue = outboundQueue,
+                    notificationService = notifications,
                 )
             }
 
@@ -212,6 +219,7 @@ public class DependencyGraph private constructor(
             channelStore: ChannelRepositoryImpl,
             userStore: UserRepositoryImpl,
             outboundQueue: OutboundQueueImpl,
+            notificationService: dev.puklic.platform.NotificationService,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
             val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
@@ -283,6 +291,18 @@ public class DependencyGraph private constructor(
                 voiceStates = voiceStateRepo,
             )
             outboundWorker.start()
+
+            // Issue #13 — desktop notifications. Session-scoped dispatcher subscribes to
+            // gateway MessageCreated events and forwards DM / mention messages to the
+            // per-platform NotificationService. See architect-report 2026-05-24-notifications.md.
+            @Suppress("UNUSED_VARIABLE")
+            val notificationDispatcher = NotificationDispatcher(
+                sessionScope = sessionScope,
+                gatewaySource = gatewayEventSource,
+                channelRepository = channelStore,
+                notificationService = notificationService,
+                selfUserIdProvider = { selfUserId.value },
+            )
 
             val transport = SessionTransportImpl(
                 bridge = sessionBridge,
