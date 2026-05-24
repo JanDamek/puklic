@@ -79,6 +79,7 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
             preferences = root.preferences,
             initialPosition = pos,
             voiceClient = activeSession?.voiceClient,
+            sessionManager = root.sessionManager,
         )
     }
     val uriHandler = LocalUriHandler.current

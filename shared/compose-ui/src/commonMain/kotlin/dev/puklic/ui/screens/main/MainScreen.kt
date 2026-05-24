@@ -16,9 +16,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Logout
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -100,6 +106,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                 )
             }
             VoiceDock(viewModel = viewModel)
+            LogoutBar(viewModel = viewModel)
         }
         VerticalDivider()
         val selectedChannel: Channel? = if (state.isDmHome) {
@@ -546,3 +553,47 @@ private class ChannelMessagesHolder(
  */
 @Composable
 internal expect fun VoiceDock(viewModel: MainViewModel)
+
+/**
+ * Account row pinned to the very bottom of the channel-list pane. Hosts the logout
+ * affordance — a single icon button that triggers a confirmation dialog before calling
+ * [MainViewModel.logout]. After successful logout the [SessionManager.activeSession]
+ * flow emits null, which the router observes to navigate back to [LoginScreen].
+ */
+@Composable
+private fun LogoutBar(viewModel: MainViewModel) {
+    val scope = rememberCoroutineScope()
+    var showConfirm by remember { mutableStateOf(false) }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MaterialTheme.colorScheme.surfaceVariant)
+            .padding(horizontal = 12.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.End,
+    ) {
+        IconButton(onClick = { showConfirm = true }) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.Logout,
+                contentDescription = "Log out",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+    if (showConfirm) {
+        AlertDialog(
+            onDismissRequest = { showConfirm = false },
+            title = { Text("Log out?") },
+            text = { Text("Your stored Discord token will be removed from this device.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    showConfirm = false
+                    scope.launch { viewModel.logout() }
+                }) { Text("Log out") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
+            },
+        )
+    }
+}

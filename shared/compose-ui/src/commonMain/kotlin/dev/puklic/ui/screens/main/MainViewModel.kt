@@ -14,6 +14,7 @@ import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.repositories.Orchestrators
+import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
 import dev.puklic.voice.screenshare.ScreenShareState
 import dev.puklic.voice.screenshare.ScreenSource
@@ -71,7 +72,18 @@ public class MainViewModel(
     private val preferences: UserPreferencesRepository? = null,
     initialPosition: LastPosition = LastPosition.Empty,
     public val voiceClient: Any? = null,
+    private val sessionManager: SessionManager? = null,
 ) : ComponentContext by componentContext {
+
+    /**
+     * Sign the user out of the current Discord session. Disconnects the gateway, clears the
+     * active session and wipes the persisted token from [SecureStorage] so the next app start
+     * lands on [LoginScreen]. The router observes [SessionManager.activeSession] and
+     * automatically transitions away from [RouterState.Main] once the session is cleared.
+     */
+    public suspend fun logout() {
+        sessionManager?.endSession(wipeToken = true)
+    }
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)
 
