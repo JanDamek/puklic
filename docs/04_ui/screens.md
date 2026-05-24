@@ -187,8 +187,10 @@ Toolbar buttons:
 
 Input:
 - Auto-grow 1–10 lines, then internal scroll
-- Submit: Enter (single line) / Ctrl+Enter (multi-line)
+- Submit: Enter (single line) / Ctrl+Enter / Cmd+Enter (multi-line)
 - Shift+Enter: line break
+- Escape: blur composer (clear focus)
+- Trailing Send `IconButton` (paper-plane icon) rendered at row end, bottom-aligned; visible always, disabled when draft is blank or composer disabled. Keyboard-first send remains primary; the button is a discoverability and pointer-only fallback (issue #12).
 - `@` triggers user mention autocomplete (Phase 2)
 - `#` triggers channel mention autocomplete (Phase 2)
 - `:` triggers emoji shortcode autocomplete (Phase 2)
