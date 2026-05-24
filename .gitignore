@@ -31,3 +31,7 @@ local.properties
 
 # Claude Code local settings
 .claude/
+
+# K8s runner — realized Secrets (templates `.yaml.tmpl` are tracked)
+k8s/runner/secret-github-app.yaml
+k8s/runner/secret-registry-pull.yaml

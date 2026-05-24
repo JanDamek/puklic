@@ -1,0 +1,56 @@
+# NetworkPolicy for puklic-ci runner pods.
+#
+# Open questions to resolve before apply (see README.md):
+#   - Cluster pod CIDR (used in `except` block below). Verify with:
+#       kubectl get nodes -o jsonpath='{.items[0].spec.podCIDR}'
+#     Default placeholder: 10.0.0.0/8 (typical kubeadm). Adjust if different.
+#   - Registry CIDR (used in allow block for registry.damek-soft.eu). Verify with:
+#       dig +short registry.damek-soft.eu
+#     Replace <REGISTRY_CIDR> with e.g. "1.2.3.4/32" before applying.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: puklic-runner-egress
+  namespace: puklic-ci
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: runner
+  policyTypes:
+    - Egress
+    - Ingress
+  ingress: []  # default-deny all inbound
+  egress:
+    # DNS
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    # HTTPS to GitHub + Maven + Gradle + jitpack + own registry (public internet only)
+    # `except` blocks RFC1918 ranges to prevent lateral movement to in-cluster services
+    # (e.g. jervis namespace). Verify cluster pod CIDR via:
+    #   kubectl get nodes -o jsonpath='{.items[0].spec.podCIDR}'
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8       # cluster pod CIDR (typical) — VERIFY
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+      ports:
+        - protocol: TCP
+          port: 443
+    # Allow egress to own registry (likely RFC1918 — exception via explicit ipBlock allow)
+    # Replace <REGISTRY_CIDR> with actual IP/CIDR of registry.damek-soft.eu.
+    # Resolve via:  dig +short registry.damek-soft.eu
+    - to:
+        - ipBlock:
+            cidr: <REGISTRY_CIDR>
+      ports:
+        - protocol: TCP
+          port: 443

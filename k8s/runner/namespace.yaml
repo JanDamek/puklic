@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: puklic-ci
+  labels:
+    app.kubernetes.io/name: puklic-ci
+    app.kubernetes.io/part-of: puklic

@@ -1,0 +1,9 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: puklic-ci
+resources:
+  - namespace.yaml
+  - priorityclass.yaml
+  - rbac.yaml
+  - networkpolicy.yaml
+# Secrets + Helm-managed resources OMITTED
