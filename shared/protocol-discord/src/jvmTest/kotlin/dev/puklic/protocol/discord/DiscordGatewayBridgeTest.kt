@@ -278,7 +278,7 @@ class DiscordGatewayBridgeTest {
         bridgeScope.cancel()
 
         val ev = collected.filterIsInstance<DiscordDomainEvent.VoiceServerUpdated>().single()
-        assertEquals(100L, ev.guildId.value)
+        assertEquals(100L, ev.guildId?.value)
         assertEquals("voicetoken", ev.token)
         assertEquals("us-east1234.discord.media", ev.endpoint)
     }

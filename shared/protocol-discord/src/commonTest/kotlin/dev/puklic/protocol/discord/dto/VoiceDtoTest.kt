@@ -67,6 +67,35 @@ class VoiceDtoTest {
     }
 
     @Test
+    fun voice_server_update_tolerates_null_guild_id_for_dm_call() {
+        // DM 1:1 voice (issue #16) — VOICE_SERVER_UPDATE has no guild context.
+        val raw = """
+            {
+              "token": "tok",
+              "guild_id": null,
+              "endpoint": "dm.discord.gg"
+            }
+        """.trimIndent()
+        val dto = DiscordJson.decodeFromString(VoiceServerUpdateDto.serializer(), raw)
+        assertNull(dto.guildId)
+        assertEquals("tok", dto.token)
+        assertEquals("dm.discord.gg", dto.endpoint)
+    }
+
+    @Test
+    fun voice_server_update_tolerates_missing_guild_id_for_dm_call() {
+        // guild_id key absent entirely.
+        val raw = """
+            {
+              "token": "tok",
+              "endpoint": "dm.discord.gg"
+            }
+        """.trimIndent()
+        val dto = DiscordJson.decodeFromString(VoiceServerUpdateDto.serializer(), raw)
+        assertNull(dto.guildId)
+    }
+
+    @Test
     fun voice_server_update_endpoint_null_during_region_migration() {
         val raw = """
             {

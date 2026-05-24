@@ -32,7 +32,6 @@ import dev.puklic.voice.transport.VoicePacketDispatcher
 import dev.puklic.voice.transport.discoverIp
 import dev.puklic.voice.transport.newUdpRtpTransport
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
@@ -77,7 +76,7 @@ public interface MainGatewayBridge {
     )
 
     public data class VoiceServerUpdate(
-        val guildId: GuildId,
+        val guildId: GuildId?,
         val token: String,
         val endpoint: String?,
     )
@@ -161,10 +160,10 @@ public class DefaultVoiceClient(
         _devices.value = merged
     }
 
-    override suspend fun connect(guildId: GuildId, channelId: ChannelId): Unit = mutex.withLock {
+    override suspend fun connect(guildId: GuildId?, channelId: ChannelId): Unit = mutex.withLock {
         if (_state.value !is VoiceState.Idle && _state.value !is VoiceState.Failed) {
-            Logger.w(TAG) { "connect() ignored: state=${_state.value}" }
-            return
+            Logger.w(TAG) { "connect() rejected: state=${_state.value}" }
+            throw VoiceBusyException()
         }
         refreshDevices()
         _state.value = VoiceState.Connecting(channelId, attempt = 1)
@@ -176,7 +175,9 @@ public class DefaultVoiceClient(
         }
 
         val sJob = SupervisorJob(applicationScope.coroutineContext[Job])
-        val sScope = CoroutineScope(applicationScope.coroutineContext + sJob + Dispatchers.Default)
+        // Inherit the application scope's dispatcher so tests can run on a TestDispatcher and
+        // production still gets the IO/Default-backed scope it was configured with.
+        val sScope = CoroutineScope(applicationScope.coroutineContext + sJob)
         sessionJob = sJob
         sessionScope = sScope
 
@@ -190,23 +191,34 @@ public class DefaultVoiceClient(
         }
     }
 
-    private suspend fun runConnect(guildId: GuildId, channelId: ChannelId, selfId: UserId) {
-        // Send Op 4 — server will reply with VOICE_STATE_UPDATE + VOICE_SERVER_UPDATE.
+    private suspend fun runConnect(guildId: GuildId?, channelId: ChannelId, selfId: UserId) {
+        // Send Op 4 — server will reply with VOICE_STATE_UPDATE + VOICE_SERVER_UPDATE. For DM
+        // calls (guildId == null) VOICE_SERVER_UPDATE only fires once the recipient picks up,
+        // so the timeout window is larger (Ringing state).
         mainGateway.sendVoiceStateUpdate(guildId, channelId, selfMute = false, selfDeaf = false)
 
-        val stateUpdate = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) {
+        val stateUpdate = withTimeoutOrNull(STATE_UPDATE_TIMEOUT_MS) {
             mainGateway.voiceStateUpdates
                 .filterIsInstance<MainGatewayBridge.VoiceStateUpdate>()
                 .first { it.userId == selfId && it.guildId == guildId && it.channelId == channelId }
-        } ?: error("timed out waiting for VOICE_STATE_UPDATE")
+        } ?: error(if (guildId == null) "Couldn't reach recipient" else "timed out waiting for VOICE_STATE_UPDATE")
 
-        val serverUpdate = withTimeoutOrNull(HANDSHAKE_TIMEOUT_MS) {
+        if (guildId == null) {
+            // DM call: recipient has been notified — visual ringback until they pick up.
+            _state.value = VoiceState.Ringing(channelId)
+        }
+
+        val serverTimeout = if (guildId == null) DM_SERVER_UPDATE_TIMEOUT_MS else STATE_UPDATE_TIMEOUT_MS
+        val serverUpdate = withTimeoutOrNull(serverTimeout) {
             mainGateway.voiceServerUpdates.first { it.guildId == guildId && !it.endpoint.isNullOrBlank() }
-        } ?: error("timed out waiting for VOICE_SERVER_UPDATE")
+        } ?: error(if (guildId == null) "No answer" else "timed out waiting for VOICE_SERVER_UPDATE")
 
         val endpointHost = serverUpdate.endpoint!!.substringBefore(":")
         val wsUrl = "wss://${serverUpdate.endpoint}/?v=8"
         val scope = checkNotNull(sessionScope) { "session scope null" }
+
+        // For DM calls Discord uses the channel_id as the voice server_id (no guild context).
+        val serverId = guildId?.value?.toString() ?: channelId.value.toString()
 
         val gw = DefaultVoiceGatewayConnection(scope = scope, transportFactory = voiceTransportFactory.delegate)
         voiceGateway = gw
@@ -215,7 +227,7 @@ public class DefaultVoiceClient(
             endpoint = wsUrl,
             token = serverUpdate.token,
             sessionId = stateUpdate.sessionId,
-            serverId = guildId.value.toString(),
+            serverId = serverId,
             userId = selfId.value.toString(),
         )
     }
@@ -448,6 +460,20 @@ public class DefaultVoiceClient(
     override suspend fun disconnect(): Unit = mutex.withLock {
         if (_state.value is VoiceState.Idle) return
         val guildId = activeGuildId
+        val channelId = activeChannelId
+        val midHandshake = _state.value is VoiceState.Connecting || _state.value is VoiceState.Ringing
+        // Cancel mid-handshake: send revocation Op 4 (channel_id=null) BEFORE local cleanup so
+        // Discord drops the pending call rather than orphaning server-side state.
+        if (midHandshake && channelId != null) {
+            runCatching {
+                mainGateway.sendVoiceStateUpdate(
+                    guildId = guildId,
+                    channelId = null,
+                    selfMute = false,
+                    selfDeaf = false,
+                )
+            }
+        }
         runCatching { screenShareImpl.stop() }
         screenShareImpl = NoOpScreenShareClient()
         runCatching { capture?.stop() }
@@ -465,7 +491,10 @@ public class DefaultVoiceClient(
         _daveState.value = DaveUiState.Off
         runCatching { voiceGateway?.close() }
         runCatching { udp?.close() }
-        if (guildId != null) {
+        // For Connected sessions (mid-handshake revocation already sent above) emit the
+        // normal leave Op 4. DM revocation may have already covered this; double-send is
+        // harmless (Discord treats it as idempotent).
+        if (!midHandshake) {
             runCatching {
                 mainGateway.sendVoiceStateUpdate(
                     guildId = guildId,
@@ -553,12 +582,16 @@ public class DefaultVoiceClient(
     }
 
     private fun fail(reason: String) {
+        // Don't clobber an explicit Idle (post-disconnect): the cancelled runConnect coroutine
+        // races with `disconnect()` and would otherwise force the state back to Failed.
+        if (_state.value is VoiceState.Idle) return
         _state.value = VoiceState.Failed(reason = reason, recoverable = true)
     }
 
     private companion object {
         const val TAG = "DefaultVoiceClient"
-        const val HANDSHAKE_TIMEOUT_MS = 10_000L
+        const val STATE_UPDATE_TIMEOUT_MS = 10_000L
+        const val DM_SERVER_UPDATE_TIMEOUT_MS = 30_000L
         const val AEAD_MODE = "aead_xchacha20_poly1305_rtpsize"
 
         // Video uses a separate AEAD cipher instance (a fresh [NonceGenerator]). Both audio

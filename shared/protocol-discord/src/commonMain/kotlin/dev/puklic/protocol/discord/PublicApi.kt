@@ -127,7 +127,7 @@ public sealed interface DiscordDomainEvent {
      * event with a non-null endpoint before opening the voice WS.
      */
     public data class VoiceServerUpdated(
-        val guildId: GuildId,
+        val guildId: GuildId?,
         val token: String,
         val endpoint: String?,
     ) : DiscordDomainEvent
@@ -344,8 +344,13 @@ public class DiscordGatewayBridge(
                         dev.puklic.protocol.discord.dto.VoiceServerUpdateDto.serializer(),
                         payload,
                     )
+                    val voiceServerGuildId = dto.guildId
+                        ?.takeUnless { it.isBlank() }
+                        ?.toLongOrNull()
+                        ?.takeIf { it != 0L }
+                        ?.let(::GuildId)
                     listOf(DiscordDomainEvent.VoiceServerUpdated(
-                        guildId = GuildId(dto.guildId.toLong()),
+                        guildId = voiceServerGuildId,
                         token = dto.token,
                         endpoint = dto.endpoint,
                     ))

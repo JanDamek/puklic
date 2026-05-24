@@ -20,6 +20,7 @@ import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
 import dev.puklic.ui.screens.settings.SettingsCategory
 import dev.puklic.voice.DaveUiState
+import dev.puklic.voice.VoiceBusyException
 import dev.puklic.voice.VoiceClient
 import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
@@ -27,8 +28,11 @@ import dev.puklic.voice.screenshare.ScreenSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
@@ -231,7 +235,45 @@ public class MainViewModel(
         val client = voiceClient as? dev.puklic.voice.VoiceClient ?: return
         scope.launch {
             runCatching { client.connect(guildId, channelId) }
-                .onFailure { Logger.w("MainViewModel", it) { "voice connect failed gid=$guildId cid=$channelId" } }
+                .onFailure { t ->
+                    Logger.w("MainViewModel", t) { "voice connect failed gid=$guildId cid=$channelId" }
+                    if (t is VoiceBusyException) {
+                        _snackbarMessage.emit(SNACKBAR_LEAVE_CURRENT_CALL)
+                    }
+                }
+        }
+    }
+
+    /**
+     * Transient UI messages (snackbar). Replay=0 so late collectors don't see stale events.
+     */
+    private val _snackbarMessage = MutableSharedFlow<String>(extraBufferCapacity = SNACKBAR_BUFFER)
+    public val snackbarMessage: SharedFlow<String> = _snackbarMessage.asSharedFlow()
+
+    /**
+     * Initiate an outgoing DM 1:1 voice call. [channelId] must reference a [DmChannel]; group DM
+     * is not yet supported (see architect report v2 §8.8). Catches [VoiceBusyException] and emits
+     * a snackbar prompting the user to leave the current call first.
+     */
+    public fun startDmCall(channelId: ChannelId) {
+        val client = voiceClient as? dev.puklic.voice.VoiceClient ?: return
+        scope.launch {
+            runCatching { client.connect(guildId = null, channelId = channelId) }
+                .onFailure { t ->
+                    Logger.w("MainViewModel", t) { "DM voice connect failed cid=$channelId" }
+                    if (t is VoiceBusyException) {
+                        _snackbarMessage.emit(SNACKBAR_LEAVE_CURRENT_CALL)
+                    }
+                }
+        }
+    }
+
+    /** Cancel a Connecting/Ringing/Connected voice session. Fire-and-forget. */
+    public fun hangUpVoice() {
+        val client = voiceClient as? dev.puklic.voice.VoiceClient ?: return
+        scope.launch {
+            runCatching { client.disconnect() }
+                .onFailure { Logger.w("MainViewModel", it) { "voice disconnect failed" } }
         }
     }
 
@@ -327,5 +369,7 @@ public class MainViewModel(
     private companion object {
         const val LAZY_SUBSCRIBE_BOOTSTRAP = 5
         const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
+        const val SNACKBAR_BUFFER = 4
+        const val SNACKBAR_LEAVE_CURRENT_CALL = "Leave current call first"
     }
 }

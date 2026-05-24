@@ -41,6 +41,15 @@ public data class AudioDevice(
 public sealed interface VoiceState {
     public data object Idle : VoiceState
     public data class Connecting(val channelId: ChannelId, val attempt: Int) : VoiceState
+
+    /**
+     * DM call only: VOICE_STATE_UPDATE was acknowledged by Discord (recipient's client
+     * received the call invite) but VOICE_SERVER_UPDATE has not arrived yet — Discord
+     * delivers it once the recipient picks up. Up to 30 s in this state before transitioning
+     * to [Failed]("No answer"). Guild voice channels skip this state entirely.
+     */
+    public data class Ringing(val channelId: ChannelId) : VoiceState
+
     public data class Connected(
         val channelId: ChannelId,
         val ssrc: Int,
@@ -50,6 +59,13 @@ public sealed interface VoiceState {
     ) : VoiceState
     public data class Failed(val reason: String, val recoverable: Boolean) : VoiceState
 }
+
+/**
+ * Thrown by [VoiceClient.connect] when the client is already in a non-terminal voice state
+ * (Connecting / Ringing / Connected). The UI should surface a snackbar prompting the user
+ * to leave the current call first.
+ */
+public class VoiceBusyException : Exception("Already in a voice call")
 
 /**
  * One decoded frame of incoming remote video (screenshare receive — Phase 4.2).
@@ -109,7 +125,11 @@ public interface VoiceClient {
      */
     public val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>>
 
-    public suspend fun connect(guildId: GuildId, channelId: ChannelId)
+    /**
+     * Initiate a voice connection. [guildId] is `null` for 1:1 DM voice calls and non-null for
+     * guild voice channels. Throws [VoiceBusyException] if a session is already active.
+     */
+    public suspend fun connect(guildId: GuildId?, channelId: ChannelId)
     public suspend fun disconnect()
     public fun setSelfMute(muted: Boolean)
     public fun setSelfDeaf(deaf: Boolean)

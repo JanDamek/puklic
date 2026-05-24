@@ -63,6 +63,7 @@ public fun VoiceStatusBar(
     when (state) {
         is VoiceState.Idle -> Box(modifier = modifier)
         is VoiceState.Connecting -> ConnectingBar(channelLabel, modifier)
+        is VoiceState.Ringing -> ConnectingBar(channelLabel, modifier)
         is VoiceState.Connected -> ConnectedBar(
             state = state,
             channelLabel = channelLabel,

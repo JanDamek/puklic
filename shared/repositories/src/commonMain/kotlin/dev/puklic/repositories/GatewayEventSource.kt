@@ -98,7 +98,7 @@ public sealed interface GatewayDomainEvent {
      * null during region migration.
      */
     public data class VoiceServerUpdated(
-        val guildId: GuildId,
+        val guildId: GuildId?,
         val token: String,
         val endpoint: String?,
     ) : GatewayDomainEvent

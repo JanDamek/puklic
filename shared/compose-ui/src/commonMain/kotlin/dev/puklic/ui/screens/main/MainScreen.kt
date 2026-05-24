@@ -16,11 +16,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -120,6 +129,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             else -> selectedChannel?.name
         }
         val topic = (selectedChannel as? GuildTextChannel)?.topic
+        val voiceStateForHeader by viewModel.voiceState.collectAsState()
         MessagePane(
             selectedChannelId = state.selectedChannelId,
             selectedChannelName = displayName,
@@ -128,9 +138,13 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             messageOrchestrator = viewModel.orchestrators?.messages,
             platformOpen = platformOpen,
             onChannelMentionClick = viewModel::selectChannel,
+            voiceState = voiceStateForHeader,
+            onStartDmCall = viewModel::startDmCall,
+            onHangUpVoice = viewModel::hangUpVoice,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
+        SnackbarHostMount(viewModel = viewModel)
         val settingsOpen by viewModel.settingsOpen.collectAsState()
         val settingsCategory by viewModel.selectedSettingsCategory.collectAsState()
         SettingsOverlay(
@@ -408,6 +422,23 @@ private fun ChannelListPane(
     }
 }
 
+/**
+ * Snackbar host mounted at the bottom of the screen for transient UI feedback (e.g. attempts
+ * to start a second simultaneous voice call). Per architect report v2 §8.3.
+ */
+@Composable
+private fun SnackbarHostMount(viewModel: MainViewModel) {
+    val hostState = remember { SnackbarHostState() }
+    LaunchedEffect(viewModel) {
+        viewModel.snackbarMessage.collect { msg ->
+            hostState.showSnackbar(msg)
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
+        SnackbarHost(hostState = hostState) { data -> Snackbar { Text(data.visuals.message) } }
+    }
+}
+
 @Composable
 private fun MessagePane(
     selectedChannelId: ChannelId?,
@@ -417,6 +448,9 @@ private fun MessagePane(
     messageOrchestrator: MessageOrchestrator?,
     platformOpen: PlatformOpen?,
     onChannelMentionClick: ((ChannelId) -> Unit)? = null,
+    voiceState: VoiceState = VoiceState.Idle,
+    onStartDmCall: (ChannelId) -> Unit = {},
+    onHangUpVoice: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -439,10 +473,14 @@ private fun MessagePane(
                 channelId = selectedChannelId,
                 channelName = selectedChannelName,
                 channelTopic = selectedChannelTopic,
+                channel = selectedChannel,
                 orchestrator = messageOrchestrator,
                 platformOpen = platformOpen,
                 uiScope = scope,
                 onChannelMentionClick = onChannelMentionClick,
+                voiceState = voiceState,
+                onStartDmCall = onStartDmCall,
+                onHangUpVoice = onHangUpVoice,
             )
         }
     }
@@ -476,10 +514,14 @@ private fun ChannelMessages(
     channelId: ChannelId,
     channelName: String?,
     channelTopic: String?,
+    channel: Channel?,
     orchestrator: MessageOrchestrator,
     platformOpen: PlatformOpen?,
     uiScope: CoroutineScope,
     onChannelMentionClick: ((ChannelId) -> Unit)? = null,
+    voiceState: VoiceState = VoiceState.Idle,
+    onStartDmCall: (ChannelId) -> Unit = {},
+    onHangUpVoice: () -> Unit = {},
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
     // resumed for the lifetime of this composition and destroyed in onDispose.
@@ -499,20 +541,44 @@ private fun ChannelMessages(
     var draft by remember(channelId) { mutableStateOf("") }
 
     val displayName = channelName?.takeIf { it.isNotBlank() } ?: channelId.value.toString()
+    val isDm = channel is DmChannel
+    // Whether the visible voice activity (Connecting/Ringing/Connected) belongs to THIS channel.
+    val voiceTargetsThisChannel = when (val vs = voiceState) {
+        is VoiceState.Connecting -> vs.channelId == channelId
+        is VoiceState.Ringing -> vs.channelId == channelId
+        is VoiceState.Connected -> vs.channelId == channelId
+        else -> false
+    }
     Column(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-            Text(
-                "#$displayName",
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            if (!channelTopic.isNullOrBlank()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = channelTopic,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    if (isDm) displayName else "#$displayName",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                if (!channelTopic.isNullOrBlank()) {
+                    Text(
+                        text = channelTopic,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    )
+                }
+                if (isDm && voiceTargetsThisChannel && voiceState is VoiceState.Ringing) {
+                    RingbackLabel(targetName = displayName)
+                }
+            }
+            if (isDm) {
+                DmCallControl(
+                    voiceState = voiceState,
+                    targetsThisChannel = voiceTargetsThisChannel,
+                    onStartCall = { onStartDmCall(channelId) },
+                    onHangUp = onHangUpVoice,
                 )
             }
         }
@@ -578,6 +644,56 @@ private fun VoiceChannelEntry(
                 }
         }
     }
+}
+
+/**
+ * DM header call button. Idle → green phone (start call); Connecting/Ringing/Connected for THIS
+ * channel → red phone (cancel/hang up). Architect report v2 §8.6.
+ */
+@Composable
+private fun DmCallControl(
+    voiceState: VoiceState,
+    targetsThisChannel: Boolean,
+    onStartCall: () -> Unit,
+    onHangUp: () -> Unit,
+) {
+    val isActiveHere = targetsThisChannel && voiceState !is VoiceState.Idle && voiceState !is VoiceState.Failed
+    if (isActiveHere) {
+        IconButton(onClick = onHangUp) {
+            Icon(
+                Icons.Filled.CallEnd,
+                contentDescription = "Hang up",
+                tint = MaterialTheme.colorScheme.error,
+            )
+        }
+    } else {
+        IconButton(onClick = onStartCall) {
+            Icon(Icons.Filled.Call, contentDescription = "Call")
+        }
+    }
+}
+
+/**
+ * Visual ringback: pulsing 3-dot animation while waiting for the recipient to pick up.
+ * Architect report v2 §8.7. Audio ringback is deferred (no tone played to caller).
+ */
+@Composable
+private fun RingbackLabel(targetName: String) {
+    var dots by remember { mutableStateOf("") }
+    LaunchedEffect(targetName) {
+        val cycle = listOf("", ".", "..", "...")
+        var idx = 0
+        while (true) {
+            dots = cycle[idx % cycle.size]
+            idx += 1
+            kotlinx.coroutines.delay(500L)
+        }
+    }
+    Text(
+        text = "Calling $targetName$dots",
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+    )
 }
 
 private class ChannelMessagesHolder(

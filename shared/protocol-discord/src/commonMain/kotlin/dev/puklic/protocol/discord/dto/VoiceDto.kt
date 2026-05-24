@@ -30,6 +30,6 @@ internal data class VoiceStateUpdateDto(
 @Serializable
 internal data class VoiceServerUpdateDto(
     val token: String,
-    @SerialName("guild_id") val guildId: String,
+    @SerialName("guild_id") val guildId: String? = null,
     val endpoint: String? = null,
 )

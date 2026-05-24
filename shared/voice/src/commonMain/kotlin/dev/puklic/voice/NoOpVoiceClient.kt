@@ -31,7 +31,7 @@ public class NoOpVoiceClient : VoiceClient {
     private val _daveState = MutableStateFlow<DaveUiState>(DaveUiState.Off)
     override val daveState: StateFlow<DaveUiState> = _daveState.asStateFlow()
 
-    override suspend fun connect(guildId: GuildId, channelId: ChannelId) { /* no-op */ }
+    override suspend fun connect(guildId: GuildId?, channelId: ChannelId) { /* no-op */ }
     override suspend fun disconnect() { /* no-op */ }
     override fun setSelfMute(muted: Boolean) { /* no-op */ }
     override fun setSelfDeaf(deaf: Boolean) { /* no-op */ }
