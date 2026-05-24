@@ -24,10 +24,10 @@ class PuklicThemeTokensTest {
 
     @Test
     fun `custom presence colors match design-system table`() {
-        PuklicDarkCustomColors.online shouldBe Color(0xFF43B581)
-        PuklicDarkCustomColors.idle shouldBe Color(0xFFFAA61A)
-        PuklicDarkCustomColors.dnd shouldBe Color(0xFFF04747)
-        PuklicDarkCustomColors.offline shouldBe Color(0xFF747F8D)
+        PuklicDarkCustomColors.presenceOnline shouldBe Color(0xFF43B581)
+        PuklicDarkCustomColors.presenceIdle shouldBe Color(0xFFFAA61A)
+        PuklicDarkCustomColors.presenceDnd shouldBe Color(0xFFF04747)
+        PuklicDarkCustomColors.presenceOffline shouldBe Color(0xFF747F8D)
         PuklicDarkCustomColors.mention shouldBe Color(0xFFFFD66B)
     }
 

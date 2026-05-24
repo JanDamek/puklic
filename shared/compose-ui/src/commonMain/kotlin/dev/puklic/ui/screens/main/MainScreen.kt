@@ -16,18 +16,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.Logout
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -63,7 +58,12 @@ import dev.puklic.ui.components.VoiceMemberRow
 import dev.puklic.ui.components.EmptyState
 import dev.puklic.ui.components.GuildRailItem
 import dev.puklic.ui.components.PuklicAvatar
+import dev.puklic.ui.components.UserInfoRow
+import dev.puklic.ui.components.UserInfoRowState
+import dev.puklic.ui.screens.settings.SettingsHost
+import dev.puklic.ui.screens.settings.SettingsOverlay
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.voice.VoiceState
 
 /**
  * Three-pane Expanded layout per `docs/04_ui/adaptive-layouts.md`:
@@ -74,6 +74,7 @@ import dev.puklic.ui.theme.LocalPuklicSpacing
 @Composable
 public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = null) {
     val state by viewModel.state.collectAsState()
+    Box(modifier = Modifier.fillMaxSize()) {
     Row(modifier = Modifier.fillMaxSize()) {
         GuildRail(
             guilds = state.guilds,
@@ -106,7 +107,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                 )
             }
             VoiceDock(viewModel = viewModel)
-            LogoutBar(viewModel = viewModel)
+            UserInfoRowMount(viewModel = viewModel)
         }
         VerticalDivider()
         val selectedChannel: Channel? = if (state.isDmHome) {
@@ -130,6 +131,48 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
+        val settingsOpen by viewModel.settingsOpen.collectAsState()
+        val settingsCategory by viewModel.selectedSettingsCategory.collectAsState()
+        SettingsOverlay(
+            isOpen = settingsOpen,
+            selectedCategory = settingsCategory,
+            onCategorySelect = viewModel::selectSettingsCategory,
+            onClose = viewModel::closeSettings,
+            content = { SettingsHost(category = settingsCategory, viewModel = viewModel) },
+        )
+    }
+}
+
+/**
+ * UserInfoRow mount + state assembly per architect report v2 §3. Pinned to the bottom of the
+ * channel-list pane just below VoiceDock. Always visible when logged in.
+ */
+@Composable
+private fun UserInfoRowMount(viewModel: MainViewModel) {
+    val self by viewModel.selfUser.collectAsState()
+    val presences by viewModel.presences.collectAsState()
+    val voiceState by viewModel.voiceState.collectAsState()
+    val daveState by viewModel.daveState.collectAsState()
+    val rowState by remember(viewModel) {
+        derivedStateOf {
+            val s = self
+            val connected = voiceState as? VoiceState.Connected
+            UserInfoRowState(
+                self = s,
+                presence = s?.let { presences[it.id] },
+                voiceState = voiceState,
+                daveState = daveState,
+                micMuted = connected?.selfMute ?: false,
+                deafened = connected?.selfDeaf ?: false,
+            )
+        }
+    }
+    UserInfoRow(
+        state = rowState,
+        onMicToggle = viewModel::toggleSelfMute,
+        onDeafToggle = viewModel::toggleSelfDeaf,
+        onOpenSettings = { viewModel.openSettings(null) },
+    )
 }
 
 @Composable
@@ -552,46 +595,3 @@ private class ChannelMessagesHolder(
 @Composable
 internal expect fun VoiceDock(viewModel: MainViewModel)
 
-/**
- * Account row pinned to the very bottom of the channel-list pane. Hosts the logout
- * affordance — a single icon button that triggers a confirmation dialog before calling
- * [MainViewModel.logout]. After successful logout the [SessionManager.activeSession]
- * flow emits null, which the router observes to navigate back to [LoginScreen].
- */
-@Composable
-private fun LogoutBar(viewModel: MainViewModel) {
-    val scope = rememberCoroutineScope()
-    var showConfirm by remember { mutableStateOf(false) }
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(horizontal = 12.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.End,
-    ) {
-        IconButton(onClick = { showConfirm = true }) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.Logout,
-                contentDescription = "Log out",
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-    }
-    if (showConfirm) {
-        AlertDialog(
-            onDismissRequest = { showConfirm = false },
-            title = { Text("Log out?") },
-            text = { Text("Your stored Discord token will be removed from this device.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    showConfirm = false
-                    scope.launch { viewModel.logout() }
-                }) { Text("Log out") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("Cancel") }
-            },
-        )
-    }
-}

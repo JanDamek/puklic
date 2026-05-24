@@ -13,9 +13,15 @@ import dev.puklic.ids.GuildId
 import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
+import dev.puklic.domain.UserSummary
 import dev.puklic.repositories.Orchestrators
+import dev.puklic.repositories.PresenceState
 import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
+import dev.puklic.ui.screens.settings.SettingsCategory
+import dev.puklic.voice.DaveUiState
+import dev.puklic.voice.VoiceClient
+import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
 import dev.puklic.voice.screenshare.ScreenSource
 import kotlinx.coroutines.CoroutineScope
@@ -83,6 +89,70 @@ public class MainViewModel(
      */
     public suspend fun logout() {
         sessionManager?.endSession(wipeToken = true)
+    }
+
+    // ----- Settings overlay state (architect report v2 §5) -----
+
+    private val _settingsOpen = MutableStateFlow(false)
+    public val settingsOpen: StateFlow<Boolean> = _settingsOpen.asStateFlow()
+
+    private val _selectedSettingsCategory = MutableStateFlow(SettingsCategory.ACCOUNT)
+    public val selectedSettingsCategory: StateFlow<SettingsCategory> =
+        _selectedSettingsCategory.asStateFlow()
+
+    /**
+     * Open the Settings overlay. When [category] is non-null, navigates to that category.
+     * When null, preserves whatever category was last selected (Discord behavior).
+     */
+    public fun openSettings(category: SettingsCategory? = null) {
+        category?.let { _selectedSettingsCategory.value = it }
+        _settingsOpen.value = true
+    }
+
+    public fun closeSettings() {
+        _settingsOpen.value = false
+    }
+
+    public fun selectSettingsCategory(category: SettingsCategory) {
+        _selectedSettingsCategory.value = category
+    }
+
+    // ----- UserInfoRow state surfaces (architect report v2 §3) -----
+
+    /** Self user emitted by [UserOrchestrator]. Null pre-READY or when no session is wired. */
+    public val selfUser: StateFlow<UserSummary?> =
+        orchestrators?.user?.selfUser
+            ?: MutableStateFlow<UserSummary?>(null).asStateFlow()
+
+    /** Live presence map. Empty when no session is wired. */
+    public val presences: StateFlow<Map<UserId, PresenceState>> =
+        orchestrators?.presence?.presences
+            ?: MutableStateFlow(emptyMap<UserId, PresenceState>()).asStateFlow()
+
+    /** Mirror of [VoiceClient.state]; [VoiceState.Idle] when no voice client is wired. */
+    public val voiceState: StateFlow<VoiceState> =
+        (voiceClient as? VoiceClient)?.state
+            ?: MutableStateFlow<VoiceState>(VoiceState.Idle).asStateFlow()
+
+    /** Mirror of [VoiceClient.daveState]; [DaveUiState.Off] when no voice client is wired. */
+    public val daveState: StateFlow<DaveUiState> =
+        (voiceClient as? VoiceClient)?.daveState
+            ?: MutableStateFlow<DaveUiState>(DaveUiState.Off).asStateFlow()
+
+    /**
+     * Toggle self-mute on the voice client. No-op when not currently connected — the
+     * UserInfoRow disables the icon in that case (architect report v2 §3 / §8).
+     */
+    public fun toggleSelfMute() {
+        val client = voiceClient as? VoiceClient ?: return
+        val current = client.state.value as? VoiceState.Connected ?: return
+        client.setSelfMute(!current.selfMute)
+    }
+
+    public fun toggleSelfDeaf() {
+        val client = voiceClient as? VoiceClient ?: return
+        val current = client.state.value as? VoiceState.Connected ?: return
+        client.setSelfDeaf(!current.selfDeaf)
     }
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)

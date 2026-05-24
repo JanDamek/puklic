@@ -14,8 +14,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Settings
@@ -189,23 +187,6 @@ private fun ConnectedBar(
             }
         }
     }
-}
-
-@Composable
-private fun DaveLockIcon(daveState: DaveUiState) {
-    val active = daveState is DaveUiState.Active
-    val description = when (daveState) {
-        is DaveUiState.Active -> "End-to-end encrypted (DAVE epoch ${daveState.epoch})"
-        is DaveUiState.Connecting -> "DAVE handshake in progress"
-        is DaveUiState.Disabled -> "DAVE disabled: ${daveState.reason}"
-        DaveUiState.Off -> "Not end-to-end encrypted"
-    }
-    Icon(
-        imageVector = if (active) Icons.Filled.Lock else Icons.Filled.LockOpen,
-        contentDescription = description,
-        tint = if (active) Color(0xFF22C55E) else MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.size(12.dp),
-    )
 }
 
 @Composable

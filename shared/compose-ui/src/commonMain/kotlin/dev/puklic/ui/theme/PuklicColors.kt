@@ -37,19 +37,19 @@ public val PuklicDarkColorScheme: androidx.compose.material3.ColorScheme = darkC
 public data class PuklicCustomColors(
     val mention: Color,
     val mentionBackground: Color,
-    val online: Color,
-    val idle: Color,
-    val dnd: Color,
-    val offline: Color,
+    val presenceOnline: Color,
+    val presenceIdle: Color,
+    val presenceDnd: Color,
+    val presenceOffline: Color,
 )
 
 public val PuklicDarkCustomColors: PuklicCustomColors = PuklicCustomColors(
     mention = Color(0xFFFFD66B),
     mentionBackground = Color(0xFF3D2E0A),
-    online = Color(0xFF43B581),
-    idle = Color(0xFFFAA61A),
-    dnd = Color(0xFFF04747),
-    offline = Color(0xFF747F8D),
+    presenceOnline = Color(0xFF43B581),
+    presenceIdle = Color(0xFFFAA61A),
+    presenceDnd = Color(0xFFF04747),
+    presenceOffline = Color(0xFF747F8D),
 )
 
 public val LocalPuklicColors: androidx.compose.runtime.ProvidableCompositionLocal<PuklicCustomColors> =
