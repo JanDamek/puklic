@@ -4,13 +4,33 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+    # Skip pushes that change only docs / CI infrastructure / unrelated workflows.
+    # Code changes (shared/, desktop/, gradle/) still trigger.
+    paths:
+      - 'shared/**'
+      - 'desktop/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/build-installers.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'shared/**'
+      - 'desktop/**'
+      - 'gradle/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle.properties'
+      - '.github/workflows/build-installers.yml'
   workflow_dispatch:
 
 concurrency:
   group: build-installers-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  # Cancel older runs on the same ref — only the latest commit's installer matters.
+  # Tags get their own group (refs/tags/v*) so releases aren't cancelled by main pushes.
+  cancel-in-progress: true
 
 jobs:
   build:
