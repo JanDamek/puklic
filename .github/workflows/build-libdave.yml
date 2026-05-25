@@ -22,15 +22,12 @@ jobs:
           - os: macos-14
             target: macos-arm64
             ext: dylib
-          # macos-x86_64 + windows-x86_64 disabled per #22 — not shipped in v0.1.0
-          # release matrix (Linux .deb + macOS arm64 .dmg only). Re-enable when
-          # Intel Mac or Windows distribution becomes a goal.
-          # - os: macos-13
-          #   target: macos-x86_64
-          #   ext: dylib
-          # - os: windows-2022
-          #   target: windows-x86_64
-          #   ext: dll
+          - os: macos-13
+            target: macos-x86_64
+            ext: dylib
+          - os: windows-2022
+            target: windows-x86_64
+            ext: dll
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
