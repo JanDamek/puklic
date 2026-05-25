@@ -1,4 +1,6 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.nio.file.Files
+import java.nio.file.Paths
 
 plugins {
     id("puklic.jvm-library")
@@ -225,13 +227,13 @@ val patchDebPostBuild = tasks.register("patchDebPostBuild") {
             // /usr/bin/puklic symlink (lowercase per Arch / common-shell convention).
             val usrBin = File(work, "usr/bin").apply { mkdirs() }
             val launcherLink = File(usrBin, "puklic")
-            if (launcherLink.exists() || java.nio.file.Files.isSymbolicLink(launcherLink.toPath())) {
-                java.nio.file.Files.delete(launcherLink.toPath())
+            if (launcherLink.exists() || Files.isSymbolicLink(launcherLink.toPath())) {
+                Files.delete(launcherLink.toPath())
             }
             check(optBin.exists()) { "Expected jpackage launcher at ${optBin}, not found" }
-            java.nio.file.Files.createSymbolicLink(
+            Files.createSymbolicLink(
                 launcherLink.toPath(),
-                java.nio.file.Paths.get("/opt/puklic/bin/Puklic"),
+                Paths.get("/opt/puklic/bin/Puklic"),
             )
             logger.lifecycle("patchDebPostBuild:   added /usr/bin/puklic -> /opt/puklic/bin/Puklic")
 
