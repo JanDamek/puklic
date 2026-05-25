@@ -64,13 +64,23 @@ paru -S puklic-bin
 
 ```bash
 wget https://github.com/JanDamek/puklic/releases/download/v0.1.0/puklic_0.1.0-1_amd64.deb
-sudo dpkg -i puklic_0.1.0-1_amd64.deb
+sudo apt install ./puklic_0.1.0-1_amd64.deb   # pulls libsecret-tools automatically
 puklic
 ```
+
+The `.deb` declares `libsecret-tools` as a runtime dependency. It is required
+for secure token storage (the app shells out to `secret-tool` to talk to the
+Secret Service API — GNOME Keyring / KWallet). `apt install ./file.deb` resolves
+it transitively; plain `dpkg -i` does not — follow it with `sudo apt-get install -f`
+if you use `dpkg` directly.
 
 ### Linux (other distros, x86_64)
 
 Download `Puklic-0.1.0-x86_64.AppImage`, `chmod +x`, run.
+
+AppImage does not honor `.deb` dependencies, so install `libsecret-tools` (or
+your distro's equivalent providing the `secret-tool` binary, e.g. `libsecret`
+on Arch) manually before first login.
 
 ### macOS (Apple Silicon) — developer-side only
 

@@ -91,6 +91,12 @@ compose.desktop {
                 menuGroup = "Internet"
                 appRelease = "1"
                 rpmLicenseType = "Apache-2.0"
+                // Note: Compose Desktop 1.9.x (jpackage under the hood) does NOT
+                // expose a DSL property for Debian `Depends:` and jpackage itself
+                // has no `--linux-package-deps` flag. The runtime dependency on
+                // `libsecret-tools` (needed by LinuxSecureStorage to invoke the
+                // `secret-tool` CLI) is injected post-build by the
+                // `patchDebDependencies` task below — see issue #15.
             }
             macOS {
                 iconFile.set(rootProject.file("icons/macos/puklic.icns"))
@@ -117,4 +123,88 @@ tasks.withType<JavaExec>().configureEach {
         val value = System.getProperty(key)
         if (value != null) systemProperty(key, value)
     }
+}
+
+// ---------------------------------------------------------------------------
+// patchDebDependencies — inject Debian `Depends:` line into the .deb produced
+// by Compose Desktop / jpackage. Required for issue #15: LinuxSecureStorage
+// shells out to `secret-tool` (from libsecret-tools) to persist Discord tokens
+// via the Secret Service API (GNOME Keyring / KWallet). Without it the first
+// login throws PlatformUnavailable.
+//
+// jpackage has no `--linux-package-deps` flag and Compose 1.9.x exposes no
+// DSL property for it, so we repack the .deb's control file. Runs only on
+// Linux build agents (skipped on macOS dev builds, which only produce .dmg).
+//
+// AppImage users install libsecret-tools manually (AppImage does not honor
+// .deb deps). AUR side already declares libsecret transitively via #20.
+// ---------------------------------------------------------------------------
+val debRuntimeDependencies = listOf(
+    "libsecret-tools",
+)
+
+val patchDebDependencies = tasks.register("patchDebDependencies") {
+    description = "Injects runtime Depends into the .deb produced by packageDeb (issue #15)."
+    group = "compose desktop"
+
+    val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val depsLine = debRuntimeDependencies.joinToString(", ")
+
+    onlyIf {
+        val os = System.getProperty("os.name").lowercase()
+        os.contains("linux") && debDir.get().asFile.exists()
+    }
+
+    doLast {
+        val dir = debDir.get().asFile
+        val debs = dir.listFiles { f -> f.isFile && f.name.endsWith(".deb") }
+            ?: emptyArray()
+        if (debs.isEmpty()) {
+            logger.warn("patchDebDependencies: no .deb files found in $dir; skipping")
+            return@doLast
+        }
+        for (deb in debs) {
+            logger.lifecycle("patchDebDependencies: injecting Depends '$depsLine' into ${deb.name}")
+            val work = layout.buildDirectory.dir("tmp/patchDeb/${deb.nameWithoutExtension}").get().asFile
+            work.deleteRecursively()
+            work.mkdirs()
+            // Extract control archive into a sibling dir, mutate, repack.
+            exec {
+                workingDir = work
+                commandLine("dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
+            }.assertNormalExitValue()
+
+            val control = File(work, "DEBIAN/control")
+            check(control.exists()) { "DEBIAN/control missing in extracted ${deb.name}" }
+            val original = control.readText()
+            val patched = buildString {
+                var dependsWritten = false
+                for (line in original.lineSequence()) {
+                    if (line.startsWith("Depends:", ignoreCase = true)) {
+                        val existing = line.substringAfter(":").trim()
+                        val merged = if (existing.isEmpty()) depsLine else "$existing, $depsLine"
+                        appendLine("Depends: $merged")
+                        dependsWritten = true
+                    } else if (line.isNotEmpty() || dependsWritten) {
+                        appendLine(line)
+                    }
+                }
+                if (!dependsWritten) {
+                    // No existing Depends line — append before trailing newline.
+                    if (!endsWith("\n")) append("\n")
+                    append("Depends: $depsLine\n")
+                }
+            }
+            control.writeText(patched)
+
+            // Repack in place (dpkg-deb -b <dir> <file>).
+            exec {
+                commandLine("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
+            }.assertNormalExitValue()
+        }
+    }
+}
+
+tasks.matching { it.name == "packageDeb" }.configureEach {
+    finalizedBy(patchDebDependencies)
 }
