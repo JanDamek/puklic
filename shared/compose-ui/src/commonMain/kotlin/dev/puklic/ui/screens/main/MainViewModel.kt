@@ -20,6 +20,7 @@ import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
 import dev.puklic.ui.screens.settings.SettingsCategory
 import dev.puklic.voice.DaveUiState
+import dev.puklic.voice.IncomingCall
 import dev.puklic.voice.VoiceBusyException
 import dev.puklic.voice.VoiceClient
 import dev.puklic.voice.VoiceState
@@ -265,6 +266,40 @@ public class MainViewModel(
                         _snackbarMessage.emit(SNACKBAR_LEAVE_CURRENT_CALL)
                     }
                 }
+        }
+    }
+
+    /**
+     * Live queue of incoming DM calls — head is what [IncomingCallDialog] currently shows. Empty
+     * list (and emptyFlow when no voice client) until a CALL_CREATE for this self user arrives.
+     * See architect-report 2026-05-25-dm-incoming-voice §6.
+     */
+    public val incomingCalls: StateFlow<List<IncomingCall>> =
+        (voiceClient as? VoiceClient)?.incomingCalls
+            ?: MutableStateFlow<List<IncomingCall>>(emptyList()).asStateFlow()
+
+    /**
+     * Best-effort caller lookup against the persisted user cache. Returns null when the caller
+     * id couldn't be resolved (the dialog renders a generic title in that case).
+     */
+    public suspend fun resolveCaller(callerId: UserId?): UserSummary? {
+        if (callerId == null) return null
+        return orchestrators?.user?.findById(callerId)
+    }
+
+    public fun acceptCall(channelId: ChannelId) {
+        val client = voiceClient as? VoiceClient ?: return
+        scope.launch {
+            runCatching { client.acceptIncoming(channelId) }
+                .onFailure { Logger.w("MainViewModel", it) { "acceptIncoming failed cid=$channelId" } }
+        }
+    }
+
+    public fun declineCall(channelId: ChannelId) {
+        val client = voiceClient as? VoiceClient ?: return
+        scope.launch {
+            runCatching { client.declineIncoming(channelId) }
+                .onFailure { Logger.w("MainViewModel", it) { "declineIncoming failed cid=$channelId" } }
         }
     }
 

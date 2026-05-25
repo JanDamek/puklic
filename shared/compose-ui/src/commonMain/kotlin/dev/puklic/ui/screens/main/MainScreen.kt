@@ -71,6 +71,9 @@ import dev.puklic.ui.components.GuildRailItem
 import dev.puklic.ui.components.PuklicAvatar
 import dev.puklic.ui.components.UserInfoRow
 import dev.puklic.ui.components.UserInfoRowState
+import dev.puklic.ui.components.voice.IncomingCallDialog
+import dev.puklic.domain.UserSummary
+import androidx.compose.runtime.produceState
 import dev.puklic.ui.screens.settings.SettingsHost
 import dev.puklic.ui.screens.settings.SettingsOverlay
 import dev.puklic.ui.theme.LocalPuklicSpacing
@@ -147,6 +150,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
         )
     }
         SnackbarHostMount(viewModel = viewModel)
+        IncomingCallMount(viewModel = viewModel)
         val settingsOpen by viewModel.settingsOpen.collectAsState()
         val settingsCategory by viewModel.selectedSettingsCategory.collectAsState()
         SettingsOverlay(
@@ -188,6 +192,25 @@ private fun UserInfoRowMount(viewModel: MainViewModel) {
         onMicToggle = viewModel::toggleSelfMute,
         onDeafToggle = viewModel::toggleSelfDeaf,
         onOpenSettings = { viewModel.openSettings(null) },
+    )
+}
+
+/**
+ * Surfaces the queue head of [MainViewModel.incomingCalls] as an [IncomingCallDialog]. The
+ * dialog auto-advances when the head call is removed (accept / decline / remote cancel).
+ */
+@Composable
+private fun IncomingCallMount(viewModel: MainViewModel) {
+    val queue by viewModel.incomingCalls.collectAsState()
+    val current = queue.firstOrNull() ?: return
+    val caller by produceState<UserSummary?>(initialValue = null, current.callerId) {
+        value = viewModel.resolveCaller(current.callerId)
+    }
+    IncomingCallDialog(
+        call = current,
+        caller = caller,
+        onAccept = { viewModel.acceptCall(current.channelId) },
+        onDecline = { viewModel.declineCall(current.channelId) },
     )
 }
 

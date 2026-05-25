@@ -211,6 +211,21 @@ private class FakeBridge : MainGatewayBridge {
     override val voiceServerUpdates: SharedFlow<MainGatewayBridge.VoiceServerUpdate> =
         _voiceServerUpdates.asSharedFlow()
 
+    private val _callEvents = MutableSharedFlow<MainGatewayBridge.CallEvent>(
+        replay = 0, extraBufferCapacity = 16,
+    )
+    override val callEvents: SharedFlow<MainGatewayBridge.CallEvent> = _callEvents.asSharedFlow()
+
+    override suspend fun stopRinging(
+        channelId: ChannelId,
+        recipients: List<UserId>,
+    ) { /* unused in this test */ }
+
+    override suspend fun resolveMessageAuthor(
+        channelId: ChannelId,
+        messageId: dev.puklic.ids.MessageId,
+    ): UserId? = null
+
     override suspend fun sendVoiceStateUpdate(
         guildId: GuildId?,
         channelId: ChannelId?,

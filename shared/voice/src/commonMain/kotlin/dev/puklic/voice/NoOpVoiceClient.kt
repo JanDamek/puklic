@@ -31,6 +31,12 @@ public class NoOpVoiceClient : VoiceClient {
     private val _daveState = MutableStateFlow<DaveUiState>(DaveUiState.Off)
     override val daveState: StateFlow<DaveUiState> = _daveState.asStateFlow()
 
+    private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
+    override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
+
+    override suspend fun acceptIncoming(channelId: ChannelId) { /* no-op */ }
+    override suspend fun declineIncoming(channelId: ChannelId) { /* no-op */ }
+
     override suspend fun connect(guildId: GuildId?, channelId: ChannelId) { /* no-op */ }
     override suspend fun disconnect() { /* no-op */ }
     override fun setSelfMute(muted: Boolean) { /* no-op */ }

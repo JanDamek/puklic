@@ -252,6 +252,54 @@ public class DiscordRestClient(
         onFailure = { Result.failure(it) },
     )
 
+    /**
+     * Stop ringing the specified [recipients] for an in-progress DM call ring. Discord returns
+     * 204 No Content on success. Per architect-report 2026-05-25-dm-incoming-voice §7, 404 and
+     * 410 are treated as success (the call has already ended or been declined elsewhere).
+     */
+    public suspend fun stopRinging(
+        channelId: ChannelId,
+        recipients: List<dev.puklic.ids.UserId>,
+    ): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.post("$baseUrl/channels/${channelId.value}/call/stop-ringing") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DiscordJson.encodeToString(
+                        dev.puklic.protocol.discord.dto.StopRingingDto.serializer(),
+                        dev.puklic.protocol.discord.dto.StopRingingDto(
+                            recipients = recipients.map { it.value.toString() },
+                        ),
+                    ),
+                )
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            val s = response.status.value
+            when {
+                response.status.isSuccess() -> Result.success(Unit)
+                // Already-gone — call ended or declined elsewhere. Treat as success.
+                s == HttpStatusCode.NotFound.value || s == HttpStatusCode.Gone.value -> Result.success(Unit)
+                else -> Result.failure(errorOf(response))
+            }
+        },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
+     * Fetch a single message by id. Used by the voice layer's caller-id message-author fallback
+     * chain when CALL_CREATE arrives with an empty `voice_states` array but a `message_id` set.
+     */
+    internal suspend fun getMessage(
+        channelId: ChannelId,
+        messageId: MessageId,
+    ): Result<DiscordMessageDto> = request(
+        "$baseUrl/channels/${channelId.value}/messages/${messageId.value}",
+        serializer<DiscordMessageDto>(),
+    )
+
     private fun EmojiRef.toReactionPath(): String = when (this) {
         is EmojiRef.Unicode -> codepoint.encodeURLPathPart()
         is EmojiRef.Custom -> "$name:${id.value}".encodeURLPathPart()

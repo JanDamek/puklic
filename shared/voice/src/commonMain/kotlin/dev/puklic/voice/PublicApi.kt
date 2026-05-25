@@ -111,6 +111,20 @@ public sealed interface DaveUiState {
     public data class Disabled(val reason: String) : DaveUiState
 }
 
+/**
+ * Snapshot of a single DM call currently ringing on this client. Surfaced via
+ * [VoiceClient.incomingCalls]; [callerId] may be null when neither voice_states nor the
+ * CALL_REQUEST message-author fallback could resolve the caller (see architect-report
+ * 2026-05-25-dm-incoming-voice §4 — the UI must then render a generic label).
+ *
+ * [isGroup] is stubbed `false` in v1 — see follow-up issue for GroupDmChannel domain support.
+ */
+public data class IncomingCall(
+    val channelId: ChannelId,
+    val callerId: UserId?,
+    val isGroup: Boolean,
+)
+
 public interface VoiceClient {
     public val state: StateFlow<VoiceState>
     public val devices: StateFlow<List<AudioDevice>>
@@ -129,6 +143,29 @@ public interface VoiceClient {
      * Initiate a voice connection. [guildId] is `null` for 1:1 DM voice calls and non-null for
      * guild voice channels. Throws [VoiceBusyException] if a session is already active.
      */
+    /**
+     * Ordered FIFO queue of currently ringing incoming DM calls. Head = currently shown to
+     * the user. Emissions are atomic — accept / decline / remote-cancel always reduce the
+     * list through a single `update {}` so collectors never see partial state.
+     *
+     * See architect-report 2026-05-25-dm-incoming-voice §6.
+     */
+    public val incomingCalls: StateFlow<List<IncomingCall>>
+
+    /**
+     * Accept the currently-ringing call for [channelId]. Removes it from [incomingCalls] and
+     * reuses the standard `connect(null, channelId)` path (issue #16 Slice 1). Silent no-op
+     * if the channel is no longer queued (e.g. the caller hung up first).
+     */
+    public suspend fun acceptIncoming(channelId: ChannelId)
+
+    /**
+     * Decline the currently-ringing call for [channelId]. Removes it from [incomingCalls] and
+     * POSTs `/channels/{id}/call/stop-ringing` with `recipients=[self]`. 404 / 410 are
+     * swallowed by the REST layer (the call may already be gone — architect-report §7).
+     */
+    public suspend fun declineIncoming(channelId: ChannelId)
+
     public suspend fun connect(guildId: GuildId?, channelId: ChannelId)
     public suspend fun disconnect()
     public fun setSelfMute(muted: Boolean)

@@ -302,6 +302,30 @@ Caller name/avatar resolved via `UserOrchestrator.observe(callerId)`; `callerId 
 - 404/410 on stopRinging: success.
 - Group DM decline body: `recipients=[self]` (NOT all recipients — that would cancel ring for everyone).
 
+## 12a. Implementation notes (2026-05-25 impl pass)
+
+Implementation deviated minimally from §13 file list and is recorded here for SSOT:
+
+- `MainGatewayBridge` (in `shared/voice/.../DefaultVoiceClient.kt`) gained
+  `callEvents: SharedFlow<CallEvent>`, `stopRinging(channelId, recipients)`, and
+  `resolveMessageAuthor(channelId, messageId)`. Rationale: keep `:shared:voice` ignorant
+  of `:shared:protocol-discord` (§2 boundary). The desktop wiring layer
+  (`MainGatewayBridgeAdapter`) fans CALL_* dispatches into `callEvents` and delegates
+  REST/REST-author lookup to `DiscordRestClient` + `DiscordMessageBridge.fetchMessageAuthor`.
+- `DiscordRestClient.stopRinging` swallows 404/410 internally (§7) — the adapter
+  unwraps `Result` so the voice layer sees a plain `suspend fun` contract.
+- New REST method `DiscordRestClient.getMessage` (internal) — added solely to support
+  the §4 step-2 caller fallback via `DiscordMessageBridge.fetchMessageAuthor` (public,
+  domain-typed `UserId?`).
+- Self-ring filter, dedup, FIFO queue and atomic `_incomingCalls.update {}` reductions
+  live in `DefaultVoiceClient.handleCallStarted` / `removeFromIncomingQueue`.
+- `MainViewModel.resolveCaller` performs the cache lookup off the UI thread; the dialog
+  uses `produceState` to await the result without blocking recomposition.
+
+Follow-up issues to file post-merge (§11): GroupDmChannel domain (#TBD),
+Op 13 Request Call Connect bootstrap (#TBD), distinct "Call temporarily unavailable"
+toast for `unavailable=true` (#TBD), ring sound (#TBD).
+
 ## 13. Critical files for impl
 
 - `shared/voice/src/commonMain/kotlin/dev/puklic/voice/PublicApi.kt`

@@ -2,10 +2,13 @@ package dev.puklic.desktop
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
 import dev.puklic.protocol.discord.DiscordDomainEvent
 import dev.puklic.protocol.discord.DiscordGatewayBridge
+import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.protocol.discord.gateway.GatewayConnection
+import dev.puklic.protocol.discord.rest.DiscordRestClient
 import dev.puklic.voice.MainGatewayBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.BufferOverflow
@@ -27,6 +30,8 @@ internal class MainGatewayBridgeAdapter(
     private val gateway: GatewayConnection,
     bridge: DiscordGatewayBridge,
     scope: CoroutineScope,
+    private val restClient: DiscordRestClient,
+    private val messageBridge: DiscordMessageBridge,
 ) : MainGatewayBridge {
 
     private val _voiceStateUpdates =
@@ -46,6 +51,14 @@ internal class MainGatewayBridgeAdapter(
         )
     override val voiceServerUpdates: SharedFlow<MainGatewayBridge.VoiceServerUpdate> =
         _voiceServerUpdates.asSharedFlow()
+
+    private val _callEvents =
+        MutableSharedFlow<MainGatewayBridge.CallEvent>(
+            replay = 0,
+            extraBufferCapacity = BUFFER,
+            onBufferOverflow = BufferOverflow.DROP_OLDEST,
+        )
+    override val callEvents: SharedFlow<MainGatewayBridge.CallEvent> = _callEvents.asSharedFlow()
 
     init {
         bridge.events
@@ -74,6 +87,52 @@ internal class MainGatewayBridgeAdapter(
             }
             .launchIn(scope)
     }
+
+    init {
+        bridge.events
+            .filterIsInstance<DiscordDomainEvent.CallStarted>()
+            .onEach {
+                _callEvents.emit(
+                    MainGatewayBridge.CallEvent.Started(
+                        channelId = it.channelId,
+                        callerId = it.callerId,
+                        messageId = it.messageId,
+                        ringing = it.ringing,
+                    ),
+                )
+            }
+            .launchIn(scope)
+        bridge.events
+            .filterIsInstance<DiscordDomainEvent.CallRingingUpdated>()
+            .onEach {
+                _callEvents.emit(
+                    MainGatewayBridge.CallEvent.RingingUpdated(
+                        channelId = it.channelId,
+                        ringing = it.ringing,
+                    ),
+                )
+            }
+            .launchIn(scope)
+        bridge.events
+            .filterIsInstance<DiscordDomainEvent.CallEnded>()
+            .onEach {
+                _callEvents.emit(
+                    MainGatewayBridge.CallEvent.Ended(
+                        channelId = it.channelId,
+                        unavailable = it.unavailable,
+                    ),
+                )
+            }
+            .launchIn(scope)
+    }
+
+    override suspend fun stopRinging(channelId: ChannelId, recipients: List<UserId>) {
+        // REST layer already swallows 404/410 internally; just ignore Result failure here.
+        restClient.stopRinging(channelId, recipients).getOrThrow()
+    }
+
+    override suspend fun resolveMessageAuthor(channelId: ChannelId, messageId: MessageId): UserId? =
+        messageBridge.fetchMessageAuthor(channelId, messageId)
 
     override suspend fun sendVoiceStateUpdate(
         guildId: GuildId?,

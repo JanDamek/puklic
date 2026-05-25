@@ -153,6 +153,33 @@ public sealed interface DiscordDomainEvent {
     public data class RoleUpdated(val role: Role) : DiscordDomainEvent
     public data class RoleDeleted(val guildId: GuildId, val roleId: RoleId) : DiscordDomainEvent
     public data class SelfMemberUpdated(val member: Member) : DiscordDomainEvent
+
+    /**
+     * DM incoming-call dispatch (CALL_CREATE). [callerId] is resolved synchronously from
+     * `voice_states` if possible; the asynchronous message-author fallback runs in the voice
+     * layer (architect-report 2026-05-25-dm-incoming-voice §4). [messageId] is preserved so
+     * the voice layer can drive the fallback chain. [ringing] contains the set of user ids the
+     * server is ringing — the receiver MUST verify selfId is in this set before alerting.
+     */
+    public data class CallStarted(
+        val channelId: ChannelId,
+        val callerId: UserId?,
+        val messageId: MessageId?,
+        val ringing: Set<UserId>,
+        val region: String?,
+    ) : DiscordDomainEvent
+
+    /** CALL_UPDATE — the [ringing] set changed (e.g. picked up / declined elsewhere). */
+    public data class CallRingingUpdated(
+        val channelId: ChannelId,
+        val ringing: Set<UserId>,
+    ) : DiscordDomainEvent
+
+    /** CALL_DELETE — the call ended or became unavailable (voice region outage). */
+    public data class CallEnded(
+        val channelId: ChannelId,
+        val unavailable: Boolean,
+    ) : DiscordDomainEvent
 }
 
 /**
@@ -407,6 +434,48 @@ public class DiscordGatewayBridge(
                     )
                     val member = memberDto.toDomain(GuildId(guildIdLong), UserId(userIdLong))
                     listOf(DiscordDomainEvent.SelfMemberUpdated(member))
+                }
+                "CALL_CREATE" -> {
+                    val dto = DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.CallCreateDto.serializer(),
+                        payload,
+                    )
+                    val channelId = ChannelId(dto.channelId.toLong())
+                    val ringing = dto.ringing.mapNotNull { it.toLongOrNull()?.let(::UserId) }.toSet()
+                    val selfId = selfUserIdProvider()
+                    // Caller-id chain step 1: first non-self user_id in voice_states.
+                    val callerFromVoiceStates = dto.voiceStates
+                        .asSequence()
+                        .mapNotNull { it.userId.toLongOrNull()?.let(::UserId) }
+                        .firstOrNull { selfId == null || it != selfId }
+                    listOf(DiscordDomainEvent.CallStarted(
+                        channelId = channelId,
+                        callerId = callerFromVoiceStates,
+                        messageId = dto.messageId?.toLongOrNull()?.let(::MessageId),
+                        ringing = ringing,
+                        region = dto.region,
+                    ))
+                }
+                "CALL_UPDATE" -> {
+                    val dto = DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.CallUpdateDto.serializer(),
+                        payload,
+                    )
+                    val ringing = dto.ringing.mapNotNull { it.toLongOrNull()?.let(::UserId) }.toSet()
+                    listOf(DiscordDomainEvent.CallRingingUpdated(
+                        channelId = ChannelId(dto.channelId.toLong()),
+                        ringing = ringing,
+                    ))
+                }
+                "CALL_DELETE" -> {
+                    val dto = DiscordJson.decodeFromJsonElement(
+                        dev.puklic.protocol.discord.dto.CallDeleteDto.serializer(),
+                        payload,
+                    )
+                    listOf(DiscordDomainEvent.CallEnded(
+                        channelId = ChannelId(dto.channelId.toLong()),
+                        unavailable = dto.unavailable,
+                    ))
                 }
                 "READY" -> mapReady(payload)
                 else -> {
@@ -781,6 +850,14 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
         messageId: MessageId,
         emoji: dev.puklic.domain.EmojiRef,
     ): Result<Unit> = rest.removeOwnReaction(channelId, messageId, emoji)
+
+    /**
+     * Resolve the author user-id of a single message via REST. Used by the voice layer's
+     * caller-id message-author fallback chain (see architect-report 2026-05-25-dm-incoming-voice
+     * §4 step 2). Best-effort: returns null on failure (caller logs + falls through).
+     */
+    public suspend fun fetchMessageAuthor(channelId: ChannelId, messageId: MessageId): UserId? =
+        rest.getMessage(channelId, messageId).map { it.toDomain().author.id }.getOrNull()
 }
 
 /**

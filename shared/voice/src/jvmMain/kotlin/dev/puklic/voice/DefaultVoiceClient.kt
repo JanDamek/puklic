@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicInteger
@@ -69,6 +70,24 @@ public interface MainGatewayBridge {
     /** Stream of `VOICE_SERVER_UPDATE` dispatches (endpoint + token). */
     public val voiceServerUpdates: SharedFlow<VoiceServerUpdate>
 
+    /**
+     * DM incoming-call dispatches (CALL_CREATE / CALL_UPDATE / CALL_DELETE). See
+     * architect-report 2026-05-25-dm-incoming-voice §6.
+     */
+    public val callEvents: SharedFlow<CallEvent>
+
+    /**
+     * Stop ringing recipients of a DM call. Used by [VoiceClient.declineIncoming]. The bridge
+     * implementation MUST treat 404 / 410 as success (call already gone).
+     */
+    public suspend fun stopRinging(channelId: ChannelId, recipients: List<UserId>)
+
+    /**
+     * Best-effort resolve of a message's author id — used for the caller-id fallback chain
+     * step 2 (architect-report 2026-05-25-dm-incoming-voice §4). Returns null on failure.
+     */
+    public suspend fun resolveMessageAuthor(channelId: ChannelId, messageId: dev.puklic.ids.MessageId): UserId?
+
     public data class VoiceStateUpdate(
         val guildId: GuildId?,
         val channelId: ChannelId?,
@@ -81,6 +100,28 @@ public interface MainGatewayBridge {
         val token: String,
         val endpoint: String?,
     )
+
+    /** Tagged union of the three DM-call dispatches the voice layer cares about. */
+    public sealed interface CallEvent {
+        public val channelId: ChannelId
+
+        public data class Started(
+            override val channelId: ChannelId,
+            val callerId: UserId?,
+            val messageId: dev.puklic.ids.MessageId?,
+            val ringing: Set<UserId>,
+        ) : CallEvent
+
+        public data class RingingUpdated(
+            override val channelId: ChannelId,
+            val ringing: Set<UserId>,
+        ) : CallEvent
+
+        public data class Ended(
+            override val channelId: ChannelId,
+            val unavailable: Boolean,
+        ) : CallEvent
+    }
 }
 
 /**
@@ -113,6 +154,9 @@ public class DefaultVoiceClient(
 
     private val _daveState = MutableStateFlow<DaveUiState>(DaveUiState.Off)
     override val daveState: StateFlow<DaveUiState> = _daveState.asStateFlow()
+
+    private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
+    override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
 
     // Replaced with a [DefaultScreenShareClient] once SessionDescription arrives, reset to
     // [NoOpScreenShareClient] on disconnect. Backing field is `@Volatile` because the
@@ -153,6 +197,58 @@ public class DefaultVoiceClient(
 
     init {
         refreshDevices()
+        // Subscribe to incoming-call dispatches on the application scope (queue must outlive
+        // any single voice session — calls can arrive while [state] is Idle).
+        applicationScope.launch {
+            mainGateway.callEvents.collect { ev -> handleCallEvent(ev) }
+        }
+    }
+
+    private suspend fun handleCallEvent(ev: MainGatewayBridge.CallEvent) {
+        when (ev) {
+            is MainGatewayBridge.CallEvent.Started -> handleCallStarted(ev)
+            is MainGatewayBridge.CallEvent.RingingUpdated -> {
+                val selfId = selfUserIdProvider() ?: return
+                if (selfId !in ev.ringing) removeFromIncomingQueue(ev.channelId)
+            }
+            is MainGatewayBridge.CallEvent.Ended -> removeFromIncomingQueue(ev.channelId)
+        }
+    }
+
+    private suspend fun handleCallStarted(ev: MainGatewayBridge.CallEvent.Started) {
+        val selfId = selfUserIdProvider() ?: return
+        // Self-ring filter — outgoing calls we initiated also fire CALL_CREATE but without
+        // self in `ringing` (Discord does not ring the initiator).
+        if (selfId !in ev.ringing) return
+        if (_incomingCalls.value.any { it.channelId == ev.channelId }) return
+        // Caller-id chain step 2: message-author fallback when voice_states resolution failed.
+        val callerId: UserId? = ev.callerId
+            ?: ev.messageId?.let { msgId ->
+                runCatching { mainGateway.resolveMessageAuthor(ev.channelId, msgId) }
+                    .onFailure { Logger.i(TAG) { "incoming-call: resolveMessageAuthor failed: ${it.message}" } }
+                    .getOrNull()
+            }
+        val call = IncomingCall(channelId = ev.channelId, callerId = callerId, isGroup = false)
+        _incomingCalls.update { it + call }
+    }
+
+    private fun removeFromIncomingQueue(channelId: ChannelId) {
+        _incomingCalls.update { list -> list.filterNot { it.channelId == channelId } }
+    }
+
+    override suspend fun acceptIncoming(channelId: ChannelId) {
+        if (_incomingCalls.value.none { it.channelId == channelId }) return
+        removeFromIncomingQueue(channelId)
+        // Reuse outgoing-call path from issue #16 Slice 1; guildId=null for DM.
+        connect(guildId = null, channelId = channelId)
+    }
+
+    override suspend fun declineIncoming(channelId: ChannelId) {
+        val self = selfUserIdProvider() ?: return
+        if (_incomingCalls.value.none { it.channelId == channelId }) return
+        removeFromIncomingQueue(channelId)
+        runCatching { mainGateway.stopRinging(channelId, listOf(self)) }
+            .onFailure { Logger.w(TAG) { "declineIncoming: stopRinging failed: ${it.message}" } }
     }
 
     private fun refreshDevices() {

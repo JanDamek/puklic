@@ -128,6 +128,21 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.RoleUpdated -> GatewayDomainEvent.RoleUpdated(ev.role)
         is DiscordDomainEvent.RoleDeleted -> GatewayDomainEvent.RoleDeleted(ev.guildId, ev.roleId)
         is DiscordDomainEvent.SelfMemberUpdated -> GatewayDomainEvent.SelfMemberUpdated(ev.member)
+        is DiscordDomainEvent.CallStarted -> GatewayDomainEvent.CallStarted(
+            channelId = ev.channelId,
+            callerId = ev.callerId,
+            messageId = ev.messageId,
+            ringing = ev.ringing,
+            region = ev.region,
+        )
+        is DiscordDomainEvent.CallRingingUpdated -> GatewayDomainEvent.CallRingingUpdated(
+            channelId = ev.channelId,
+            ringing = ev.ringing,
+        )
+        is DiscordDomainEvent.CallEnded -> GatewayDomainEvent.CallEnded(
+            channelId = ev.channelId,
+            unavailable = ev.unavailable,
+        )
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {

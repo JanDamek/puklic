@@ -123,6 +123,30 @@ public sealed interface GatewayDomainEvent {
     public data class RoleUpdated(val role: Role) : GatewayDomainEvent
     public data class RoleDeleted(val guildId: GuildId, val roleId: RoleId) : GatewayDomainEvent
     public data class SelfMemberUpdated(val member: Member) : GatewayDomainEvent
+
+    /**
+     * DM incoming call started (mirrors `DiscordDomainEvent.CallStarted`). See
+     * architect-report 2026-05-25-dm-incoming-voice §3a.
+     */
+    public data class CallStarted(
+        val channelId: ChannelId,
+        val callerId: UserId?,
+        val messageId: MessageId?,
+        val ringing: Set<UserId>,
+        val region: String?,
+    ) : GatewayDomainEvent
+
+    /** Ring set changed for an active call (mirrors `DiscordDomainEvent.CallRingingUpdated`). */
+    public data class CallRingingUpdated(
+        val channelId: ChannelId,
+        val ringing: Set<UserId>,
+    ) : GatewayDomainEvent
+
+    /** Call ended or temporarily unavailable (mirrors `DiscordDomainEvent.CallEnded`). */
+    public data class CallEnded(
+        val channelId: ChannelId,
+        val unavailable: Boolean,
+    ) : GatewayDomainEvent
 }
 
 /** Source of domain-level gateway events. Wraps the protocol-discord SharedFlow. */

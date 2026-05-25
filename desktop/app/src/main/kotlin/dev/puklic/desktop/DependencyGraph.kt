@@ -328,6 +328,8 @@ public class DependencyGraph private constructor(
                         gateway = gateway,
                         bridge = gatewayBridge,
                         scope = sessionScope,
+                        restClient = rest,
+                        messageBridge = messageBridge,
                     )
                     dev.puklic.voice.DefaultVoiceClient(
                         applicationScope = sessionScope,
