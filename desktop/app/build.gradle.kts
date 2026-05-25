@@ -96,7 +96,7 @@ compose.desktop {
                 // has no `--linux-package-deps` flag. The runtime dependency on
                 // `libsecret-tools` (needed by LinuxSecureStorage to invoke the
                 // `secret-tool` CLI) is injected post-build by the
-                // `patchDebDependencies` task below — see issue #15.
+                // `patchDebPostBuild` task below — see issues #15 and #20.
             }
             macOS {
                 iconFile.set(rootProject.file("icons/macos/puklic.icns"))
@@ -126,25 +126,40 @@ tasks.withType<JavaExec>().configureEach {
 }
 
 // ---------------------------------------------------------------------------
-// patchDebDependencies — inject Debian `Depends:` line into the .deb produced
-// by Compose Desktop / jpackage. Required for issue #15: LinuxSecureStorage
-// shells out to `secret-tool` (from libsecret-tools) to persist Discord tokens
-// via the Secret Service API (GNOME Keyring / KWallet). Without it the first
-// login throws PlatformUnavailable.
+// patchDebPostBuild — single conceptual "make this .deb FHS-correct" step
+// applied as a post-process to the .deb produced by Compose Desktop / jpackage.
 //
-// jpackage has no `--linux-package-deps` flag and Compose 1.9.x exposes no
-// DSL property for it, so we repack the .deb's control file. Runs only on
-// Linux build agents (skipped on macOS dev builds, which only produce .dmg).
+// Two concerns are merged into one dpkg-deb roundtrip (extract once, repack
+// once) so we never leave the .deb in a half-patched intermediate state:
 //
-// AppImage users install libsecret-tools manually (AppImage does not honor
-// .deb deps). AUR side already declares libsecret transitively via #20.
+//   1. Inject Debian `Depends:` line (issue #15). LinuxSecureStorage shells
+//      out to `secret-tool` (from libsecret-tools) to persist Discord tokens
+//      via the Secret Service API. Without it the first login throws
+//      PlatformUnavailable. jpackage has no `--linux-package-deps` flag and
+//      Compose 1.9.x exposes no DSL property for it.
+//
+//   2. FHS integration (issue #20). jpackage ships everything under
+//      /opt/puklic/ and does NOT expose the binary on PATH, the .desktop
+//      entry in /usr/share/applications, or the icon in /usr/share/pixmaps.
+//      Users had no `puklic` command and the app didn't appear in menus.
+//      We add:
+//        - /usr/bin/puklic               -> symlink to /opt/puklic/bin/Puklic
+//        - /usr/share/applications/puklic.desktop  (Exec/Icon rewritten to
+//                                                   absolute / themed paths)
+//        - /usr/share/pixmaps/puklic.png            (icon copy)
+//
+// Runs only on Linux build agents (skipped on macOS dev builds — they emit
+// only .dmg). AppImage users install libsecret-tools manually (AppImage
+// does not honor .deb deps) and rely on the AppImage's own desktop entry.
+// AUR PKGBUILD performs the same FHS bridge defensively (idempotent — the
+// symlinks/files are already correct in v0.1.1+ .debs).
 // ---------------------------------------------------------------------------
 val debRuntimeDependencies = listOf(
     "libsecret-tools",
 )
 
-val patchDebDependencies = tasks.register("patchDebDependencies") {
-    description = "Injects runtime Depends into the .deb produced by packageDeb (issue #15)."
+val patchDebPostBuild = tasks.register("patchDebPostBuild") {
+    description = "Post-processes the .deb produced by packageDeb: injects Depends (#15) and FHS symlinks (#20)."
     group = "compose desktop"
 
     val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
@@ -160,20 +175,21 @@ val patchDebDependencies = tasks.register("patchDebDependencies") {
         val debs = dir.listFiles { f -> f.isFile && f.name.endsWith(".deb") }
             ?: emptyArray()
         if (debs.isEmpty()) {
-            logger.warn("patchDebDependencies: no .deb files found in $dir; skipping")
+            logger.warn("patchDebPostBuild: no .deb files found in $dir; skipping")
             return@doLast
         }
         for (deb in debs) {
-            logger.lifecycle("patchDebDependencies: injecting Depends '$depsLine' into ${deb.name}")
+            logger.lifecycle("patchDebPostBuild: post-processing ${deb.name}")
             val work = layout.buildDirectory.dir("tmp/patchDeb/${deb.nameWithoutExtension}").get().asFile
             work.deleteRecursively()
             work.mkdirs()
-            // Extract control archive into a sibling dir, mutate, repack.
+            // Extract full .deb (control + data) into work dir.
             exec {
                 workingDir = work
                 commandLine("dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
             }.assertNormalExitValue()
 
+            // --- (1) Depends injection ------------------------------------
             val control = File(work, "DEBIAN/control")
             check(control.exists()) { "DEBIAN/control missing in extracted ${deb.name}" }
             val original = control.readText()
@@ -190,12 +206,63 @@ val patchDebDependencies = tasks.register("patchDebDependencies") {
                     }
                 }
                 if (!dependsWritten) {
-                    // No existing Depends line — append before trailing newline.
                     if (!endsWith("\n")) append("\n")
                     append("Depends: $depsLine\n")
                 }
             }
             control.writeText(patched)
+            logger.lifecycle("patchDebPostBuild:   injected Depends '$depsLine'")
+
+            // --- (2) FHS integration --------------------------------------
+            // Compose Desktop layout under work/:
+            //   opt/puklic/bin/Puklic
+            //   opt/puklic/lib/puklic-Puklic.desktop
+            //   opt/puklic/lib/Puklic.png
+            val optBin = File(work, "opt/puklic/bin/Puklic")
+            val optDesktop = File(work, "opt/puklic/lib/puklic-Puklic.desktop")
+            val optIcon = File(work, "opt/puklic/lib/Puklic.png")
+
+            // /usr/bin/puklic symlink (lowercase per Arch / common-shell convention).
+            val usrBin = File(work, "usr/bin").apply { mkdirs() }
+            val launcherLink = File(usrBin, "puklic")
+            if (launcherLink.exists() || java.nio.file.Files.isSymbolicLink(launcherLink.toPath())) {
+                java.nio.file.Files.delete(launcherLink.toPath())
+            }
+            check(optBin.exists()) { "Expected jpackage launcher at ${optBin}, not found" }
+            java.nio.file.Files.createSymbolicLink(
+                launcherLink.toPath(),
+                java.nio.file.Paths.get("/opt/puklic/bin/Puklic"),
+            )
+            logger.lifecycle("patchDebPostBuild:   added /usr/bin/puklic -> /opt/puklic/bin/Puklic")
+
+            // /usr/share/applications/puklic.desktop (rewrite Exec + Icon).
+            if (optDesktop.exists()) {
+                val appsDir = File(work, "usr/share/applications").apply { mkdirs() }
+                val destDesktop = File(appsDir, "puklic.desktop")
+                val desktopText = optDesktop.readText()
+                    .lineSequence()
+                    .map { line ->
+                        when {
+                            line.startsWith("Exec=") -> "Exec=/opt/puklic/bin/Puklic"
+                            line.startsWith("Icon=") -> "Icon=puklic"
+                            else -> line
+                        }
+                    }
+                    .joinToString("\n")
+                destDesktop.writeText(if (desktopText.endsWith("\n")) desktopText else "$desktopText\n")
+                logger.lifecycle("patchDebPostBuild:   added /usr/share/applications/puklic.desktop")
+            } else {
+                logger.warn("patchDebPostBuild:   ${optDesktop} not present — skipping .desktop bridge")
+            }
+
+            // /usr/share/pixmaps/puklic.png.
+            if (optIcon.exists()) {
+                val pixmaps = File(work, "usr/share/pixmaps").apply { mkdirs() }
+                optIcon.copyTo(File(pixmaps, "puklic.png"), overwrite = true)
+                logger.lifecycle("patchDebPostBuild:   added /usr/share/pixmaps/puklic.png")
+            } else {
+                logger.warn("patchDebPostBuild:   ${optIcon} not present — skipping pixmap bridge")
+            }
 
             // Repack in place (dpkg-deb -b <dir> <file>).
             exec {
@@ -206,5 +273,5 @@ val patchDebDependencies = tasks.register("patchDebDependencies") {
 }
 
 tasks.matching { it.name == "packageDeb" }.configureEach {
-    finalizedBy(patchDebDependencies)
+    finalizedBy(patchDebPostBuild)
 }
