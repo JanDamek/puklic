@@ -22,12 +22,6 @@ jobs:
           - os: macos-14
             target: macos-arm64
             ext: dylib
-          - os: macos-13
-            target: macos-x86_64
-            ext: dylib
-          - os: windows-2022
-            target: windows-x86_64
-            ext: dll
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -55,43 +49,18 @@ jobs:
         if: startsWith(matrix.os, 'macos')
         run: brew install cmake pkg-config ninja
 
-      - name: Windows build deps
-        if: startsWith(matrix.os, 'windows')
-        run: choco install cmake ninja --no-progress --installargs 'ADD_CMAKE_TO_PATH=System'
-
-      - name: Build libdave (POSIX)
-        if: "!startsWith(matrix.os, 'windows')"
+      - name: Build libdave
         shell: bash
         run: |
           cd libdave/cpp
           make shared
 
-      - name: Build libdave (Windows)
-        if: startsWith(matrix.os, 'windows')
-        shell: bash
-        run: |
-          cd libdave/cpp
-          # On Windows the Makefile may not work directly; try make first, then fall
-          # back to cmake. mingw32-make / GNU make is usually available on the
-          # windows-2022 runner via Git for Windows.
-          if command -v make >/dev/null 2>&1; then
-            make shared || cmake -S . -B build -G Ninja -DBUILD_SHARED_LIBS=ON && cmake --build build
-          else
-            cmake -S . -B build -G Ninja -DBUILD_SHARED_LIBS=ON
-            cmake --build build
-          fi
-
       - name: Locate built lib
         id: locate
         shell: bash
         run: |
-          if [ "${{ matrix.target }}" = "windows-x86_64" ]; then
-            FILE=$(find libdave/cpp -type f -name '*.dll' | head -1)
-            DEST=dave.dll
-          else
-            FILE=$(find libdave/cpp -type f -name "*.${{ matrix.ext }}" | head -1)
-            DEST=libdave.${{ matrix.ext }}
-          fi
+          FILE=$(find libdave/cpp -type f -name "*.${{ matrix.ext }}" | head -1)
+          DEST=libdave.${{ matrix.ext }}
           if [ -z "$FILE" ]; then
             echo "No built library found for ${{ matrix.target }}" >&2
             find libdave/cpp -maxdepth 6 -type f | head -50 >&2
@@ -140,13 +109,13 @@ jobs:
       - name: Open PR with built libs
         uses: peter-evans/create-pull-request@v6
         with:
-          commit-message: "feat(voice-dave): libdave native libs for all platforms (auto-built)"
+          commit-message: "feat(voice-dave): libdave native libs for shipping platforms (auto-built)"
           title: "Add libdave native libs (auto-built via CI)"
           body: |
             Built from current main of https://github.com/discord/libdave via
             workflow `build-libdave.yml` run ${{ github.run_id }}.
 
-            Platforms: linux-x86_64, macos-x86_64, macos-arm64, windows-x86_64.
+            Platforms: linux-x86_64 (canonical), macos-arm64 (developer artifact).
 
             Re-run via `workflow_dispatch` to rebuild from latest libdave HEAD.
           branch: libdave-libs-${{ github.run_id }}

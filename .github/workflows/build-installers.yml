@@ -32,6 +32,12 @@ concurrency:
   # Tags get their own group (refs/tags/v*) so releases aren't cancelled by main pushes.
   cancel-in-progress: true
 
+# Scope (issue #22, 2026-05-25, HARD RULE #2):
+#   - Linux x86_64 = canonical shipping target (.deb + .AppImage attached to releases).
+#   - macOS arm64  = developer-side artifact only (built for dev validation,
+#                    uploaded as an action artifact, NOT attached to GitHub Releases).
+#   - Windows + macOS x86_64 = officially out of scope. Not built. Do not re-add
+#     without a CLAUDE.md / docs/07_roadmap update first.
 jobs:
   build:
     strategy:
@@ -47,20 +53,6 @@ jobs:
             target: macos-arm64
             artifact-glob: |
               desktop/app/build/compose/binaries/main/dmg/*.dmg
-          - os: macos-13
-            target: macos-x86_64
-            artifact-glob: |
-              desktop/app/build/compose/binaries/main/dmg/*.dmg
-          # windows-x86_64 deferred: build.gradle.kts already supports MSI,
-          # but project owner has not yet validated Windows host build.
-          # Uncomment to enable.
-          # - os: windows-2022
-          #   target: windows-x86_64
-          #   artifact-glob: |
-          #     desktop/app/build/compose/binaries/main/msi/*.msi
-          #
-          # linux-arm64 deferred: ubuntu-22.04-arm runners require a paid
-          # GitHub plan. Enable when a self-hosted arm64 runner is available.
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -103,11 +95,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download all installers
+      # Only Linux installers attach to GitHub Releases (issue #22 scope).
+      # macOS arm64 .dmg is a developer-side artifact and is intentionally
+      # NOT downloaded here, so it cannot leak into the release assets.
+      - name: Download Linux installer
         uses: actions/download-artifact@v4
         with:
+          name: puklic-linux-x86_64
           path: dist
-          merge-multiple: true
 
       - name: List downloaded artifacts
         run: ls -la dist || true
@@ -120,6 +115,11 @@ jobs:
           draft: true
           body: |
             Puklic installers built by GitHub Actions.
+
+            **Platforms shipped:** Linux x86_64 only (.deb + .AppImage). macOS
+            arm64 builds are developer-side artifacts and are not part of the
+            official release. Windows and macOS x86_64 are out of scope — see
+            `CLAUDE.md` §Platforms.
 
             **Distribution licensing**: these binaries bundle FFmpeg with libx264
             (GPL-2.0). Puklic source code remains Apache-2.0. The combined

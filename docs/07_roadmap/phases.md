@@ -89,12 +89,11 @@ is deferred to 4.1.
 
 ## Distribution — self-contained installers (slice 5/6, landed 2026-05-23)
 
-- [x] Compose Desktop `nativeDistributions` configured (Deb, AppImage on Linux; Dmg on macOS; Msi on Windows)
+- [x] Compose Desktop `nativeDistributions` configured (Deb + AppImage on Linux — canonical; Dmg on macOS arm64 — developer artifact only, not shipped, see CLAUDE.md §Platforms)
 - [x] Per-OS FFmpeg classifier (`detectFfmpegClassifier()` in `shared/voice/build.gradle.kts`) — ~30 MB natives instead of ~150 MB umbrella
-- [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns`, `icons/windows/puklic.ico`)
-- [x] `.dmg` build verified on macOS host — `Puklic-1.0.0.dmg` ≈ 157 MB
+- [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns` for dev `.dmg`)
+- [x] `.dmg` build verified on macOS arm64 host (dev artifact) — `Puklic-1.0.0.dmg` ≈ 157 MB
 - [ ] `.deb` + `.AppImage` build verified on Linux host (CI)
-- [ ] `.msi` build verified on Windows host (CI)
 - [x] README install instructions
 
 See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md](../03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md) §6–§8.
@@ -125,7 +124,11 @@ See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md
 
 ## Platforms — when they are added
 
-- Linux desktop: from phase 1
-- macOS / Windows desktop: best-effort from phase 1 (Compose Desktop supports it), tested no earlier than phase 2
-- Android: phase 2 ship target
-- iOS: phase 2/3 (depends on Compose iOS maturity)
+Scope set 2026-05-25 (issue #22, HARD RULE #2):
+
+- Linux desktop x86_64: **canonical shipping target** from phase 1
+- macOS arm64: **developer-side only** (Apple Silicon dev machines) — not in releases
+- Windows desktop (any arch): **out of scope**
+- macOS x86_64 (Intel): **out of scope**
+- Android: future mobile phase (KMP scaffolding ready, not actively shipping)
+- iOS: future mobile phase (depends on Compose iOS maturity)

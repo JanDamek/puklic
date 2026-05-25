@@ -55,7 +55,7 @@ If you THINK you need temporary code, you're missing a step in the pipeline — 
 
 ## What Puklic IS
 
-A lightweight native desktop/mobile chat client for Discord, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, Wayland-first Linux, long-term stability, and future mobile platforms (Android, iOS).
+A lightweight native desktop chat client for Discord, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, **Linux desktop only** (Wayland-first), long-term stability. KMP scaffolding (Android, iOS modules) is kept for a future mobile roadmap phase but is not a current shipping target.
 
 ## What Puklic IS NOT
 
@@ -79,6 +79,29 @@ When a feature idea only makes sense for automated accounts (scheduled messages,
 | Desktop binary (with JVM) | < 80 MB |
 
 These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to be evaluated in Phase 3+.
+
+---
+
+## Platforms
+
+**Officially shipped:**
+- Linux x86_64 desktop (.deb + .AppImage via Compose Desktop; .pkg.tar.zst via AUR planned)
+
+**Developer-side only (not in releases):**
+- macOS arm64 (development on Apple Silicon — anyone with an M-series Mac can
+  `./gradlew :desktop:app:run`). Built in CI as an artifact for validation but
+  NOT attached to GitHub Releases.
+
+**Out of scope:**
+- Windows desktop (any arch)
+- macOS x86_64 (Intel Mac)
+- Browser / web
+
+Mobile (Android/iOS) — separate roadmap phase, KMP scaffolding ready.
+
+This scope was set 2026-05-25 (issue #22) per HARD RULE #2: no temporary
+half-states. Re-adding Windows or macOS x86_64 requires updating this section
+and `docs/07_roadmap/phases.md` before any CI / Gradle change.
 
 ---
 
@@ -131,8 +154,8 @@ The risk of account ban is borne by the user. The project README must state this
 ## Build & platforms
 
 - **Build:** Gradle multimodule, Compose Multiplatform
-- **Primary platform Phase 1:** Linux desktop (Wayland via XWayland for now — native Wayland backend for Compose is not ready)
-- **Phase 2+:** Android, iOS (Compose iOS — one UI codebase, see ADR-0001)
+- **Shipping target:** Linux desktop x86_64 (Wayland via XWayland for now — native Wayland backend for Compose is not ready). See `## Platforms` above.
+- **Future roadmap:** Android, iOS (Compose iOS — one UI codebase, see ADR-0001). KMP modules scaffolded, not actively shipped.
 - **Voice/media:** separate module, on desktop via PipeWire, on iOS/Android via platform-native audio
 
 ---

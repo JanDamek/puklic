@@ -20,7 +20,13 @@
 
 ## What it is
 
-A native multiplatform Discord client without Electron. Kotlin + Compose Multiplatform. Target: < 150 MB RAM idle, < 2 s cold start, one codebase for Linux / macOS / Windows / Android / iOS.
+A native Discord desktop client without Electron. Kotlin + Compose Multiplatform. Target: < 150 MB RAM idle, < 2 s cold start.
+
+**Shipping target:** Linux x86_64 desktop only (canonical). macOS arm64 builds
+are developer-side artifacts (anyone with Apple Silicon can `./gradlew
+:desktop:app:run`) and are **not** published in releases. Windows and macOS
+x86_64 are out of scope. Mobile (Android/iOS) is a future roadmap phase — KMP
+scaffolding ready, not yet shipping. See [CLAUDE.md](CLAUDE.md) §Platforms.
 
 ## What it is not
 
@@ -46,6 +52,14 @@ Self-contained native installers (bundled JRE 21 + FFmpeg/Opus natives + dbus-ja
 produced from `:desktop:app` via Compose Desktop's `jpackage` integration. Each installer
 is ~150 MB and runs without any system dependencies (no `apt install libopus0`, no JRE).
 
+### Arch Linux (AUR) — recommended
+
+```bash
+yay -S puklic-bin
+# or with paru
+paru -S puklic-bin
+```
+
 ### Linux (Ubuntu / Debian / Mint, x86_64)
 
 ```bash
@@ -58,22 +72,27 @@ puklic
 
 Download `Puklic-0.1.0-x86_64.AppImage`, `chmod +x`, run.
 
-### macOS (Apple Silicon / Intel)
+### macOS (Apple Silicon) — developer-side only
 
-Download `Puklic-1.0.0.dmg`, open, drag **Puklic** to **Applications**.
+Not a shipping target. Developers on Apple Silicon can run from source:
 
-### Windows (x86_64)
+```bash
+./gradlew :desktop:app:run
+# or build a local .dmg for testing
+./gradlew :desktop:app:packageDistributionForCurrentOS
+```
 
-Download `Puklic-0.1.0.msi`, double-click, follow installer.
+The resulting `.dmg` is **not** attached to GitHub Releases. See `CLAUDE.md`
+§Platforms.
 
 ### Build installers from source
 
 ```bash
-# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS, .msi on Windows)
+# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS for dev only)
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 ```
 
-Output: `desktop/app/build/compose/binaries/main/{deb,appimage,dmg,msi}/`.
+Output: `desktop/app/build/compose/binaries/main/{deb,appimage,dmg}/`.
 
 Per-OS FFmpeg natives are selected automatically by `detectFfmpegClassifier()` in
 `shared/voice/build.gradle.kts` to keep each installer slim (~30 MB of natives instead
