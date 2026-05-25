@@ -228,10 +228,16 @@ public class DependencyGraph private constructor(
             val gatewayTransportFactory = ktorGatewayTransportFactory(httpClient)
             val gateway = GatewayConnection(sessionScope, token, gatewayTransportFactory)
 
+            // Self-user id tracker — populated when Ready arrives, consumed by
+            // MessageOrchestrator and by the bridge itself (issue #18: GUILD_MEMBER_UPDATE
+            // filters to self only).
+            val selfUserId = kotlinx.coroutines.flow.MutableStateFlow<dev.puklic.ids.UserId?>(null)
+
             val gatewayBridge = DiscordGatewayBridge(
                 gateway = gateway,
                 scope = sessionScope,
                 onUnknown = { type -> Logger.d(LOG_TAG) { "Unhandled gateway event: $type" } },
+                selfUserIdProvider = { selfUserId.value },
             )
             val messageBridge = DiscordMessageBridge(rest)
             val sessionBridge = DiscordSessionBridge(rest)
@@ -239,9 +245,6 @@ public class DependencyGraph private constructor(
             val gatewayEventSource = GatewayEventSourceAdapter(gatewayBridge, sessionScope)
             val messageGateway = MessageGatewayAdapter(messageBridge, channelStore)
 
-            // Self-user id tracker — populated when Ready arrives, consumed by
-            // MessageOrchestrator to mark reactions originating from the current user.
-            val selfUserId = kotlinx.coroutines.flow.MutableStateFlow<dev.puklic.ids.UserId?>(null)
             sessionScope.launch {
                 gatewayBridge.events
                     .filterIsInstance<dev.puklic.protocol.discord.DiscordDomainEvent.Ready>()
@@ -275,6 +278,11 @@ public class DependencyGraph private constructor(
                 gatewaySource = gatewayEventSource,
                 storage = channelStore,
                 persistenceContext = kotlinx.coroutines.Dispatchers.IO,
+                // Issue #18 — owner lookup for the @everyone / owner-bypass branch in
+                // Permissions.canView. Reads the current snapshot from GuildOrchestrator.
+                guildOwnerProvider = { guildId ->
+                    guildOrch.guilds.value.firstOrNull { it.id == guildId }?.ownerId
+                },
             )
             val userOrch = UserOrchestrator(sessionScope, gatewayEventSource, userStore)
             val dmListOrch = dev.puklic.repositories.DmListOrchestrator(sessionScope, gatewayEventSource)
@@ -302,6 +310,8 @@ public class DependencyGraph private constructor(
                 channelRepository = channelStore,
                 notificationService = notificationService,
                 selfUserIdProvider = { selfUserId.value },
+                // Issue #18 — gate guild notifications on the same visibility filter as the UI.
+                visibilityCheck = channelOrch,
             )
 
             val transport = SessionTransportImpl(

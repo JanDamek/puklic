@@ -123,6 +123,11 @@ public class GatewayEventSourceAdapter(
             guildId = ev.guildId,
             states = ev.states,
         )
+        is DiscordDomainEvent.GuildRolesSnapshot -> GatewayDomainEvent.GuildRolesSnapshot(ev.guildId, ev.roles)
+        is DiscordDomainEvent.RoleCreated -> GatewayDomainEvent.RoleCreated(ev.role)
+        is DiscordDomainEvent.RoleUpdated -> GatewayDomainEvent.RoleUpdated(ev.role)
+        is DiscordDomainEvent.RoleDeleted -> GatewayDomainEvent.RoleDeleted(ev.guildId, ev.roleId)
+        is DiscordDomainEvent.SelfMemberUpdated -> GatewayDomainEvent.SelfMemberUpdated(ev.member)
     }
 
     private fun parsePresence(raw: String): PresenceState = when (raw.lowercase()) {

@@ -4,11 +4,14 @@ import dev.puklic.domain.Channel
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
+import dev.puklic.domain.Member
+import dev.puklic.domain.Role
 import dev.puklic.domain.UserSummary
 import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
+import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
 import kotlinx.coroutines.flow.SharedFlow
 
@@ -112,6 +115,14 @@ public sealed interface GatewayDomainEvent {
         val guildId: GuildId,
         val states: List<VoiceMember>,
     ) : GatewayDomainEvent
+
+    // Issue #18 — role + self-member events for the channel visibility filter. See
+    // architect-report 2026-05-24-channel-permission-design.md §10.
+    public data class GuildRolesSnapshot(val guildId: GuildId, val roles: List<Role>) : GatewayDomainEvent
+    public data class RoleCreated(val role: Role) : GatewayDomainEvent
+    public data class RoleUpdated(val role: Role) : GatewayDomainEvent
+    public data class RoleDeleted(val guildId: GuildId, val roleId: RoleId) : GatewayDomainEvent
+    public data class SelfMemberUpdated(val member: Member) : GatewayDomainEvent
 }
 
 /** Source of domain-level gateway events. Wraps the protocol-discord SharedFlow. */

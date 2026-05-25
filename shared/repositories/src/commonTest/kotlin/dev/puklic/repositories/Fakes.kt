@@ -145,7 +145,7 @@ internal class FakeChannelRepository : ChannelRepository {
     private val state = MutableStateFlow<Map<ChannelId, Channel>>(emptyMap())
     override fun observeByGuild(guildId: GuildId): Flow<List<Channel>> = state.map { snap ->
         snap.values.filter { ch ->
-            ch is dev.puklic.domain.GuildTextChannel && ch.guildId == guildId
+            (ch is dev.puklic.domain.GuildChannel && ch.guildId == guildId)
         }.sortedBy { it.id.value }
     }
     override suspend fun findById(id: ChannelId): Channel? = state.value[id]

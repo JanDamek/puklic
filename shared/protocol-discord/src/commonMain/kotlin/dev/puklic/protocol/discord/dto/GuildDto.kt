@@ -18,6 +18,9 @@ internal data class DiscordGuildDto(
     @SerialName("member_count") val memberCount: Int? = null,
     val permissions: String? = null,
     val unavailable: Boolean = false,
+    // Issue #18 — Discord ships the full role list on each guild payload (READY + GUILD_CREATE).
+    // Roles arrive even when the user-mode gateway nests other metadata under `properties`.
+    val roles: List<DiscordRoleDto> = emptyList(),
     /**
      * User-mode READY guild shape: Discord's web/desktop client gateway nests guild metadata
      * here instead of duplicating it at the top level. When non-null, its fields override the

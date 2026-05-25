@@ -40,6 +40,12 @@ public class NotificationDispatcher(
     private val channelRepository: ChannelRepository,
     private val notificationService: NotificationService,
     private val selfUserIdProvider: () -> UserId?,
+    /**
+     * Visibility gate (issue #18). When `null`, no gating is performed — preserves the legacy
+     * notification semantics for tests that don't exercise the permission filter. Production
+     * wiring (see DependencyGraph) always supplies the [ChannelOrchestrator].
+     */
+    private val visibilityCheck: VisibilityCheck? = null,
 ) {
     init {
         gatewaySource.events
@@ -51,6 +57,16 @@ public class NotificationDispatcher(
     private suspend fun handle(message: ChatMessage) {
         val self = selfUserIdProvider() ?: return
         if (message.author.id == self) return
+        // Issue #18 visibility gate. DM channels skip the check (no permission concept) — for
+        // them, isChannelVisible returns null and we'd otherwise suppress incorrectly.
+        if (visibilityCheck != null) {
+            val channel = runCatching { channelRepository.findById(message.channelId) }.getOrNull()
+            val isDm = channel is DmChannel
+            if (!isDm) {
+                val visible = visibilityCheck.isChannelVisible(message.channelId)
+                if (visible != true) return
+            }
+        }
         if (!shouldNotify(message, self)) return
         sessionScope.launch {
             runCatching { notificationService.show(buildNotification(message)) }

@@ -22,4 +22,21 @@ internal data class DiscordChannelDto(
     // user records live in the top-level `users` array and must be joined by the caller.
     @SerialName("recipient_ids") val recipientIds: List<String> = emptyList(),
     @SerialName("last_message_id") val lastMessageId: String? = null,
+    // Issue #18 — Discord ships channel-level permission overwrites here. Optional/null on
+    // payload variants that omit it (e.g. DM channels, legacy READY shapes).
+    @SerialName("permission_overwrites")
+    val permissionOverwrites: List<PermissionOverwriteDto>? = null,
+)
+
+/**
+ * Discord channel-level permission overwrite payload. `id` is a snowflake (role or user id),
+ * `type` is `0` for role, `1` for member. `allow` / `deny` are decimal bitmask strings.
+ * See architect-report 2026-05-24-channel-permission-design.md §3.
+ */
+@Serializable
+internal data class PermissionOverwriteDto(
+    val id: String,
+    val type: Int,
+    val allow: String,
+    val deny: String,
 )

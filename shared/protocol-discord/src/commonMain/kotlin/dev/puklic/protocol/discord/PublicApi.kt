@@ -5,14 +5,19 @@ import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.Channel
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.Guild
+import dev.puklic.domain.Member
+import dev.puklic.domain.Role
 import dev.puklic.domain.UserSummary
 import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.EmojiId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
+import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
+import dev.puklic.protocol.discord.dto.DiscordMemberDto
 import dev.puklic.protocol.discord.dto.DiscordMessageDto
+import dev.puklic.protocol.discord.dto.DiscordRoleDto
 import dev.puklic.protocol.discord.dto.DiscordUserDto
 import dev.puklic.protocol.discord.gateway.GatewayConnection
 import dev.puklic.protocol.discord.gateway.GatewayDispatchEvent
@@ -141,6 +146,13 @@ public sealed interface DiscordDomainEvent {
         val guildId: GuildId,
         val states: List<VoiceMember>,
     ) : DiscordDomainEvent
+
+    // Issue #18 — role + self-member events. See architect-report 2026-05-24 §10.
+    public data class GuildRolesSnapshot(val guildId: GuildId, val roles: List<Role>) : DiscordDomainEvent
+    public data class RoleCreated(val role: Role) : DiscordDomainEvent
+    public data class RoleUpdated(val role: Role) : DiscordDomainEvent
+    public data class RoleDeleted(val guildId: GuildId, val roleId: RoleId) : DiscordDomainEvent
+    public data class SelfMemberUpdated(val member: Member) : DiscordDomainEvent
 }
 
 /**
@@ -181,6 +193,11 @@ public class DiscordGatewayBridge(
     gateway: GatewayConnection,
     scope: CoroutineScope,
     onUnknown: (type: String) -> Unit = {},
+    /**
+     * Provides the current self-user id once READY arrives. Returning null means READY hasn't
+     * been observed yet and GUILD_MEMBER_UPDATE filtering should be skipped. Issue #18.
+     */
+    private val selfUserIdProvider: () -> UserId? = { null },
 ) {
     private val _events = MutableSharedFlow<DiscordDomainEvent>(
         replay = 0,
@@ -266,9 +283,13 @@ public class DiscordGatewayBridge(
                     } else {
                         emptyList()
                     }
+                    val rolesSnapshot = extractGuildRoles(dto, guild.id)
+                    val selfMemberEv = extractSelfMember(payload, guild.id, selfUserIdProvider())
                     listOf<DiscordDomainEvent>(guildEvent) +
+                        rolesSnapshot +
                         extractGuildChannels(payload, guild.id.value) +
-                        voiceBootstrap
+                        voiceBootstrap +
+                        selfMemberEv
                 }
                 "GUILD_DELETE" -> {
                     val id = payload.jsonObject.getValue("id").jsonPrimitive.content.toLong()
@@ -354,6 +375,38 @@ public class DiscordGatewayBridge(
                         token = dto.token,
                         endpoint = dto.endpoint,
                     ))
+                }
+                "GUILD_ROLE_CREATE", "GUILD_ROLE_UPDATE" -> {
+                    val obj = payload.jsonObject
+                    val guildIdLong = obj.getValue("guild_id").jsonPrimitive.content.toLong()
+                    val roleDto = DiscordJson.decodeFromJsonElement(
+                        DiscordRoleDto.serializer(),
+                        obj.getValue("role"),
+                    )
+                    val role = roleDto.toDomain(GuildId(guildIdLong))
+                    val ev = if (event.type == "GUILD_ROLE_CREATE") DiscordDomainEvent.RoleCreated(role)
+                    else DiscordDomainEvent.RoleUpdated(role)
+                    listOf(ev)
+                }
+                "GUILD_ROLE_DELETE" -> {
+                    val obj = payload.jsonObject
+                    val guildIdLong = obj.getValue("guild_id").jsonPrimitive.content.toLong()
+                    val roleIdLong = obj.getValue("role_id").jsonPrimitive.content.toLong()
+                    listOf(DiscordDomainEvent.RoleDeleted(GuildId(guildIdLong), RoleId(roleIdLong)))
+                }
+                "GUILD_MEMBER_UPDATE" -> {
+                    val self = selfUserIdProvider() ?: return@runCatching emptyList()
+                    val obj = payload.jsonObject
+                    val guildIdLong = obj.getValue("guild_id").jsonPrimitive.content.toLong()
+                    val userObj = obj["user"] as? kotlinx.serialization.json.JsonObject
+                    val userIdLong = userObj?.get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                    if (userIdLong != self.value) return@runCatching emptyList()
+                    val memberDto = DiscordJson.decodeFromJsonElement(
+                        DiscordMemberDto.serializer(),
+                        payload,
+                    )
+                    val member = memberDto.toDomain(GuildId(guildIdLong), UserId(userIdLong))
+                    listOf(DiscordDomainEvent.SelfMemberUpdated(member))
                 }
                 "READY" -> mapReady(payload)
                 else -> {
@@ -450,8 +503,24 @@ public class DiscordGatewayBridge(
                 "bridge: READY guild[$index] decoded id=${guild.id.value} name=${guild.name}"
             }
             events += DiscordDomainEvent.GuildCreated(guild)
+            events += extractGuildRoles(dto, guild.id)
             events += extractGuildChannels(guildElement, guild.id.value)
             events += extractVoiceStatesBootstrap(guildElement, guild.id)
+            // Per design §3a: pair `merged_members[i]` with `guilds[i]` to find the self member.
+            val mergedMembersArray = obj["merged_members"] as? kotlinx.serialization.json.JsonArray
+            val perGuildMembers = mergedMembersArray?.getOrNull(index) as? kotlinx.serialization.json.JsonArray
+            val selfEntry = perGuildMembers?.firstOrNull { el ->
+                val mObj = el as? kotlinx.serialization.json.JsonObject ?: return@firstOrNull false
+                val uid = mObj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                uid != null && uid == self.id.value
+            }
+            val selfEvent = selfEntry?.let { el ->
+                runCatching {
+                    val mDto = DiscordJson.decodeFromJsonElement(DiscordMemberDto.serializer(), el)
+                    DiscordDomainEvent.SelfMemberUpdated(mDto.toDomain(guild.id, self.id))
+                }.getOrNull()
+            }
+            if (selfEvent != null) events += selfEvent
         }
         // DM + Group-DM channels live under `private_channels`. They have no guild_id; the
         // DiscordChannelDto -> DmChannel mapper already handles this when type ∈ {1, 3}.
@@ -617,6 +686,45 @@ public class DiscordGatewayBridge(
 
     @Suppress("unused")
     private fun JsonElement.asPrimitiveOrNull(): JsonPrimitive? = this as? JsonPrimitive
+
+    /**
+     * Extracts the guild's full role list into a single [DiscordDomainEvent.GuildRolesSnapshot]
+     * — used on READY / GUILD_CREATE / GUILD_UPDATE per architect-report 2026-05-24 §10.
+     */
+    private fun extractGuildRoles(
+        dto: dev.puklic.protocol.discord.dto.DiscordGuildDto,
+        guildId: GuildId,
+    ): List<DiscordDomainEvent> {
+        if (dto.roles.isEmpty()) return emptyList()
+        val roles = dto.roles.map { it.toDomain(guildId) }
+        return listOf(DiscordDomainEvent.GuildRolesSnapshot(guildId, roles))
+    }
+
+    /**
+     * Tries to find the self member inside an inline `members` array on a GUILD_CREATE payload.
+     * Falls back to no emission if absent (e.g. user-mode READY where members live in
+     * `merged_members`, handled separately in [mapReady]).
+     */
+    private fun extractSelfMember(
+        guildPayload: JsonElement,
+        guildId: GuildId,
+        selfUserId: UserId?,
+    ): List<DiscordDomainEvent> {
+        if (selfUserId == null) return emptyList()
+        val obj = guildPayload as? kotlinx.serialization.json.JsonObject ?: return emptyList()
+        val members = obj["members"] as? kotlinx.serialization.json.JsonArray ?: return emptyList()
+        val entry = members.firstOrNull { el ->
+            val mObj = el as? kotlinx.serialization.json.JsonObject ?: return@firstOrNull false
+            val uid = mObj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            uid != null && uid == selfUserId.value
+        } ?: return emptyList()
+        return runCatching {
+            val mDto = DiscordJson.decodeFromJsonElement(DiscordMemberDto.serializer(), entry)
+            listOf<DiscordDomainEvent>(DiscordDomainEvent.SelfMemberUpdated(
+                mDto.toDomain(guildId, selfUserId),
+            ))
+        }.getOrDefault(emptyList())
+    }
 }
 
 /**

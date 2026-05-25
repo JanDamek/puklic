@@ -349,9 +349,15 @@ private fun ChannelListPane(
             val voiceChannels = channels
                 .filterIsInstance<GuildVoiceChannel>()
                 .sortedBy { it.position }
-            val categories = channels
+            // Issue #18 — hide empty categories (no visible children after the permission filter).
+            // The visibility filter runs in ChannelOrchestrator; here we just elide categories
+            // whose visible-child set is empty, matching Discord-client behaviour.
+            val allCategories = channels
                 .filterIsInstance<GuildCategoryChannel>()
                 .sortedBy { it.position }
+            val categories = allCategories.filter { cat ->
+                textChannels.any { it.parentId == cat.id } || voiceChannels.any { it.parentId == cat.id }
+            }
             val categoryIds = categories.map { it.id }.toSet()
             // Channels with null parentId OR with parentId pointing to a category that wasn't
             // delivered by the gateway (e.g. permission-gated) are rendered as top-level so they

@@ -26,37 +26,56 @@ sealed interface Channel {
     val type: ChannelType
 }
 
+/**
+ * Marker for any channel that lives inside a guild and therefore participates in the
+ * permission-filter pipeline (see architect-report 2026-05-24-channel-permission-design.md §2).
+ *
+ * The `permissionOverwrites` list mirrors Discord's `permission_overwrites` field on each
+ * channel payload; it is empty when the gateway omits it (e.g. legacy payloads, or when no
+ * overwrites are configured).
+ */
+sealed interface GuildChannel : Channel {
+    val guildId: GuildId
+    val position: Int
+    val parentId: ChannelId?
+    val permissionOverwrites: List<PermissionOverwrite>
+}
+
 data class GuildTextChannel(
     override val id: ChannelId,
     override val name: String?,
-    val guildId: GuildId,
-    val parentId: ChannelId?,
+    override val guildId: GuildId,
+    override val parentId: ChannelId?,
     val topic: String?,
-    val position: Int,
+    override val position: Int,
     val rateLimitPerUser: Int,
     val nsfw: Boolean,
-) : Channel {
+    override val permissionOverwrites: List<PermissionOverwrite> = emptyList(),
+) : GuildChannel {
     override val type: ChannelType = ChannelType.GUILD_TEXT
 }
 
 data class GuildVoiceChannel(
     override val id: ChannelId,
     override val name: String?,
-    val guildId: GuildId,
-    val position: Int,
-    val parentId: ChannelId?,
+    override val guildId: GuildId,
+    override val position: Int,
+    override val parentId: ChannelId?,
     val bitrate: Int?,
     val userLimit: Int?,
-) : Channel {
+    override val permissionOverwrites: List<PermissionOverwrite> = emptyList(),
+) : GuildChannel {
     override val type: ChannelType = ChannelType.GUILD_VOICE
 }
 
 data class GuildCategoryChannel(
     override val id: ChannelId,
     override val name: String?,
-    val guildId: GuildId,
-    val position: Int,
-) : Channel {
+    override val guildId: GuildId,
+    override val position: Int,
+    override val parentId: ChannelId? = null,
+    override val permissionOverwrites: List<PermissionOverwrite> = emptyList(),
+) : GuildChannel {
     override val type: ChannelType = ChannelType.GUILD_CATEGORY
 }
 
