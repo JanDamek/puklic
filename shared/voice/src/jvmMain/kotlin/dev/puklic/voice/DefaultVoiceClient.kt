@@ -31,6 +31,7 @@ import dev.puklic.voice.transport.VoicePacketCodec
 import dev.puklic.voice.transport.VoicePacketDispatcher
 import dev.puklic.voice.transport.discoverIp
 import dev.puklic.voice.transport.newUdpRtpTransport
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -182,12 +183,16 @@ public class DefaultVoiceClient(
         sessionScope = sScope
 
         sScope.launch {
-            runCatching { runConnect(guildId, channelId, selfId) }
-                .onFailure { t ->
-                    Logger.w(TAG) { "voice connect failed: ${t.message}" }
-                    fail(t.message ?: t::class.simpleName.orEmpty())
-                    cleanup()
-                }
+            try {
+                runConnect(guildId, channelId, selfId)
+            } catch (e: CancellationException) {
+                // disconnect() cancelled us — let cancellation propagate, no failure state.
+                throw e
+            } catch (t: Throwable) {
+                Logger.w(TAG) { "voice connect failed: ${t.message}" }
+                fail(t.message ?: t::class.simpleName.orEmpty())
+                cleanup()
+            }
         }
     }
 
@@ -582,8 +587,10 @@ public class DefaultVoiceClient(
     }
 
     private fun fail(reason: String) {
-        // Don't clobber an explicit Idle (post-disconnect): the cancelled runConnect coroutine
-        // races with `disconnect()` and would otherwise force the state back to Failed.
+        // Belt-and-suspenders: CancellationException now propagates from runConnect (see
+        // connect()), so a cancelled coroutine should never reach here. This Idle guard
+        // remains as defense-in-depth against any future code path that might call fail()
+        // from a post-disconnect context.
         if (_state.value is VoiceState.Idle) return
         _state.value = VoiceState.Failed(reason = reason, recoverable = true)
     }

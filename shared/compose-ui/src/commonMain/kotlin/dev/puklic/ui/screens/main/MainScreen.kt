@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -659,12 +661,24 @@ private fun DmCallControl(
 ) {
     val isActiveHere = targetsThisChannel && voiceState !is VoiceState.Idle && voiceState !is VoiceState.Failed
     if (isActiveHere) {
+        val isPreConnect = voiceState is VoiceState.Connecting || voiceState is VoiceState.Ringing
         IconButton(onClick = onHangUp) {
-            Icon(
-                Icons.Filled.CallEnd,
-                contentDescription = "Hang up",
-                tint = MaterialTheme.colorScheme.error,
-            )
+            Box(contentAlignment = Alignment.Center) {
+                if (isPreConnect) {
+                    // Pre-pickup affordance: a subtle spinner behind the CallEnd icon makes the
+                    // Connecting/Ringing state visually distinct from a Connected hang-up button.
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.error.copy(alpha = 0.4f),
+                    )
+                }
+                Icon(
+                    Icons.Filled.CallEnd,
+                    contentDescription = if (isPreConnect) "Cancel call" else "Hang up",
+                    tint = MaterialTheme.colorScheme.error,
+                )
+            }
         }
     } else {
         IconButton(onClick = onStartCall) {
