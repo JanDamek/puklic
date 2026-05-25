@@ -85,12 +85,8 @@ These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to
 ## Platforms
 
 **Officially shipped:**
-- Linux x86_64 desktop (.deb + .AppImage via Compose Desktop; .pkg.tar.zst via AUR planned)
-
-**Developer-side only (not in releases):**
-- macOS arm64 (development on Apple Silicon — anyone with an M-series Mac can
-  `./gradlew :desktop:app:run`). Built in CI as an artifact for validation but
-  NOT attached to GitHub Releases.
+- Linux x86_64 desktop (.deb + .AppImage via Compose Desktop; .pkg.tar.zst via AUR)
+- macOS arm64 desktop (.dmg via Compose Desktop, attached to GitHub Releases)
 
 **Out of scope:**
 - Windows desktop (any arch)
@@ -99,9 +95,12 @@ These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to
 
 Mobile (Android/iOS) — separate roadmap phase, KMP scaffolding ready.
 
-This scope was set 2026-05-25 (issue #22) per HARD RULE #2: no temporary
-half-states. Re-adding Windows or macOS x86_64 requires updating this section
-and `docs/07_roadmap/phases.md` before any CI / Gradle change.
+Scope set 2026-05-25 (issue #22) and revised same day per user
+"všechny platformy stejně" — macOS arm64 promoted from developer-side
+to officially shipped, with the same version string as Linux (single
+source of truth in `gradle.properties` → `puklic.version`). Re-adding
+Windows or macOS x86_64 requires updating this section and
+`docs/07_roadmap/phases.md` before any CI / Gradle change.
 
 ---
 

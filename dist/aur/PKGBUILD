@@ -5,8 +5,8 @@
 # See: https://github.com/JanDamek/puklic#%EF%B8%8F-disclaimer
 
 pkgname=puklic-bin
-pkgver=0.1.0
-pkgrel=2
+pkgver=1.0.0
+pkgrel=1
 pkgdesc="Lightweight native Discord client (Compose Multiplatform, Kotlin Multiplatform)"
 arch=('x86_64')
 url="https://github.com/JanDamek/puklic"

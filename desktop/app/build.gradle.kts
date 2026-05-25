@@ -8,6 +8,17 @@ plugins {
     alias(libs.plugins.kotlin.compose.compiler)
 }
 
+// Single source of truth for the packaging version. Defined in root
+// `gradle.properties` as `puklic.version`. Drives jpackage `packageVersion`
+// on ALL platforms (Linux .deb / .AppImage AND macOS .dmg — no per-OS
+// override) and the generated `dev.puklic.desktop.update.Version.CURRENT`
+// constant consumed by `UpdateChecker`.
+val puklicVersion: String = (project.findProperty("puklic.version") as? String)
+    ?: error(
+        "puklic.version missing in gradle.properties — it is the single source of " +
+            "truth for the packaging version. Set it at the repo root and re-run.",
+    )
+
 dependencies {
     implementation(projects.shared.composeUi)
     implementation(projects.shared.session)
@@ -70,7 +81,7 @@ compose.desktop {
             }
             targetFormats(*formats)
             packageName = "Puklic"
-            packageVersion = "0.1.0"
+            packageVersion = puklicVersion
             description = "Lightweight native Discord client (Compose Multiplatform)"
             copyright = "© 2026 Jan Damek. Apache-2.0."
             vendor = "Jan Damek"
@@ -105,12 +116,12 @@ compose.desktop {
                 bundleID = "cz.damek.puklic"
                 appStore = false
                 dockName = "Puklic"
-                // macOS / .dmg requires MAJOR > 0 (CFBundleShortVersionString rules).
-                // Use 1.0.0 on macOS until the project bumps to 1.x globally.
-                packageVersion = "1.0.0"
-                dmgPackageVersion = "1.0.0"
-                packageBuildVersion = "1.0.0"
-                dmgPackageBuildVersion = "1.0.0"
+                // No packageVersion override: the unified `puklic.version` from
+                // gradle.properties applies on macOS too. CFBundleShortVersionString
+                // (which jpackage derives from packageVersion for the .dmg/.app bundle)
+                // accepts 0.x.y — the historical "MAJOR > 0" rule is App Store
+                // specific (`appStore = false` here) and does not apply to
+                // standalone jpackage .dmg distribution.
             }
             // No windows {} block — Windows is out of scope (issue #22).
         }
@@ -276,4 +287,47 @@ val patchDebPostBuild = tasks.register("patchDebPostBuild") {
 
 tasks.matching { it.name == "packageDeb" }.configureEach {
     finalizedBy(patchDebPostBuild)
+}
+
+// ---------------------------------------------------------------------------
+// generateVersionKt — emit `dev.puklic.desktop.update.Version.CURRENT` from
+// the single-source-of-truth `puklic.version` Gradle property. This replaces
+// the previously hand-edited `Version.kt`, eliminating drift between the
+// auto-update check string and the packaging version.
+// ---------------------------------------------------------------------------
+val generatedVersionDir = layout.buildDirectory.dir("generated/source/version/main/kotlin")
+
+val generateVersionKt = tasks.register("generateVersionKt") {
+    description = "Generates dev/puklic/desktop/update/Version.kt from puklic.version property."
+    group = "build"
+
+    inputs.property("puklicVersion", puklicVersion)
+    outputs.dir(generatedVersionDir)
+
+    doLast {
+        val outDir = generatedVersionDir.get().asFile.resolve("dev/puklic/desktop/update")
+        outDir.mkdirs()
+        val file = outDir.resolve("Version.kt")
+        file.writeText(
+            """
+            package dev.puklic.desktop.update
+
+            /**
+             * Puklic desktop build version. Generated from `puklic.version` in the root
+             * `gradle.properties` by the `:desktop:app:generateVersionKt` task.
+             *
+             * DO NOT hand-edit this file — changes here are overwritten on every build.
+             * To bump the version, edit `gradle.properties` (single source of truth).
+             */
+            public object Version {
+                public const val CURRENT: String = "$puklicVersion"
+            }
+
+            """.trimIndent(),
+        )
+    }
+}
+
+kotlin {
+    sourceSets["main"].kotlin.srcDir(generateVersionKt.map { generatedVersionDir })
 }

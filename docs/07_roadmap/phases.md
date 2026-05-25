@@ -89,10 +89,10 @@ is deferred to 4.1.
 
 ## Distribution — self-contained installers (slice 5/6, landed 2026-05-23)
 
-- [x] Compose Desktop `nativeDistributions` configured (Deb + AppImage on Linux — canonical; Dmg on macOS arm64 — developer artifact only, not shipped, see CLAUDE.md §Platforms)
+- [x] Compose Desktop `nativeDistributions` configured (Deb + AppImage on Linux + Dmg on macOS arm64 — both officially shipped, see CLAUDE.md §Platforms)
 - [x] Per-OS FFmpeg classifier (`detectFfmpegClassifier()` in `shared/voice/build.gradle.kts`) — ~30 MB natives instead of ~150 MB umbrella
-- [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns` for dev `.dmg`)
-- [x] `.dmg` build verified on macOS arm64 host (dev artifact) — `Puklic-1.0.0.dmg` ≈ 157 MB
+- [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns`)
+- [x] `.dmg` build verified on macOS arm64 host — version follows `puklic.version` in `gradle.properties` (same string as Linux .deb / .AppImage)
 - [ ] `.deb` + `.AppImage` build verified on Linux host (CI)
 - [x] README install instructions
 
@@ -124,10 +124,11 @@ See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md
 
 ## Platforms — when they are added
 
-Scope set 2026-05-25 (issue #22, HARD RULE #2):
+Scope set 2026-05-25 (issue #22, HARD RULE #2) and revised same day per
+user "všechny platformy stejně":
 
-- Linux desktop x86_64: **canonical shipping target** from phase 1
-- macOS arm64: **developer-side only** (Apple Silicon dev machines) — not in releases
+- Linux desktop x86_64: **officially shipped** from phase 1 (.deb + .AppImage)
+- macOS arm64: **officially shipped** (.dmg, same version string as Linux)
 - Windows desktop (any arch): **out of scope**
 - macOS x86_64 (Intel): **out of scope**
 - Android: future mobile phase (KMP scaffolding ready, not actively shipping)

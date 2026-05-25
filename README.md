@@ -22,11 +22,11 @@
 
 A native Discord desktop client without Electron. Kotlin + Compose Multiplatform. Target: < 150 MB RAM idle, < 2 s cold start.
 
-**Shipping target:** Linux x86_64 desktop only (canonical). macOS arm64 builds
-are developer-side artifacts (anyone with Apple Silicon can `./gradlew
-:desktop:app:run`) and are **not** published in releases. Windows and macOS
-x86_64 are out of scope. Mobile (Android/iOS) is a future roadmap phase — KMP
-scaffolding ready, not yet shipping. See [CLAUDE.md](CLAUDE.md) §Platforms.
+**Shipping targets:** Linux x86_64 desktop (.deb + .AppImage) and macOS arm64
+desktop (.dmg), both attached to GitHub Releases with the same version string.
+Windows and macOS x86_64 are out of scope. Mobile (Android/iOS) is a future
+roadmap phase — KMP scaffolding ready, not yet shipping. See
+[CLAUDE.md](CLAUDE.md) §Platforms.
 
 ## What it is not
 
@@ -63,8 +63,8 @@ paru -S puklic-bin
 ### Linux (Ubuntu / Debian / Mint, x86_64)
 
 ```bash
-wget https://github.com/JanDamek/puklic/releases/download/v0.1.0/puklic_0.1.0-1_amd64.deb
-sudo apt install ./puklic_0.1.0-1_amd64.deb   # pulls libsecret-tools automatically
+wget https://github.com/JanDamek/puklic/releases/download/v1.0.0/puklic_1.0.0-1_amd64.deb
+sudo apt install ./puklic_1.0.0-1_amd64.deb   # pulls libsecret-tools automatically
 puklic
 ```
 
@@ -76,15 +76,19 @@ if you use `dpkg` directly.
 
 ### Linux (other distros, x86_64)
 
-Download `Puklic-0.1.0-x86_64.AppImage`, `chmod +x`, run.
+Download `Puklic-1.0.0-x86_64.AppImage`, `chmod +x`, run.
 
 AppImage does not honor `.deb` dependencies, so install `libsecret-tools` (or
 your distro's equivalent providing the `secret-tool` binary, e.g. `libsecret`
 on Arch) manually before first login.
 
-### macOS (Apple Silicon) — developer-side only
+### macOS (Apple Silicon)
 
-Not a shipping target. Developers on Apple Silicon can run from source:
+Download `Puklic-1.0.0.dmg` from the latest GitHub Release, double-click, drag
+to Applications. Same version string as the Linux build (single source of
+truth in `gradle.properties`).
+
+Developers on Apple Silicon can also run from source:
 
 ```bash
 ./gradlew :desktop:app:run
@@ -92,13 +96,10 @@ Not a shipping target. Developers on Apple Silicon can run from source:
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 ```
 
-The resulting `.dmg` is **not** attached to GitHub Releases. See `CLAUDE.md`
-§Platforms.
-
 ### Build installers from source
 
 ```bash
-# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS for dev only)
+# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS)
 ./gradlew :desktop:app:packageDistributionForCurrentOS
 ```
 

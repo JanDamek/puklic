@@ -32,10 +32,10 @@ concurrency:
   # Tags get their own group (refs/tags/v*) so releases aren't cancelled by main pushes.
   cancel-in-progress: true
 
-# Scope (issue #22, 2026-05-25, HARD RULE #2):
+# Scope (issue #22 superseded 2026-05-25 per user "všechny platformy stejně",
+# HARD RULE #2 — no half-shipping):
 #   - Linux x86_64 = canonical shipping target (.deb + .AppImage attached to releases).
-#   - macOS arm64  = developer-side artifact only (built for dev validation,
-#                    uploaded as an action artifact, NOT attached to GitHub Releases).
+#   - macOS arm64  = officially shipped (.dmg attached to releases).
 #   - Windows + macOS x86_64 = officially out of scope. Not built. Do not re-add
 #     without a CLAUDE.md / docs/07_roadmap update first.
 jobs:
@@ -95,13 +95,18 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Only Linux installers attach to GitHub Releases (issue #22 scope).
-      # macOS arm64 .dmg is a developer-side artifact and is intentionally
-      # NOT downloaded here, so it cannot leak into the release assets.
+      # Both officially shipped platforms attach to GitHub Releases:
+      # Linux x86_64 (.deb + .AppImage) and macOS arm64 (.dmg).
       - name: Download Linux installer
         uses: actions/download-artifact@v4
         with:
           name: puklic-linux-x86_64
+          path: dist
+
+      - name: Download macOS installer
+        uses: actions/download-artifact@v4
+        with:
+          name: puklic-macos-arm64
           path: dist
 
       - name: List downloaded artifacts
@@ -116,9 +121,8 @@ jobs:
           body: |
             Puklic installers built by GitHub Actions.
 
-            **Platforms shipped:** Linux x86_64 only (.deb + .AppImage). macOS
-            arm64 builds are developer-side artifacts and are not part of the
-            official release. Windows and macOS x86_64 are out of scope — see
+            **Platforms shipped:** Linux x86_64 (.deb + .AppImage) and macOS
+            arm64 (.dmg). Windows and macOS x86_64 are out of scope — see
             `CLAUDE.md` §Platforms.
 
             **Distribution licensing**: these binaries bundle FFmpeg with libx264

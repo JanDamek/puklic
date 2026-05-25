@@ -23,7 +23,9 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private const val DEFAULT_BASE_URL = "https://discord.com/api/v10"
-private const val DEFAULT_UA = "Puklic/0.1.0 (Linux; Wayland)"
+// Keep in sync with `puklic.version` in root `gradle.properties` (single source of truth
+// for the packaging version). This is a User-Agent string sent on login REST calls.
+private const val DEFAULT_UA = "Puklic/1.0.0 (Linux; Wayland)"
 
 /**
  * Outcome of an email/password (or username/password) login attempt against
