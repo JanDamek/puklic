@@ -37,11 +37,10 @@ Jobs:
 
 | Job | Output |
 |---|---|
-| `desktop-linux` | AppImage |
-| `desktop-macos` | DMG (signed + notarized, phase 2+) |
-| `desktop-windows` | MSI (phase 2+) |
-| `android` | APK + AAB (phase 2+) |
-| `ios` | IPA → TestFlight (phase 3+) |
+| `desktop-linux` | .deb + .AppImage (canonical, shipped) |
+| `desktop-macos` | .dmg (developer-side artifact, not attached to releases) |
+| `android` | APK + AAB (future mobile phase) |
+| `ios` | IPA → TestFlight (future mobile phase) |
 | `github-release` | Creates GitHub Release with artifacts + changelog |
 
 Artifacts uploaded to GitHub Release. GPG signing of AppImage in the release job.

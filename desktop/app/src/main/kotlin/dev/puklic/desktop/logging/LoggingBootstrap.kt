@@ -38,12 +38,11 @@ public object LoggingBootstrap {
     private fun resolveLogDir(): File {
         val os = System.getProperty("os.name").lowercase(Locale.ROOT)
         val home = System.getProperty("user.home")
+        // Windows is out of scope (issue #22, CLAUDE.md §Platforms). macOS branch
+        // serves developer-side runs on Apple Silicon; Linux is the canonical
+        // shipping target.
         return when {
             os.contains("mac") -> File(home, "Library/Logs/Puklic")
-            os.contains("windows") -> {
-                val localAppData = System.getenv("LOCALAPPDATA") ?: File(home, "AppData/Local").absolutePath
-                File(localAppData, "Puklic/logs")
-            }
             else -> {
                 val xdg = System.getenv("XDG_DATA_HOME")?.takeIf { it.isNotBlank() }
                 val base = xdg?.let { File(it) } ?: File(home, ".local/share")

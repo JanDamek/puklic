@@ -16,7 +16,10 @@ Existing alternatives (Ripcord — proprietary and abandoned, Abaddon — alpha,
 - **Cross-platform user** who wants the same client on Linux, Android, and iOS
 - **Privacy-conscious user** who doesn't want Electron running all day
 
-Secondarily: macOS and Windows users (Compose Desktop supports them, but they are not the primary target).
+Scope (per CLAUDE.md §Platforms, issue #22, 2026-05-25): Linux x86_64 desktop
+is the sole shipping target. macOS arm64 is a developer-side artifact only
+(KMP scaffolding lets contributors run from source). Windows + macOS x86_64
+are out of scope.
 
 ## Value proposition
 

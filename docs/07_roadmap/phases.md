@@ -114,7 +114,7 @@ See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md
 ## Cross-cutting concerns (ongoing across all phases)
 
 - [x] Crash reporting — local crash dumps to `<logDir>/crashes/crash-<ts>.txt` via `dev.puklic.desktop.crash.CrashReporter`; opt-in remote upload remains TODO
-- [x] Logging — SLF4J + Logback on desktop (10 MB rotation, 14-day history, 200 MB cap); Kermit (multiplatform call sites) bridged into SLF4J; token redaction via `RedactingPatternLayout` (Bearer / Authorization / `mfa.*`). Log dir: macOS `~/Library/Logs/Puklic`, Linux `$XDG_DATA_HOME/puklic/logs`, Windows `%LOCALAPPDATA%/Puklic/logs`
+- [x] Logging — SLF4J + Logback on desktop (10 MB rotation, 14-day history, 200 MB cap); Kermit (multiplatform call sites) bridged into SLF4J; token redaction via `RedactingPatternLayout` (Bearer / Authorization / `mfa.*`). Log dir: Linux `$XDG_DATA_HOME/puklic/logs` (canonical); macOS `~/Library/Logs/Puklic` (dev-side)
 - [ ] i18n framework (English + at least one additional locale)
 - [ ] Accessibility (Compose semantics, keyboard navigation)
 - [x] Update mechanism (auto-update on desktop) — opt-in check against GitHub Releases API

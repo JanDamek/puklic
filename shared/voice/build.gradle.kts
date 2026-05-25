@@ -90,9 +90,8 @@ fun detectFfmpegClassifier(): String {
     return when {
         osName.contains("linux") && osArch == "amd64" -> "linux-x86_64-gpl"
         osName.contains("linux") && osArch in setOf("aarch64", "arm64") -> "linux-arm64-gpl"
-        osName.contains("mac") && osArch == "x86_64" -> "macosx-x86_64-gpl"
         osName.contains("mac") && osArch in setOf("aarch64", "arm64") -> "macosx-arm64-gpl"
-        osName.contains("windows") -> "windows-x86_64-gpl"
+        // Windows and macOS x86_64 are out of scope (issue #22, CLAUDE.md §Platforms).
         else -> error("Unsupported OS/arch for FFmpeg native classifier: $osName / $osArch")
     }
 }

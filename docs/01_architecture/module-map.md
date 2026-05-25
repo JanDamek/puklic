@@ -31,9 +31,8 @@ puklic/
 │
 ├── desktop/
 │   ├── app/                          # :desktop:app
-│   ├── platform-linux/               # :desktop:platform-linux
-│   ├── platform-macos/               # :desktop:platform-macos     (stub Phase 1)
-│   ├── platform-windows/             # :desktop:platform-windows   (stub Phase 1)
+│   ├── platform-linux/               # :desktop:platform-linux     (canonical shipping target)
+│   ├── platform-macos/               # :desktop:platform-macos     (developer-side only, not shipped)
 │   ├── media-pipewire/               # :desktop:media-pipewire     (Phase 3)
 │   └── media-portal/                 # :desktop:media-portal       (Phase 4, xdg-desktop-portal)
 │
@@ -145,9 +144,12 @@ puklic/
 - **Dependencies:** JNA, dbus-java
 - **Depends on:** `:shared:platform-api`
 
-### `:desktop:platform-macos` / `:desktop:platform-windows`
+### `:desktop:platform-macos`
 
-- Stub in Phase 1 (base paths / clipboard only). Full implementation Phase 2+.
+- Developer-side only (not shipped). Lets contributors on Apple Silicon run
+  `./gradlew :desktop:app:run` for local validation. Per CLAUDE.md §Platforms
+  (issue #22, 2026-05-25). Windows platform module was removed in the same
+  scope reduction.
 
 ### `:desktop:media-pipewire` (Phase 3)
 

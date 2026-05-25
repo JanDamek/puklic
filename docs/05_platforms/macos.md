@@ -1,7 +1,12 @@
 # macOS
 
-Secondary desktop target. Used for MVP development and smoke testing — the deployment
-target is Linux Wayland, but the lead developer works on macOS.
+**Developer-side only — not a shipping target.** Per `CLAUDE.md` §Platforms
+(scope set 2026-05-25, issue #22), Linux x86_64 is the sole canonical
+shipping target. macOS arm64 stays usable so developers on Apple Silicon can
+`./gradlew :desktop:app:run` and build local `.dmg` for testing, but no
+`.dmg` is attached to GitHub Releases.
+
+macOS x86_64 (Intel) is fully out of scope.
 
 ## Display server strategy
 

@@ -19,12 +19,12 @@ Version Catalog: `gradle/libs.versions.toml` — single source of truth for vers
 
 | Target | Host requirement | Output |
 |---|---|---|
-| `:desktop:app` JVM | JDK 21 + Linux/macOS/Windows | jar / AppImage / DMG / MSI |
+| `:desktop:app` JVM | JDK 21 + Linux (canonical) / macOS arm64 (dev only) | jar / .deb + .AppImage (Linux) / .dmg (macOS dev) |
 | `:android:app` | Android SDK | APK / AAB |
 | `:ios:app` | macOS + Xcode | Xcode project → IPA |
 | `:shared:*` | host-platform sufficient | KMP artifacts |
 
-Cross-platform iOS build from Linux/Windows = **impossible** (Apple toolchain constraint). CI must have a macOS runner for iOS targets.
+Cross-platform iOS build from Linux = **impossible** (Apple toolchain constraint). Future mobile phase will require a macOS runner for iOS targets.
 
 ## Key Gradle tasks (draft)
 
@@ -33,7 +33,7 @@ Cross-platform iOS build from Linux/Windows = **impossible** (Apple toolchain co
 | `./gradlew build` | Compile + test all |
 | `./gradlew :shared:domain:test` | Per-module test |
 | `./gradlew :desktop:app:run` | Run desktop app in dev mode |
-| `./gradlew :desktop:app:packageDistributionForCurrentOS` | Build AppImage / DMG / MSI |
+| `./gradlew :desktop:app:packageDistributionForCurrentOS` | Build .deb + .AppImage (Linux) / .dmg (macOS dev) |
 | `./gradlew :android:app:assembleDebug` | Android APK |
 | `./gradlew :android:app:assembleRelease` | Signed release APK / AAB |
 | `./gradlew :ios:app:iosDeployIPhone15Debug` | Run iOS app in simulator (KMP) |
@@ -63,13 +63,12 @@ Cross-platform iOS build from Linux/Windows = **impossible** (Apple toolchain co
 
 | Platform | Signing |
 |---|---|
-| Desktop AppImage | unsigned (GPG detached signature optional) |
-| macOS DMG | Apple Developer ID Application cert + notarize |
-| Windows MSI | EV code-sign cert (later) |
-| Android APK | Upload key + Play app signing |
-| iOS IPA | Apple Distribution cert |
+| Desktop .deb / .AppImage (Linux, shipped) | unsigned (GPG detached signature optional) |
+| macOS .dmg (developer-side, not shipped) | not signed; for local dev only |
+| Android APK (future) | Upload key + Play app signing |
+| iOS IPA (future) | Apple Distribution cert |
 
-For MVP: AppImage unsigned + GPG sig on GitHub Releases. macOS / Windows / Mobile later.
+For MVP: Linux .deb + .AppImage unsigned + GPG sig on GitHub Releases. Mobile later. Windows + macOS x86_64 out of scope (issue #22).
 
 ## Reproducible builds
 

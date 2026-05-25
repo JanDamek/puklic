@@ -21,9 +21,6 @@ linux/                 hicolor-style Linux icon theme structure
   16x16/puklic.png  ...  512x512/puklic.png
   scalable.svg
 
-windows/               Windows multi-size ICO
-  puklic.ico
-
 macos/                 macOS icon assets
   puklic.icns            Pre-built ICNS (works on Linux conversions)
   puklic.iconset/        Source iconset for `iconutil` on actual Mac
@@ -50,10 +47,6 @@ In `.desktop` file:
 ```
 Icon=puklic
 ```
-
-### Windows
-Use `windows/puklic.ico` directly in your installer or executable resources.
-Works in File Explorer, Start menu, taskbar, system tray.
 
 ### macOS
 Two options:
@@ -86,9 +79,6 @@ If you edit `svg/puklic-icon.svg` and want to rebuild all rasters:
 for s in 16 24 32 48 64 96 128 192 256 512 1024; do
   rsvg-convert -w $s -h $s svg/puklic-icon.svg -o png/puklic-${s}.png
 done
-
-# Windows .ico
-icotool -c -o windows/puklic.ico png/puklic-{16,24,32,48,64,128,256}.png
 
 # macOS .icns (Linux/cross-platform tool)
 png2icns macos/puklic.icns png/puklic-{16,32,48,128,256,512,1024}.png

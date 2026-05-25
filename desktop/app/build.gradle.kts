@@ -19,7 +19,6 @@ dependencies {
     implementation(projects.shared.protocolDiscord)
     implementation(projects.desktop.platformLinux)
     implementation(projects.desktop.platformMacos)
-    implementation(projects.desktop.platformWindows)
     implementation(libs.koin.core)
     implementation(libs.decompose)
     implementation(libs.essenty.lifecycle.coroutines)
@@ -57,11 +56,14 @@ compose.desktop {
             // not supported; each runner emits formats native to its host. Compose
             // Desktop rejects formats that don't match the current OS, so we filter
             // by os.name here.
+            // Scope per issue #22 (CLAUDE.md §Platforms):
+            //   - Linux  = canonical shipping target (.deb + .AppImage)
+            //   - macOS  = developer-side only (.dmg for local validation)
+            //   - Windows = out of scope (no MSI target)
             val osName = System.getProperty("os.name").lowercase()
             val formats = when {
                 osName.contains("linux") -> arrayOf(TargetFormat.Deb, TargetFormat.AppImage)
                 osName.contains("mac") -> arrayOf(TargetFormat.Dmg)
-                osName.contains("windows") -> arrayOf(TargetFormat.Msi)
                 else -> arrayOf<TargetFormat>()
             }
             targetFormats(*formats)
@@ -102,15 +104,7 @@ compose.desktop {
                 packageBuildVersion = "1.0.0"
                 dmgPackageBuildVersion = "1.0.0"
             }
-            windows {
-                iconFile.set(rootProject.file("icons/windows/puklic.ico"))
-                menuGroup = "Puklic"
-                // Pinned upgrade UUID — required for in-place .msi upgrades. Generated
-                // once with `uuidgen` and frozen for the lifetime of the product line.
-                upgradeUuid = "9b3f2c4e-7a51-4d8e-9e1b-2c4f5a6d7e80"
-                shortcut = true
-                perUserInstall = true
-            }
+            // No windows {} block — Windows is out of scope (issue #22).
         }
     }
 }
