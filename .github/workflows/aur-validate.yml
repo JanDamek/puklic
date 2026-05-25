@@ -1,0 +1,26 @@
+name: AUR validate
+
+on:
+  pull_request:
+    paths:
+      - 'dist/aur/**'
+      - '.github/workflows/aur-validate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'dist/aur/**'
+      - '.github/workflows/aur-validate.yml'
+
+jobs:
+  validate:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate PKGBUILD (namcap + mksrcinfo)
+        run: |
+          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c \
+            "pacman -Sy --noconfirm pacman-contrib namcap && \
+             mksrcinfo && \
+             diff -u .SRCINFO <(cat .SRCINFO) && \
+             namcap PKGBUILD"

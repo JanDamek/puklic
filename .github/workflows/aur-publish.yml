@@ -1,0 +1,65 @@
+name: AUR publish
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (without v prefix, e.g. 0.1.0)'
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'release' || github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version + pkgrel
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "release" ]; then
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"
+          else
+            VERSION="${{ github.event.inputs.version }}"
+          fi
+          PKGREL=$(cat dist/aur/pkgrel)
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "pkgrel=${PKGREL}" >> "$GITHUB_OUTPUT"
+
+      - name: Update PKGBUILD pkgver + pkgrel
+        shell: bash
+        run: |
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.version.outputs.version }}/" dist/aur/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=${{ steps.version.outputs.pkgrel }}/" dist/aur/PKGBUILD
+
+      - name: Compute SHA-256 of release asset
+        shell: bash
+        run: |
+          DEB_URL="https://github.com/JanDamek/puklic/releases/download/v${{ steps.version.outputs.version }}/puklic_${{ steps.version.outputs.version }}-1_amd64.deb"
+          curl -sSL -o /tmp/puklic.deb "$DEB_URL"
+          SHA=$(sha256sum /tmp/puklic.deb | cut -d' ' -f1)
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA}')/" dist/aur/PKGBUILD
+
+      - name: Generate .SRCINFO
+        shell: bash
+        run: |
+          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c \
+            "pacman -Sy --noconfirm pacman-contrib && mksrcinfo"
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: puklic-bin
+          pkgbuild: dist/aur/PKGBUILD
+          assets: |
+            dist/aur/puklic-bin.install
+            dist/aur/.SRCINFO
+          commit_username: 'puklic-bot'
+          commit_email: 'puklic-bot@noreply.github.com'
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "v${{ steps.version.outputs.version }}-${{ steps.version.outputs.pkgrel }}: automated update"
+          ssh_keyscan_types: rsa,ecdsa,ed25519
