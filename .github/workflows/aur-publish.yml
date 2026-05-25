@@ -47,8 +47,16 @@ jobs:
       - name: Generate .SRCINFO
         shell: bash
         run: |
-          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c \
-            "pacman -Sy --noconfirm pacman-contrib && mksrcinfo"
+          # mksrcinfo was removed from pacman-contrib in 2020 (commit f0ed4b88).
+          # The current canonical command is `makepkg --printsrcinfo`, shipped
+          # with the base pacman package.
+          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c '
+            useradd -m builder
+            chown -R builder:builder /work
+            su - builder -c "cd /work && makepkg --printsrcinfo > .SRCINFO"
+          '
+          echo "--- generated .SRCINFO ---"
+          cat dist/aur/.SRCINFO
 
       - name: Publish to AUR
         uses: KSXGitHub/github-actions-deploy-aur@v3.0.1

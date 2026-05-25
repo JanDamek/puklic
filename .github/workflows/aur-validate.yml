@@ -17,10 +17,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Validate PKGBUILD (namcap + mksrcinfo)
+      - name: Validate PKGBUILD (namcap + .SRCINFO drift check)
         run: |
-          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c \
-            "pacman -Sy --noconfirm pacman-contrib namcap && \
-             mksrcinfo && \
-             diff -u .SRCINFO <(cat .SRCINFO) && \
-             namcap PKGBUILD"
+          # mksrcinfo (pacman-contrib) was removed in 2020; the canonical command
+          # is `makepkg --printsrcinfo`. makepkg refuses to run as root, hence
+          # the dedicated builder user.
+          docker run --rm -v "$PWD/dist/aur:/work" -w /work archlinux:latest bash -c '
+            pacman -Sy --noconfirm namcap
+            useradd -m builder
+            chown -R builder:builder /work
+            su - builder -c "cd /work && makepkg --printsrcinfo > .SRCINFO.regen"
+            diff -u .SRCINFO .SRCINFO.regen || (echo "::error::.SRCINFO is out of sync with PKGBUILD — run makepkg --printsrcinfo > .SRCINFO and commit" && exit 1)
+            rm .SRCINFO.regen
+            namcap PKGBUILD
+          '
