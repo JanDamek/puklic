@@ -4,6 +4,55 @@ This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE 
 
 ---
 
+## HARD RULE #2 — NEVER TEMPORARY, ALWAYS CONCEPTUAL
+
+User explicit 2026-05-25 in capitals: **"NIKDY NIC DOČASNĚ, VŽDY VŠE KONVEPČNĚ PŘEDĚLAT, DEPRECATED A DOČASNÁ, HOST, QUICK FIX NESMÍ SE NIKDY PROVÁDĚT !!!"**
+
+Translation: NEVER ship temporary solutions. ALWAYS redo as a complete conceptual change. **Deprecated / temporary / host-only / quick-fix code MUST NEVER be introduced.**
+
+### Forbidden patterns
+
+- ❌ `// TODO: remove later` — if it needs removing, don't write it
+- ❌ `// temporary workaround until X` — fix X first or block until then
+- ❌ `// disable for now, re-enable when needed` — if it's needed eventually, leave it; if not, delete it
+- ❌ Commenting out matrix entries / config / code "for now"
+- ❌ Adding fallback shims for features not yet built
+- ❌ `// quick-fix` / `// hot-fix` / `// hacky but works`
+- ❌ Renaming `_unused`, leaving dead code, "we'll come back to this"
+- ❌ Backwards-compatibility shims that have no current caller (still pre-MVP)
+- ❌ Stub method returning fake data "until real impl"
+- ❌ Configuration flags toggling between half-built feature and old behavior
+
+### When a "temporary" feels tempting
+
+Step back and ask: **what's the conceptual right answer**? Then either:
+1. **Block** — file an issue documenting the prerequisite + stop. Wait for proper unblock.
+2. **Do it fully** — implement the complete solution including all platforms / paths / edge cases.
+
+Never option 3 ("ship half now, finish later"). Half-built code rots. Future-you doesn't remember the limitations. Reviewers can't tell what's intentional vs incomplete. CI failures become normalized noise.
+
+### Concrete examples that triggered this rule
+
+- 2026-05-25 commit `10ebe20` (reverted in `d221e4e`): tried to comment out Windows + macOS-x86_64 matrix entries in `build-libdave.yml` to silence CI noise. **WRONG.** Either:
+  - Build for those platforms properly (the conceptual goal — multi-platform support), OR
+  - Decide officially we never ship those platforms + remove the entries (not comment) + remove the libdave CI complexity that supported them
+  - "Comment out for now" was the forbidden middle ground.
+
+### How to apply
+
+1. Before any code-touching dispatch: **does this introduce temporary state?** If yes — REJECT, redesign.
+2. Step 2 (architect design) reviews must explicitly call out any "v1 limitation" / "phase 2 follow-up" — if it exists, the design is incomplete; either deliver full or block.
+3. Step 3 critic must flag any TODO / temporary / quick-fix vocabulary in code or design.
+4. Code review (Step 7) rejects PRs containing forbidden patterns above.
+
+### Acceptable exceptions
+
+NONE. There is no "small" temporary. The rule is absolute.
+
+If you THINK you need temporary code, you're missing a step in the pipeline — go back to Step 1 (architectural analysis) and find the conceptually-correct path.
+
+---
+
 ## What Puklic IS
 
 A lightweight native desktop/mobile chat client for Discord, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, Wayland-first Linux, long-term stability, and future mobile platforms (Android, iOS).
