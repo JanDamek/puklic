@@ -76,8 +76,15 @@ voice UDP socket + AEAD + gateway. See architect report
 `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md`. Linux Wayland support
 is deferred to 4.1.
 
-- [ ] xdg-desktop-portal D-Bus binding (4.1, Wayland)
-- [ ] PipeWire stream capture (4.1, Wayland; macOS uses AVFoundation via ffmpeg, captured 2026-05-23)
+- [x] xdg-desktop-portal D-Bus binding (4.1, Wayland) — 2026-05-27, full `CaptureMode` (Monitors/Windows/Both) + `CursorMode` (Hidden/Embedded/Metadata), `PortalResult` sealed type distinguishes Ok/UserCancelled/Error; see `shared/voice/.../linux/LinuxPortalScreenCast.kt`.
+- [x] PipeWire stream capture (4.1, Wayland; macOS uses AVFoundation via ffmpeg, captured 2026-05-23)
+      Implemented end-to-end by reusing FFmpeg-javacpp's libavdevice `pipewire` demuxer:
+      `LinuxPortalScreenCast` performs the xdg-desktop-portal handshake → returns
+      `(nodeId, fd)`; `DefaultScreenShareClient` constructs `LibavVideoEncoder` with the
+      portal-allocated fd, which is forwarded to libavdevice via `av_dict_set("fd", ...)`
+      and `node_id` via the input URL. Video frames are decoded, scaled, and re-encoded to
+      H.264 inside the same encoder — no separate raw-frame abstraction is needed (the
+      pipeline is unified with the macOS AVFoundation path).
 - [x] Window picker (macOS via `osascript` enumeration, 4.0.1) — picker shows windows in a
       second tab; capture currently falls back to fullscreen of monitor 0 because avfoundation
       has no per-window input. Per-window capture via ScreenCaptureKit is deferred to 4.0.2.

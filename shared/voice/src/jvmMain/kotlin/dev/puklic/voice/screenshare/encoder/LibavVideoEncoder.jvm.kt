@@ -303,14 +303,7 @@ internal class LibavVideoEncoder(
         if (inputFormatOverride != null && inputUrlOverride != null) {
             return inputFormatOverride to inputUrlOverride
         }
-        val osName = System.getProperty("os.name").orEmpty()
-        return when {
-            osName.startsWith("Mac") -> "avfoundation" to "${source.id}:none"
-            // Linux PipeWire portal integration is Phase 3; the node id will arrive via
-            // source.id once portal handshake lands.
-            osName.contains("Linux", ignoreCase = true) -> "pipewire" to source.id
-            else -> error("Screen capture on '$osName' is not supported by LibavVideoEncoder")
-        }
+        return resolveInputForOs(System.getProperty("os.name").orEmpty(), source.id)
     }
 
     internal companion object {
@@ -327,6 +320,23 @@ internal class LibavVideoEncoder(
         const val NAL_TYPE_MASK = 0x1F
         const val NAL_TYPE_IDR = 5
     }
+}
+
+/**
+ * Pure mapping of `(os.name, ScreenSource.id) → (libavdevice input format, libavdevice URL)`.
+ *
+ * Extracted as a top-level function so it can be unit-tested without spinning up FFmpeg.
+ * - macOS uses the `avfoundation` libavdevice demuxer; the URL is `"<video>:<audio>"`.
+ * - Linux Wayland uses the `pipewire` libavdevice demuxer; the URL is the PipeWire node id
+ *   (a numeric string) handed out by `org.freedesktop.portal.ScreenCast.Start` → first stream.
+ *   The portal-allocated fd is passed separately via `av_dict_set("fd", ...)`, not via the URL.
+ *
+ * Windows and macOS-x86_64 are intentionally unsupported (see `CLAUDE.md §Platforms`).
+ */
+internal fun resolveInputForOs(osName: String, sourceId: String): Pair<String, String> = when {
+    osName.startsWith("Mac") -> "avfoundation" to "$sourceId:none"
+    osName.contains("Linux", ignoreCase = true) -> "pipewire" to sourceId
+    else -> error("Screen capture on '$osName' is not supported by LibavVideoEncoder")
 }
 
 /** Convenience constructor — analogous to [ffmpegVideoEncoder]. */
