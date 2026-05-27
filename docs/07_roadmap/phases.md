@@ -91,7 +91,7 @@ is deferred to 4.1.
       Linux Wayland window picker via portal RequestScreenCast remains in 4.1.
 - [x] Monitor picker (ScreenSharePickerDialog, slice 6)
 - [x] H.264 encoder (libx264 via ffmpeg subprocess; slice 3)
-- [ ] VP8 encoder (Linux 4.1)
+- [x] VP8 encoder (Linux 4.1) — 2026-05-27, libvpx via bundled `ffmpeg-platform-gpl` 7.1-1.5.11; `LibavVideoEncoder` now takes a `VideoCodec` parameter (`H264` default / `VP8`); `chooseCodec(offered)` helper picks H.264 over VP8 from a Discord codec advertisement. End-to-end SDP-driven negotiation (wiring receiver's `SessionDescription.codecs` to encoder construction + VP8 RTP packetiser per RFC 7741) is a follow-up — see issue.
 - [~] Share with audio — macOS routes via BlackHole 2ch (user-installed); PipeWire audio capture in 4.1
 - [x] Video send via voice gateway transport (RTP FU-A + AEAD on Ready.video_ssrc; slices 4–5)
 - [x] Receive incoming screenshare video (Phase 4.2, 2026-05-23) — VoicePacketDispatcher + H.264

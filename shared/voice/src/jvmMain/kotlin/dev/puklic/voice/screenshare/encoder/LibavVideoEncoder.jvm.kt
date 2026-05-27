@@ -16,6 +16,7 @@ import org.bytedeco.ffmpeg.avformat.AVFormatContext
 import org.bytedeco.ffmpeg.avformat.AVInputFormat
 import org.bytedeco.ffmpeg.avutil.AVDictionary
 import org.bytedeco.ffmpeg.avutil.AVFrame
+import org.bytedeco.ffmpeg.global.avcodec.AV_PKT_FLAG_KEY
 import org.bytedeco.ffmpeg.global.avcodec.av_packet_alloc
 import org.bytedeco.ffmpeg.global.avcodec.av_packet_free
 import org.bytedeco.ffmpeg.global.avcodec.av_packet_unref
@@ -94,6 +95,13 @@ internal class LibavVideoEncoder(
      * remote endpoint rather than the default system PipeWire socket. Ignored on non-Linux.
      */
     private val pipewireFd: Int? = null,
+    /**
+     * Output codec. Defaults to [VideoCodec.H264] (libx264) for behaviour parity with the
+     * pre-VP8 implementation. When set to [VideoCodec.VP8] the encoder produces one
+     * `EncodedFrame` per VP8 compressed frame (no NAL split — VP8 frames are atomic);
+     * RTP packetisation is the caller's responsibility (RFC 7741).
+     */
+    private val codec: VideoCodec = VideoCodec.H264,
 ) : VideoEncoder {
 
     private val closed = AtomicBoolean(false)
@@ -156,9 +164,12 @@ internal class LibavVideoEncoder(
             val srcPixFmt = decCtx.pix_fmt()
             check(srcW > 0 && srcH > 0) { "decoder reported invalid size ${srcW}x$srcH" }
 
-            // --- Encoder (libx264) ---
-            val encoder: AVCodec = avcodec_find_encoder_by_name(ENCODER_NAME)
-                ?: error("$ENCODER_NAME not available in this FFmpeg build")
+            // --- Encoder (libx264 or libvpx, selected per [codec]) ---
+            val encoder: AVCodec = avcodec_find_encoder_by_name(codec.encoderName)
+                ?: error(
+                    "${codec.encoderName} not available in this FFmpeg build " +
+                        "(codec=${codec.name}); rebuild ffmpeg-platform-gpl with the codec enabled",
+                )
             encCtx = avcodec_alloc_context3(encoder) ?: error("avcodec_alloc_context3(enc) null")
             encCtx.width(width)
             encCtx.height(height)
@@ -171,13 +182,27 @@ internal class LibavVideoEncoder(
             encCtx.rc_max_rate(bitrate)
             encCtx.rc_buffer_size((bitrate / RC_BUFSIZE_DIVISOR).toInt())
 
-            av_opt_set(encCtx.priv_data(), "preset", "veryfast", 0)
-            av_opt_set(encCtx.priv_data(), "tune", "zerolatency", 0)
-            av_opt_set(encCtx.priv_data(), "profile", "baseline", 0)
-            av_opt_set(encCtx.priv_data(), "x264-params", X264_PARAMS, 0)
+            when (codec) {
+                VideoCodec.H264 -> {
+                    av_opt_set(encCtx.priv_data(), "preset", "veryfast", 0)
+                    av_opt_set(encCtx.priv_data(), "tune", "zerolatency", 0)
+                    av_opt_set(encCtx.priv_data(), "profile", "baseline", 0)
+                    av_opt_set(encCtx.priv_data(), "x264-params", X264_PARAMS, 0)
+                }
+                VideoCodec.VP8 -> {
+                    // libvpx: CBR, real-time deadline, force keyframes at GOP boundary.
+                    // `rc_min_rate` must equal `bit_rate` for true CBR; otherwise libvpx falls
+                    // back to its VBR mode.
+                    encCtx.rc_min_rate(bitrate)
+                    av_opt_set(encCtx.priv_data(), "quality", "realtime", 0)
+                    av_opt_set(encCtx.priv_data(), "deadline", "realtime", 0)
+                    av_opt_set(encCtx.priv_data(), "cpu-used", VPX_CPU_USED.toString(), 0)
+                    av_opt_set(encCtx.priv_data(), "error-resilient", "1", 0)
+                }
+            }
 
             check(avcodec_open2(encCtx, encoder, null as AVDictionary?) >= 0) {
-                "avcodec_open2(libx264) failed"
+                "avcodec_open2(${codec.encoderName}) failed"
             }
 
             // --- Scaler ---
@@ -277,7 +302,16 @@ internal class LibavVideoEncoder(
         awaitClose { closed.set(true) }
     }.flowOn(Dispatchers.IO)
 
-    /** Send each NAL unit from [encPkt] as a separate [EncodedFrame]. */
+    /**
+     * Emit an encoded packet.
+     *
+     * H.264: split Annex-B byte stream into NAL units, emitting one [EncodedFrame] per NAL.
+     * Keyframe is detected from the NAL type (5 = IDR).
+     *
+     * VP8: emit the whole packet as a single [EncodedFrame] (VP8 compressed frames are
+     * atomic — RFC 7741 RTP packetisation happens later in the send pipeline). Keyframe
+     * comes from `AVPacket.flags & AV_PKT_FLAG_KEY`.
+     */
     private suspend fun kotlinx.coroutines.channels.ProducerScope<EncodedFrame>.emitEncodedPacket(
         encPkt: AVPacket,
         framePts: Long,
@@ -287,11 +321,19 @@ internal class LibavVideoEncoder(
         val bytes = ByteArray(size)
         encPkt.data().capacity(size.toLong()).get(bytes)
         val ts90k = (framePts * TS_CLOCK_HZ / framerate).toInt()
-        for (nal in AnnexBSplitter.split(bytes)) {
-            if (nal.isEmpty()) continue
-            val nalType = nal[0].toInt() and NAL_TYPE_MASK
-            val keyframe = nalType == NAL_TYPE_IDR
-            send(EncodedFrame(nal, ts90k, keyframe))
+        when (codec) {
+            VideoCodec.H264 -> {
+                for (nal in AnnexBSplitter.split(bytes)) {
+                    if (nal.isEmpty()) continue
+                    val nalType = nal[0].toInt() and NAL_TYPE_MASK
+                    val keyframe = nalType == NAL_TYPE_IDR
+                    send(EncodedFrame(nal, ts90k, keyframe))
+                }
+            }
+            VideoCodec.VP8 -> {
+                val keyframe = (encPkt.flags() and AV_PKT_FLAG_KEY) != 0
+                send(EncodedFrame(bytes, ts90k, keyframe))
+            }
         }
     }
 
@@ -314,8 +356,10 @@ internal class LibavVideoEncoder(
         const val GOP_SIZE = 60
         const val RC_BUFSIZE_DIVISOR = 2
         const val TS_CLOCK_HZ = 90_000
-        const val ENCODER_NAME = "libx264"
         const val X264_PARAMS = "keyint=60:min-keyint=60:scenecut=0:repeat-headers=1"
+        // libvpx realtime quality preset: 0 = highest quality / slowest, 16 = lowest /
+        // fastest. 5 matches WebRTC's default for screen capture (good quality, low CPU).
+        const val VPX_CPU_USED = 5
         // H.264 NAL header
         const val NAL_TYPE_MASK = 0x1F
         const val NAL_TYPE_IDR = 5
@@ -340,16 +384,21 @@ internal fun resolveInputForOs(osName: String, sourceId: String): Pair<String, S
 }
 
 /** Convenience constructor — analogous to [ffmpegVideoEncoder]. */
-internal fun libavVideoEncoder(source: ScreenSource, shareAudio: Boolean): VideoEncoder =
-    LibavVideoEncoder(source = source, shareAudio = shareAudio)
+internal fun libavVideoEncoder(
+    source: ScreenSource,
+    shareAudio: Boolean,
+    codec: VideoCodec = VideoCodec.H264,
+): VideoEncoder = LibavVideoEncoder(source = source, shareAudio = shareAudio, codec = codec)
 
 /** Linux-only convenience constructor that injects the portal-allocated PipeWire fd. */
 internal fun libavVideoEncoder(
     source: ScreenSource,
     shareAudio: Boolean,
     pipewireFd: Int,
+    codec: VideoCodec = VideoCodec.H264,
 ): VideoEncoder = LibavVideoEncoder(
     source = source,
     shareAudio = shareAudio,
     pipewireFd = pipewireFd,
+    codec = codec,
 )
