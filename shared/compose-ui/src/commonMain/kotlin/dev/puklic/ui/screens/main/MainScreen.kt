@@ -47,6 +47,7 @@ import com.arkivanov.essenty.lifecycle.destroy
 import dev.puklic.repositories.MessageOrchestrator
 import dev.puklic.ui.components.Composer
 import dev.puklic.ui.components.MessageList
+import dev.puklic.ui.components.fileDropTarget
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -605,7 +606,14 @@ private fun ChannelMessages(
         onDispose { viewModel.lifecycle.destroy() }
     }
     val state by viewModel.viewModel.state.collectAsState()
-    var draft by remember(channelId) { mutableStateOf("") }
+    val composerVm = remember(channelId, orchestrator) {
+        val lifecycle = LifecycleRegistry()
+        val ctx = DefaultComponentContext(lifecycle = lifecycle)
+        lifecycle.resume()
+        ComposerHolder(ComposerViewModel(ctx, orchestrator, channelId), lifecycle)
+    }
+    DisposableEffect(composerVm) { onDispose { composerVm.lifecycle.destroy() } }
+    val composerState by composerVm.viewModel.state.collectAsState()
 
     val displayName = channelName?.takeIf { it.isNotBlank() } ?: channelId.value.toString()
     val isDm = channel is DmChannel
@@ -669,19 +677,25 @@ private fun ChannelMessages(
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Composer(
-            draft = draft,
+            draft = composerState.draft,
             placeholder = "Message #$displayName",
-            onDraftChange = { draft = it },
-            onSubmit = {
-                val toSend = draft.trim()
-                if (toSend.isNotEmpty()) {
-                    viewModel.viewModel.sendMessage(toSend)
-                    draft = ""
-                }
+            onDraftChange = composerVm.viewModel::onDraftChange,
+            onSubmit = composerVm.viewModel::send,
+            attachments = composerState.attachments,
+            onAttachClick = { composerVm.viewModel.openFilePicker() },
+            onRemoveAttachment = composerVm.viewModel::removeAttachment,
+            isEnabled = !composerState.isSending,
+            modifier = Modifier.fileDropTarget { files ->
+                files.forEach { composerVm.viewModel.addAttachment(it) }
             },
         )
     }
 }
+
+private class ComposerHolder(
+    val viewModel: ComposerViewModel,
+    val lifecycle: LifecycleRegistry,
+)
 
 /**
  * A voice channel row plus its (possibly empty) list of current occupants. Members render

@@ -194,6 +194,31 @@ public class MessageOrchestrator(
             )
         }
 
+    /**
+     * Send a message that carries one or more in-memory [attachments] (issue #23). Per architect
+     * decision Q1, attachment sends bypass the persistent outbound queue: pending attachments are
+     * NEVER stored on disk, so a mid-upload crash means the user re-attaches. The gateway runs
+     * the full upload protocol synchronously; on success the canonical message is persisted to
+     * storage so the UI's normal observe path picks it up.
+     */
+    public suspend fun sendWithAttachments(
+        channelId: ChannelId,
+        content: String,
+        attachments: List<PendingAttachment>,
+        replyTo: MessageId? = null,
+    ): Result<Unit> {
+        val nonce = nonceGenerator()
+        return messageGateway.sendMessage(
+            channelId = channelId,
+            content = content,
+            nonce = nonce,
+            replyTo = replyTo,
+            attachments = attachments,
+        ).map { confirmed ->
+            storage.persist(confirmed)
+        }
+    }
+
     /** Edit a server-confirmed message. Local mirror updates on success. */
     public suspend fun edit(messageId: MessageId, channelId: ChannelId, newContent: String): Result<Unit> =
         messageGateway.editMessage(channelId, messageId, newContent).map { updated ->

@@ -800,6 +800,29 @@ public class DiscordGatewayBridge(
  * Public, domain-typed wrapper around [DiscordRestClient]. Translates DTOs to `:shared:domain`
  * types so the wiring layer never touches `internal` DTOs.
  */
+/**
+ * Domain-layer upload payload for [DiscordMessageBridge.sendMessage] — kept in protocol-discord
+ * so the wiring layer can map [dev.puklic.repositories.PendingAttachment] to this without leaking
+ * the REST DTOs across module boundaries.
+ */
+public data class PendingAttachmentUpload(
+    val filename: String,
+    val bytes: ByteArray,
+    val contentType: String?,
+) {
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is PendingAttachmentUpload) return false
+        return filename == other.filename && bytes.contentEquals(other.bytes) && contentType == other.contentType
+    }
+    override fun hashCode(): Int {
+        var h = filename.hashCode()
+        h = 31 * h + bytes.contentHashCode()
+        h = 31 * h + (contentType?.hashCode() ?: 0)
+        return h
+    }
+}
+
 public class DiscordMessageBridge(private val rest: DiscordRestClient) {
 
     public suspend fun sendMessage(
@@ -807,7 +830,53 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
         content: String,
         nonce: String,
         replyTo: MessageId?,
-    ): Result<ChatMessage> = rest.sendMessage(channelId, content, nonce, replyTo).map { it.toDomain() }
+        attachments: List<PendingAttachmentUpload> = emptyList(),
+    ): Result<ChatMessage> {
+        if (attachments.isEmpty()) {
+            return rest.sendMessage(channelId, content, nonce, replyTo).map { it.toDomain() }
+        }
+        return uploadAndSend(channelId, content, nonce, replyTo, attachments)
+    }
+
+    /**
+     * Three-step upload protocol per issue #23: pre-upload → raw PUT to CDN → finalize POST.
+     * Bails on the first failure so the user sees the underlying error (file too large, network).
+     */
+    private suspend fun uploadAndSend(
+        channelId: ChannelId,
+        content: String,
+        nonce: String,
+        replyTo: MessageId?,
+        attachments: List<PendingAttachmentUpload>,
+    ): Result<ChatMessage> {
+        val slotsResult = rest.requestUploadUrls(
+            channelId = channelId,
+            files = attachments.mapIndexed { index, a ->
+                dev.puklic.protocol.discord.dto.AttachmentUploadFileDto(
+                    filename = a.filename,
+                    fileSize = a.bytes.size.toLong(),
+                    id = index.toString(),
+                )
+            },
+        )
+        val slots = slotsResult.getOrElse { return Result.failure(it) }.attachments
+        if (slots.size != attachments.size) {
+            return Result.failure(
+                IllegalStateException("Discord returned ${slots.size} upload slots for ${attachments.size} files."),
+            )
+        }
+        attachments.zip(slots).forEachIndexed { _, (att, slot) ->
+            rest.uploadFile(slot.uploadUrl, att.bytes, att.contentType).onFailure { return Result.failure(it) }
+        }
+        val finalized = attachments.zip(slots).mapIndexed { index, (att, slot) ->
+            dev.puklic.protocol.discord.dto.FinalizedAttachmentDto(
+                id = index.toString(),
+                filename = att.filename,
+                uploadedFilename = slot.uploadFilename,
+            )
+        }
+        return rest.sendMessage(channelId, content, nonce, replyTo, finalized).map { it.toDomain() }
+    }
 
     public suspend fun editMessage(
         channelId: ChannelId,

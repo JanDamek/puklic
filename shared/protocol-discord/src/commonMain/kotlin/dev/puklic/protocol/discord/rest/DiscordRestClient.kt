@@ -10,10 +10,14 @@ import dev.puklic.protocol.discord.DiscordJson
 import dev.puklic.protocol.discord.buildClientProperties
 import dev.puklic.protocol.discord.currentTimeZoneId
 import dev.puklic.protocol.discord.encodeSuperProperties
+import dev.puklic.protocol.discord.dto.AttachmentUploadFileDto
+import dev.puklic.protocol.discord.dto.AttachmentUploadRequestDto
+import dev.puklic.protocol.discord.dto.AttachmentUploadResponseDto
 import dev.puklic.protocol.discord.dto.DiscordChannelDto
 import dev.puklic.protocol.discord.dto.DiscordGuildDto
 import dev.puklic.protocol.discord.dto.DiscordMessageDto
 import dev.puklic.protocol.discord.dto.DiscordUserDto
+import dev.puklic.protocol.discord.dto.FinalizedAttachmentDto
 import io.ktor.client.HttpClient
 import io.ktor.client.request.delete
 import io.ktor.client.request.get
@@ -152,6 +156,7 @@ public class DiscordRestClient(
         content: String,
         nonce: String? = null,
         replyTo: MessageId? = null,
+        attachments: List<FinalizedAttachmentDto> = emptyList(),
     ): Result<DiscordMessageDto> = runCatching {
         executeWithRetry {
             httpClient.post("$baseUrl/channels/${channelId.value}/messages") {
@@ -176,6 +181,22 @@ public class DiscordRestClient(
                                     },
                                 )
                             }
+                            if (attachments.isNotEmpty()) {
+                                put(
+                                    "attachments",
+                                    kotlinx.serialization.json.buildJsonArray {
+                                        attachments.forEach { att ->
+                                            add(
+                                                buildJsonObject {
+                                                    put("id", att.id)
+                                                    put("filename", att.filename)
+                                                    put("uploaded_filename", att.uploadedFilename)
+                                                },
+                                            )
+                                        }
+                                    },
+                                )
+                            }
                         },
                     ),
                 )
@@ -183,6 +204,59 @@ public class DiscordRestClient(
         }
     }.fold(
         onSuccess = { response -> decodeOrError(response, serializer<DiscordMessageDto>()) },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
+     * Pre-upload step of Discord's attachment flow. Requests one CDN upload slot per file.
+     * The returned [AttachmentUploadResponseDto.attachments] entries are paired with the input
+     * by their numeric `id` (Discord echoes the request `id` back as an Int). Per issue #23.
+     */
+    internal suspend fun requestUploadUrls(
+        channelId: ChannelId,
+        files: List<AttachmentUploadFileDto>,
+    ): Result<AttachmentUploadResponseDto> = runCatching {
+        executeWithRetry {
+            httpClient.post("$baseUrl/channels/${channelId.value}/attachments") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DiscordJson.encodeToString(
+                        AttachmentUploadRequestDto.serializer(),
+                        AttachmentUploadRequestDto(files = files),
+                    ),
+                )
+            }
+        }
+    }.fold(
+        onSuccess = { response -> decodeOrError(response, serializer<AttachmentUploadResponseDto>()) },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
+     * Raw PUT of [bytes] to a CDN [uploadUrl] previously returned by [requestUploadUrls]. The
+     * CDN host rejects the user-account `Authorization` header (Discord-S.C.U.M parity), so this
+     * call deliberately bypasses [applyAuth]. Network errors surface as [DiscordError.Network];
+     * non-2xx CDN responses surface as [DiscordError.ServerError].
+     */
+    public suspend fun uploadFile(
+        uploadUrl: String,
+        bytes: ByteArray,
+        contentType: String?,
+    ): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.put(uploadUrl) {
+                // Intentionally NOT calling applyAuth() — Discord's CDN rejects auth headers
+                // on these one-shot upload URLs (issue #23).
+                val ct = contentType?.let { ContentType.parse(it) } ?: ContentType.Application.OctetStream
+                contentType(ct)
+                setBody(bytes)
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (response.status.isSuccess()) Result.success(Unit) else Result.failure(errorOf(response))
+        },
         onFailure = { Result.failure(it) },
     )
 

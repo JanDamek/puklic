@@ -9,7 +9,9 @@ import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.persistence.repository.ChannelRepository
 import dev.puklic.protocol.discord.DiscordMessageBridge
+import dev.puklic.protocol.discord.PendingAttachmentUpload
 import dev.puklic.repositories.MessageGateway
+import dev.puklic.repositories.PendingAttachment
 
 /**
  * Adapts the protocol-layer [DiscordMessageBridge] (domain-typed REST wrapper) to the
@@ -42,7 +44,14 @@ public class MessageGatewayAdapter(
         content: String,
         nonce: String,
         replyTo: MessageId?,
-    ): Result<ChatMessage> = bridge.sendMessage(channelId, content, nonce, replyTo)
+        attachments: List<PendingAttachment>,
+    ): Result<ChatMessage> = bridge.sendMessage(
+        channelId = channelId,
+        content = content,
+        nonce = nonce,
+        replyTo = replyTo,
+        attachments = attachments.map { PendingAttachmentUpload(it.filename, it.bytes, it.contentType) },
+    )
 
     override suspend fun editMessage(
         channelId: ChannelId,

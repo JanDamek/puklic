@@ -204,13 +204,17 @@ internal class FakeMessageGateway : MessageGateway {
     val editCalls = mutableListOf<Triple<ChannelId, MessageId, String>>()
     val deleteCalls = mutableListOf<Pair<ChannelId, MessageId>>()
 
+    val sentAttachments = mutableListOf<List<PendingAttachment>>()
+
     override suspend fun sendMessage(
         channelId: ChannelId,
         content: String,
         nonce: String,
         replyTo: MessageId?,
+        attachments: List<PendingAttachment>,
     ): Result<ChatMessage> {
         sentCalls += Triple(channelId, content, nonce)
+        sentAttachments += attachments
         return sendResponse(channelId, content, nonce, replyTo)
     }
 

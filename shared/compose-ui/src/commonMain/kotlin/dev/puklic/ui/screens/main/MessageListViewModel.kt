@@ -118,11 +118,6 @@ public class MessageListViewModel(
         const val RETRY_BACKOFF_MS = 1_000L
     }
 
-    public fun sendMessage(content: String) {
-        if (content.isBlank()) return
-        scope.launch { orchestrator.send(channelId, content) }
-    }
-
     public fun toggleReaction(messageId: MessageId, emoji: EmojiRef, alreadyReacted: Boolean) {
         scope.launch {
             orchestrator.toggleReaction(channelId, messageId, emoji, alreadyReacted)

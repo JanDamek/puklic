@@ -12,12 +12,20 @@ import dev.puklic.ids.MessageId
  * supplies the implementation that maps DTOs to domain types. Tests use in-memory fakes.
  */
 public interface MessageGateway {
-    /** Send a new message. On success returns the server's authoritative [ChatMessage]. */
+    /**
+     * Send a new message. On success returns the server's authoritative [ChatMessage].
+     *
+     * When [attachments] is non-empty the gateway is responsible for the full three-step
+     * upload protocol (pre-upload, raw PUT to CDN, finalize POST) so callers see a single
+     * domain-level call. The default empty list keeps every text-only callsite source-compatible
+     * (architect decision Q2 on issue #23).
+     */
     public suspend fun sendMessage(
         channelId: ChannelId,
         content: String,
         nonce: String,
         replyTo: MessageId?,
+        attachments: List<PendingAttachment> = emptyList(),
     ): Result<ChatMessage>
 
     /** Edit a message. Returns the updated [ChatMessage] on success. */
