@@ -44,12 +44,13 @@ class RepositoryMentionResolverTest {
         nsfw = false,
     )
 
-    private fun role(id: Long, name: String) = Role(
+    private fun role(id: Long, name: String, color: Int = 0) = Role(
         id = RoleId(id),
         guildId = guildId,
         name = name,
         permissions = 0L,
         position = 0,
+        color = color,
     )
 
     private class StubUserRepo(private val users: Map<Long, UserSummary>) : UserRepository {
@@ -110,14 +111,25 @@ class RepositoryMentionResolverTest {
     }
 
     @Test
-    fun `resolveRole returns name from RoleStore with no color`() = runTest {
+    fun `resolveRole returns name from RoleStore with null color when role color is zero`() = runTest {
         val store = RoleStore().apply {
-            upsertGuild(guildId, listOf(role(50L, "admins")))
+            upsertGuild(guildId, listOf(role(50L, "admins", color = 0)))
         }
         val r = resolver(roleStore = store)
         val result = r.resolveRole(RoleId(50L)).first()
         result?.name shouldBe "admins"
         result?.colorArgb.shouldBeNull()
+    }
+
+    @Test
+    fun `resolveRole returns ARGB color when role has non-zero color`() = runTest {
+        val store = RoleStore().apply {
+            upsertGuild(guildId, listOf(role(51L, "ops", color = 0xCC0000)))
+        }
+        val r = resolver(roleStore = store)
+        val result = r.resolveRole(RoleId(51L)).first()
+        result?.name shouldBe "ops"
+        result?.colorArgb shouldBe 0xFFCC0000.toInt()
     }
 
     @Test

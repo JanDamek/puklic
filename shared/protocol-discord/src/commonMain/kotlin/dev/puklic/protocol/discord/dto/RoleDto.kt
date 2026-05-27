@@ -12,4 +12,11 @@ internal data class DiscordRoleDto(
     val name: String,
     val permissions: String,
     val position: Int = 0,
+    /**
+     * Discord packs role colour as a 24-bit RGB integer (0xRRGGBB). A value of 0 means
+     * "no colour set" — the official client falls back to the default text colour. Default
+     * here covers payloads from older code paths that pre-date this field; live gateway
+     * payloads always include it.
+     */
+    val color: Int = 0,
 )

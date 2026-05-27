@@ -18,6 +18,13 @@ public data class Role(
     val name: String,
     val permissions: Long,
     val position: Int,
+    /**
+     * Discord role colour as a 24-bit RGB integer (0xRRGGBB). Zero means "no colour set" —
+     * renderers must treat this as "use default text colour" rather than literal black. See
+     * [dev.puklic.ui.resolvers.RepositoryMentionResolver] for the ARGB conversion used by the
+     * mention chip renderer.
+     */
+    val color: Int = 0,
 )
 
 /**

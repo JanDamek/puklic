@@ -139,6 +139,7 @@ internal fun DiscordRoleDto.toDomain(guildId: GuildId): Role = Role(
     name = name,
     permissions = permissions.toLongOrNull() ?: 0L,
     position = position,
+    color = color,
 )
 
 /** Maps a Discord member DTO to the domain [Member] for a specific guild. Requires [userId]
