@@ -40,6 +40,18 @@ docker run --rm --entrypoint /bin/bash "${TAG}" -c \
   || { echo "✗ Smoke test failed"; exit 1; }
 echo "✓ Smoke test passed"
 
+# Size budget check (issue #10 — must stay under 1.5 GiB)
+echo "=== Size budget check ==="
+SIZE_BYTES=$(docker image inspect --format '{{.Size}}' "${TAG}")
+SIZE_LIMIT=1610612736  # 1.5 GiB
+SIZE_GIB=$(awk "BEGIN {printf \"%.2f\", ${SIZE_BYTES}/1073741824}")
+echo "Image size: ${SIZE_GIB} GiB (budget: 1.50 GiB)"
+if [ "${SIZE_BYTES}" -ge "${SIZE_LIMIT}" ]; then
+  echo "✗ Image exceeds 1.5 GiB budget (issue #10)"
+  exit 1
+fi
+echo "✓ Within budget"
+
 # Push both tags
 echo "=== Pushing images ==="
 docker push "${TAG}"
