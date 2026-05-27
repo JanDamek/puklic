@@ -122,6 +122,31 @@ class DaveSessionTest {
     }
 
     @Test
+    fun `pairwiseFingerprint returns null when not Active`() = runTest {
+        val client = FakeMlsClient().also { it.pairwiseFingerprintBytes = byteArrayOf(1, 2, 3) }
+        val (s, _, _) = newSession(client = client)
+        s.init()
+        s.pairwiseFingerprint("remote-user") shouldBe null
+        client.pairwiseFingerprintCalls.isEmpty() shouldBe true
+    }
+
+    @Test
+    fun `pairwiseFingerprint delegates to MlsClient when Active`() = runTest {
+        val client = FakeMlsClient().also {
+            it.welcomeGroupId = "group-x"
+            it.epoch = 1L
+            it.pairwiseFingerprintBytes = byteArrayOf(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
+        }
+        val (s, _, _) = newSession(client = client)
+        s.init()
+        s.handleBinaryOp(DaveOp.MLS_WELCOME, byteArrayOf(0x01))
+        s.handleJsonOp(DaveOp.PROTOCOL_EXECUTE_TRANSITION, buildJsonObject {})
+        val fp = s.pairwiseFingerprint("remote-user")
+        fp?.toList() shouldBe listOf<Byte>(0xAA.toByte(), 0xBB.toByte(), 0xCC.toByte())
+        client.pairwiseFingerprintCalls shouldBe listOf("remote-user")
+    }
+
+    @Test
     fun `deriveFrameKey returns null before group join`() = runTest {
         val (s, _, _) = newSession()
         s.init()
@@ -163,7 +188,9 @@ private class FakeMlsClient : MlsClient {
     var welcomeGroupId: String = "default-group"
     var epoch: Long = 0L
     var exporterReturns: ByteArray = ByteArray(32)
+    var pairwiseFingerprintBytes: ByteArray? = null
 
+    val pairwiseFingerprintCalls: MutableList<String> = mutableListOf()
     val processWelcomeCalledWith: MutableList<List<Byte>> = mutableListOf()
     val processCommitCalls: MutableList<Pair<String, List<Byte>>> = mutableListOf()
     val processExternalSenderCalls: MutableList<Pair<String, List<Byte>>> = mutableListOf()
@@ -193,6 +220,10 @@ private class FakeMlsClient : MlsClient {
         return exporterReturns.copyOf(length)
     }
     override suspend fun signaturePublicKey(): ByteArray = byteArrayOf(0x02)
+    override suspend fun pairwiseFingerprint(remoteUserId: String, protocolVersion: Short): ByteArray? {
+        pairwiseFingerprintCalls += remoteUserId
+        return pairwiseFingerprintBytes
+    }
     override fun close() {}
 
     data class ExportCall(val groupId: String, val label: String, val context: ByteArray, val length: Int)

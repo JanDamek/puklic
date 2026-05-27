@@ -176,6 +176,19 @@ public class DaveSession(
         _state.value = State.Initialized
     }
 
+    /**
+     * Pairwise fingerprint bytes between the local identity and [remoteUserId]
+     * for the active group. Returns null when DAVE is not in [State.Active]
+     * or when the underlying [MlsClient] cannot produce one. Used by the
+     * "Verify call" UI to render a Short Authentication String via
+     * [dev.puklic.voice.dave.sas.SasFormatter].
+     */
+    suspend fun pairwiseFingerprint(remoteUserId: String): ByteArray? {
+        val active = mutex.withLock { _state.value is State.Active }
+        if (!active) return null
+        return mlsClient.pairwiseFingerprint(remoteUserId)
+    }
+
     /** Release the underlying MLS client + native handles. Idempotent. */
     fun close() {
         runCatching { mlsClient.close() }

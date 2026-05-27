@@ -59,6 +59,7 @@ public fun VoiceStatusBar(
     onScreenShareStop: () -> Unit,
     modifier: Modifier = Modifier,
     daveState: DaveUiState = DaveUiState.Off,
+    onVerifyCall: (() -> Unit)? = null,
 ) {
     when (state) {
         is VoiceState.Idle -> Box(modifier = modifier)
@@ -76,6 +77,7 @@ public fun VoiceStatusBar(
             onScreenShareStop = onScreenShareStop,
             modifier = modifier,
             daveState = daveState,
+            onVerifyCall = onVerifyCall,
         )
         is VoiceState.Failed -> FailedBar(state.reason, onRetry, modifier)
     }
@@ -113,6 +115,7 @@ private fun ConnectedBar(
     onScreenShareStop: () -> Unit,
     modifier: Modifier,
     daveState: DaveUiState = DaveUiState.Off,
+    onVerifyCall: (() -> Unit)? = null,
 ) {
     val sharing = screenShareState is ScreenShareState.Active
     Column(
@@ -141,7 +144,7 @@ private fun ConnectedBar(
                 color = if (sharing) MaterialTheme.colorScheme.error
                 else MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            DaveLockIcon(daveState)
+            DaveLockIcon(daveState, onVerifyCall = onVerifyCall)
         }
         Row(
             modifier = Modifier.fillMaxWidth().height(36.dp),

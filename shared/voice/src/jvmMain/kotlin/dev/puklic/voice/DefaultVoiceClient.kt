@@ -160,6 +160,9 @@ public class DefaultVoiceClient(
     private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
     override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
 
+    private val _participants = MutableStateFlow<Set<UserId>>(emptySet())
+    override val participants: StateFlow<Set<UserId>> = _participants.asStateFlow()
+
     // Replaced with a [DefaultScreenShareClient] once SessionDescription arrives, reset to
     // [NoOpScreenShareClient] on disconnect. Backing field is `@Volatile` because the
     // gateway event collector writes it from a session coroutine while UI reads from main.
@@ -367,6 +370,7 @@ public class DefaultVoiceClient(
                     runCatching {
                         val uid = UserId(ev.userId.toLong())
                         ssrcToUser[ev.ssrc] = uid
+                        _participants.value = ssrcToUser.values.toSet()
                     }
                 }
                 is VoiceGatewayEvent.ClientDisconnect -> {
@@ -374,6 +378,7 @@ public class DefaultVoiceClient(
                     runCatching {
                         val uid = UserId(ev.userId.toLong())
                         ssrcToUser.entries.removeAll { it.value == uid }
+                        _participants.value = ssrcToUser.values.toSet()
                     }
                 }
             }
@@ -635,6 +640,7 @@ public class DefaultVoiceClient(
         activeChannelId = null
         activeVideoSsrc = 0
         ssrcToUser.clear()
+        _participants.value = emptySet()
         sessionScope?.cancel()
         sessionScope = null
         sessionJob = null
@@ -691,6 +697,13 @@ public class DefaultVoiceClient(
 
     override fun selectPlaybackDevice(id: String) {
         refreshDevices()
+    }
+
+    override suspend fun pairwiseFingerprint(userId: UserId): String? {
+        val sess = daveSession ?: return null
+        val bytes = sess.pairwiseFingerprint(userId.value.toString()) ?: return null
+        if (bytes.isEmpty()) return null
+        return dev.puklic.voice.dave.sas.SasFormatter.format(bytes)
     }
 
     private fun fail(reason: String) {

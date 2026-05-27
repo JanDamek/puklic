@@ -2,6 +2,7 @@ package dev.puklic.voice
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.UserId
 import dev.puklic.voice.screenshare.NoOpScreenShareClient
 import dev.puklic.voice.screenshare.ScreenShareClient
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,6 +34,11 @@ public class NoOpVoiceClient : VoiceClient {
 
     private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
     override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
+
+    private val _participants = MutableStateFlow<Set<UserId>>(emptySet())
+    override val participants: StateFlow<Set<UserId>> = _participants.asStateFlow()
+
+    override suspend fun pairwiseFingerprint(userId: UserId): String? = null
 
     override suspend fun acceptIncoming(channelId: ChannelId) { /* no-op */ }
     override suspend fun declineIncoming(channelId: ChannelId) { /* no-op */ }

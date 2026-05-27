@@ -174,4 +174,27 @@ public interface VoiceClient {
     public fun setSelfDeaf(deaf: Boolean)
     public fun selectCaptureDevice(id: String)
     public fun selectPlaybackDevice(id: String)
+
+    /**
+     * Remote participants currently known to be in the active voice call,
+     * indexed by Discord [UserId]. Populated from voice-gateway Op 5 (Speaking)
+     * and pruned on Op 13 (ClientDisconnect) / [disconnect].
+     *
+     * Empty when no DAVE-eligible participants are known yet (or when idle).
+     * The local user is NOT included — this is the set of remote endpoints
+     * whose pairwise fingerprint can be requested via [pairwiseFingerprint].
+     */
+    public val participants: StateFlow<Set<UserId>>
+
+    /**
+     * Discord-spec Short Authentication String (SAS) for the pairwise DAVE
+     * fingerprint between the local user and [userId]. Format: space-separated
+     * 5-digit decimal groups (see `dev.puklic.voice.dave.sas.SasFormatter`).
+     *
+     * Returns null when DAVE is not Active, the backend cannot expose
+     * fingerprints (e.g. Wire fallback), or the remote user is not in the
+     * active MLS group. Safe to call from the UI; suspends because libdave
+     * briefly blocks on the session mutex during a handshake.
+     */
+    public suspend fun pairwiseFingerprint(userId: UserId): String?
 }

@@ -5,6 +5,7 @@ import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.UserId
 import dev.puklic.voice.AudioDevice
 import dev.puklic.voice.DaveUiState
 import dev.puklic.voice.IncomingCall
@@ -101,6 +102,11 @@ private class RecordingVoiceClient(
 
     private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
     override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
+
+    private val _participants = MutableStateFlow<Set<UserId>>(emptySet())
+    override val participants: StateFlow<Set<UserId>> = _participants.asStateFlow()
+
+    override suspend fun pairwiseFingerprint(userId: UserId): String? = null
 
     override suspend fun acceptIncoming(channelId: ChannelId) { /* no-op */ }
     override suspend fun declineIncoming(channelId: ChannelId) { /* no-op */ }

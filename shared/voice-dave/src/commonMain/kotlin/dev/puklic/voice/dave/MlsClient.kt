@@ -139,8 +139,27 @@ public interface MlsClient {
      */
     suspend fun frameDecryptor(userId: String, ssrc: Int): FrameDecryptor? = null
 
+    /**
+     * Pairwise fingerprint bytes between the local identity and [remoteUserId]
+     * for the current group at [protocolVersion]. Used by the "Verify call" UI
+     * (Short Authentication String — see [dev.puklic.voice.dave.sas.SasFormatter]).
+     *
+     * Returns null when the backend cannot produce one (e.g. Wire fallback,
+     * remote not yet in group, pre-init). Bytes are NOT formatted — callers
+     * pass them through [dev.puklic.voice.dave.sas.SasFormatter] for display.
+     */
+    suspend fun pairwiseFingerprint(
+        remoteUserId: String,
+        protocolVersion: Short = DEFAULT_PROTOCOL_VERSION,
+    ): ByteArray? = null
+
     /** Release native resources. Idempotent. */
     fun close()
+
+    public companion object {
+        /** DAVE protocol version used for pairwise-fingerprint derivation. v1 = Discord launch spec. */
+        public const val DEFAULT_PROTOCOL_VERSION: Short = 1
+    }
 }
 
 /**

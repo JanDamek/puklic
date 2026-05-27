@@ -252,6 +252,29 @@ internal class LibdaveMlsClient : MlsClient {
         LibdaveFrameDecryptor(lib, dec, ratchet, ssrc)
     }
 
+    override suspend fun pairwiseFingerprint(
+        remoteUserId: String,
+        protocolVersion: Short,
+    ): ByteArray? = mutex.withLock {
+        if (session == null || closed) return@withLock null
+        val captured = arrayOfNulls<ByteArray>(1)
+        val cb = LibdaveBindings.PairwiseFingerprintCallback { ptr, length, _ ->
+            captured[0] = if (ptr == null || length <= 0L) {
+                ByteArray(0)
+            } else {
+                ptr.getByteArray(0, length.toInt())
+            }
+        }
+        lib.daveSessionGetPairwiseFingerprint(
+            session,
+            protocolVersion,
+            remoteUserId,
+            cb,
+            null,
+        )
+        captured[0]
+    }
+
     override fun close() {
         if (closed) return
         closed = true
