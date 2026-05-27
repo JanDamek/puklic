@@ -118,13 +118,10 @@ private fun AddReactionChip(onClick: () -> Unit) {
 internal fun EmojiVisual(emoji: EmojiRef) {
     when (emoji) {
         is EmojiRef.Unicode -> Text(text = emoji.codepoint, fontSize = 14.sp)
-        is EmojiRef.Custom -> {
-            val ext = if (emoji.animated) "gif" else "png"
-            AsyncImage(
-                model = "https://cdn.discordapp.com/emojis/${emoji.id.value}.$ext",
-                contentDescription = emoji.name,
-                modifier = Modifier.size(16.dp),
-            )
-        }
+        is EmojiRef.Custom -> AsyncImage(
+            model = EmojiCdnUrl.build(emoji, size = 16),
+            contentDescription = emoji.name,
+            modifier = Modifier.size(16.dp),
+        )
     }
 }

@@ -198,17 +198,12 @@ private fun SpoilerInline(
 private fun CustomEmojiInline(ref: EmojiRef.Custom) {
     val resolver = LocalEmojiResolver.current
     val display = resolver.resolve(ref)
-    val url = (display as? EmojiDisplay.Custom)?.url ?: defaultCustomEmojiUrl(ref)
+    val url = (display as? EmojiDisplay.Custom)?.url ?: EmojiCdnUrl.build(ref)
     AsyncImage(
         model = url,
         contentDescription = ":${ref.name}:",
         modifier = Modifier.size(EmojiSize).clip(RoundedCornerShape(2.dp)),
     )
-}
-
-private fun defaultCustomEmojiUrl(ref: EmojiRef.Custom): String {
-    val ext = if (ref.animated) "gif" else "png"
-    return "https://cdn.discordapp.com/emojis/${ref.id.value}.$ext?size=32&quality=lossless"
 }
 
 private sealed interface InlineSegment {
