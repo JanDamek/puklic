@@ -4,6 +4,7 @@ import dev.puklic.voice.AudioConstants
 import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.ints.shouldBeGreaterThan
 import io.kotest.matchers.ints.shouldBeLessThan
+import io.kotest.matchers.shouldBe
 import kotlin.math.PI
 import kotlin.math.log10
 import kotlin.math.roundToInt
@@ -100,7 +101,160 @@ class OpusCodecTest {
         }
     }
 
+    // -------- stereo (screencast audio path) --------
+
+    @Test
+    fun `stereo audio constants are 1 and 2`() {
+        AudioConstants.CHANNELS_MONO shouldBe 1
+        AudioConstants.CHANNELS_STEREO shouldBe 2
+    }
+
+    @Test
+    fun `encode stereo 1920-sample interleaved frame produces non-empty packet`() {
+        val config = OpusEncoderConfig(
+            channels = AudioConstants.CHANNELS_STEREO,
+            application = OpusApplication.Audio,
+        )
+        OpusCodecFactory.createEncoder(config).use { encoder ->
+            encoder.channels shouldBe AudioConstants.CHANNELS_STEREO
+            val frame = stereoSine(440.0, 660.0, AudioConstants.SAMPLES_PER_FRAME)
+            frame.size shouldBe AudioConstants.SAMPLES_PER_FRAME * AudioConstants.CHANNELS_STEREO
+            val packet = encoder.encode(frame)
+            packet.size shouldBeGreaterThan 0
+            packet.size shouldBeLessThan AudioConstants.MAX_OPUS_FRAME_BYTES
+        }
+    }
+
+    @Test
+    fun `stereo decode round-trip returns 1920 interleaved samples`() {
+        val encCfg = OpusEncoderConfig(
+            channels = AudioConstants.CHANNELS_STEREO,
+            application = OpusApplication.Audio,
+        )
+        OpusCodecFactory.createEncoder(encCfg).use { encoder ->
+            OpusCodecFactory.createDecoder(AudioConstants.CHANNELS_STEREO).use { decoder ->
+                decoder.channels shouldBe AudioConstants.CHANNELS_STEREO
+                val frame = stereoSine(440.0, 660.0, AudioConstants.SAMPLES_PER_FRAME)
+                val packet = encoder.encode(frame)
+                val decoded = decoder.decode(packet, fec = false)
+                decoded.size shouldBe AudioConstants.SAMPLES_PER_FRAME * AudioConstants.CHANNELS_STEREO
+            }
+        }
+    }
+
+    @Test
+    fun `stereo round-trip preserves per-channel signal energy within 3 dB`() {
+        val encCfg = OpusEncoderConfig(
+            channels = AudioConstants.CHANNELS_STEREO,
+            application = OpusApplication.Audio,
+        )
+        OpusCodecFactory.createEncoder(encCfg).use { encoder ->
+            OpusCodecFactory.createDecoder(AudioConstants.CHANNELS_STEREO).use { decoder ->
+                lateinit var original: ShortArray
+                lateinit var decoded: ShortArray
+                repeat(10) { i ->
+                    val phaseOffset = i * AudioConstants.SAMPLES_PER_FRAME
+                    val frame = stereoSine(440.0, 660.0, AudioConstants.SAMPLES_PER_FRAME, phaseOffset)
+                    val packet = encoder.encode(frame)
+                    val out = decoder.decode(packet, fec = false)
+                    original = frame
+                    decoded = out
+                }
+                val origL = rms(deinterleave(original, 2, 0))
+                val origR = rms(deinterleave(original, 2, 1))
+                val decL = rms(deinterleave(decoded, 2, 0))
+                val decR = rms(deinterleave(decoded, 2, 1))
+                val ratioLDb = 20.0 * log10(decL / origL)
+                val ratioRDb = 20.0 * log10(decR / origR)
+                assertTrue(ratioLDb in -3.0..3.0, "L RMS ratio ${ratioLDb.roundToInt()} dB outside ±3 dB")
+                assertTrue(ratioRDb in -3.0..3.0, "R RMS ratio ${ratioRDb.roundToInt()} dB outside ±3 dB")
+            }
+        }
+    }
+
+    @Test
+    fun `stereo encoder rejects mono-sized frame`() {
+        val cfg = OpusEncoderConfig(channels = AudioConstants.CHANNELS_STEREO)
+        OpusCodecFactory.createEncoder(cfg).use { encoder ->
+            val monoBuf = ShortArray(AudioConstants.SAMPLES_PER_FRAME)
+            try {
+                encoder.encode(monoBuf)
+                error("expected IllegalArgumentException")
+            } catch (_: IllegalArgumentException) {
+                // expected
+            }
+        }
+    }
+
+    @Test
+    fun `OpusEncoderConfig rejects invalid channel counts`() {
+        try {
+            OpusEncoderConfig(channels = 3)
+            error("expected IllegalArgumentException")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+        try {
+            OpusEncoderConfig(channels = 0)
+            error("expected IllegalArgumentException")
+        } catch (_: IllegalArgumentException) {
+            // expected
+        }
+    }
+
+    @Test
+    fun `stereo decoder of mono packet returns interleaved stereo`() {
+        // libopus auto-remixes; verify decoder honours its configured channel count.
+        OpusCodecFactory.createEncoder().use { monoEnc ->
+            OpusCodecFactory.createDecoder(AudioConstants.CHANNELS_STEREO).use { stereoDec ->
+                val pkt = monoEnc.encode(sine(440.0, AudioConstants.SAMPLES_PER_FRAME))
+                val decoded = stereoDec.decode(pkt, fec = false)
+                decoded.size shouldBe AudioConstants.SAMPLES_PER_FRAME * AudioConstants.CHANNELS_STEREO
+            }
+        }
+    }
+
+    @Test
+    fun `mono encoder channels is 1`() {
+        OpusCodecFactory.createEncoder().use { encoder ->
+            encoder.channels shouldBe AudioConstants.CHANNELS_MONO
+        }
+    }
+
+    @Test
+    fun `mono decoder channels is 1`() {
+        OpusCodecFactory.createDecoder().use { decoder ->
+            decoder.channels shouldBe AudioConstants.CHANNELS_MONO
+        }
+    }
+
     // --- helpers ---
+
+    private fun stereoSine(
+        freqLHz: Double,
+        freqRHz: Double,
+        samplesPerChannel: Int,
+        phaseOffset: Int = 0,
+    ): ShortArray {
+        val out = ShortArray(samplesPerChannel * 2)
+        val twoPi = 2.0 * PI
+        val wL = twoPi * freqLHz / AudioConstants.SAMPLE_RATE_HZ
+        val wR = twoPi * freqRHz / AudioConstants.SAMPLE_RATE_HZ
+        for (i in 0 until samplesPerChannel) {
+            val l = (sin(wL * (i + phaseOffset)) * 0.5 * Short.MAX_VALUE).toInt().toShort()
+            val r = (sin(wR * (i + phaseOffset)) * 0.5 * Short.MAX_VALUE).toInt().toShort()
+            out[i * 2] = l
+            out[i * 2 + 1] = r
+        }
+        return out
+    }
+
+    private fun deinterleave(interleaved: ShortArray, channels: Int, channelIndex: Int): ShortArray {
+        val perChan = interleaved.size / channels
+        val out = ShortArray(perChan)
+        for (i in 0 until perChan) out[i] = interleaved[i * channels + channelIndex]
+        return out
+    }
 
     private fun sine(freqHz: Double, samples: Int, phaseOffset: Int = 0): ShortArray {
         val out = ShortArray(samples)

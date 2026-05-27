@@ -1,5 +1,7 @@
 package dev.puklic.voice.codec
 
+import dev.puklic.voice.AudioConstants
+
 /**
  * Opus encoder / decoder facade for Puklic voice.
  *
@@ -17,14 +19,30 @@ package dev.puklic.voice.codec
  * variants are out of scope for Phase 3.0 — see `AudioConstants` in `PublicApi.kt`.
  */
 
+/**
+ * Opus application mode. Maps 1:1 to libopus `OPUS_APPLICATION_*`.
+ *  - [VoIp]: mic capture (voice, lower latency)
+ *  - [Audio]: screencast audio (music / general fidelity)
+ *  - [LowDelay]: restricted low-delay
+ */
+public enum class OpusApplication(internal val libopusName: String) {
+    VoIp("voip"),
+    Audio("audio"),
+    LowDelay("lowdelay"),
+}
+
 /** Opus encoder. NOT thread-safe; one instance per capture stream. Must be closed. */
 public interface OpusEncoder : AutoCloseable {
 
+    /** Channel count this encoder was created for ([AudioConstants.CHANNELS_MONO] or [AudioConstants.CHANNELS_STEREO]). */
+    public val channels: Int
+
     /**
-     * Encode one frame of mono 48 kHz signed-16 PCM into an Opus packet.
+     * Encode one frame of interleaved 48 kHz signed-16 PCM into an Opus packet.
      *
-     * @param pcm 960-sample ShortArray (20 ms at 48 kHz mono).
-     * @return Opus packet bytes (typically 80–200 B at 64 kbps; never > 4000 B).
+     * @param pcm ShortArray of `SAMPLES_PER_FRAME * channels` samples
+     *  (mono: 960; stereo: 1920 interleaved L,R).
+     * @return Opus packet bytes (typically 80–200 B at 64 kbps for mic; never > 4000 B).
      * @throws OpusException on libopus failure.
      */
     public fun encode(pcm: ShortArray): ByteArray
@@ -33,15 +51,17 @@ public interface OpusEncoder : AutoCloseable {
 /** Opus decoder. NOT thread-safe; one instance per remote SSRC. Must be closed. */
 public interface OpusDecoder : AutoCloseable {
 
+    /** Channel count this decoder was created for. */
+    public val channels: Int
+
     /**
-     * Decode one Opus packet into mono 48 kHz signed-16 PCM.
+     * Decode one Opus packet into interleaved 48 kHz signed-16 PCM.
      *
      * @param opus Opus packet bytes, or `null` to invoke packet-loss concealment (PLC).
      * @param fec When `true` AND `opus != null`, decode the FEC payload (in-band redundant
-     *        data) of the next packet as if it were the previous packet. Used by the jitter
-     *        buffer to recover one lost frame. When `opus == null`, this is ignored and PLC
-     *        is used.
-     * @return 960-sample ShortArray (20 ms at 48 kHz mono).
+     *        data) of the next packet as if it were the previous packet.
+     * @return ShortArray of `SAMPLES_PER_FRAME * channels` samples. libopus auto-remixes
+     *   between the packet's channel count and this decoder's configured [channels].
      * @throws OpusException on libopus failure.
      */
     public fun decode(opus: ByteArray?, fec: Boolean = false): ShortArray
@@ -61,10 +81,15 @@ public data class OpusEncoderConfig(
     val complexity: Int = 10,
     val inbandFec: Boolean = true,
     val dtx: Boolean = false,
+    val channels: Int = AudioConstants.CHANNELS_MONO,
+    val application: OpusApplication = OpusApplication.VoIp,
 ) {
     init {
         require(bitrate in 6_000..510_000) { "Opus bitrate out of range: $bitrate" }
         require(complexity in 0..10) { "Opus complexity out of range: $complexity" }
+        require(channels == AudioConstants.CHANNELS_MONO || channels == AudioConstants.CHANNELS_STEREO) {
+            "Opus channels must be 1 (mono) or 2 (stereo), got $channels"
+        }
     }
 }
 
@@ -80,5 +105,9 @@ public expect object OpusCodecFactory {
 
     public fun createEncoder(config: OpusEncoderConfig = OpusEncoderConfig()): OpusEncoder
 
-    public fun createDecoder(): OpusDecoder
+    /**
+     * @param channels [AudioConstants.CHANNELS_MONO] for mic playback or
+     *  [AudioConstants.CHANNELS_STEREO] for screencast audio playback.
+     */
+    public fun createDecoder(channels: Int = AudioConstants.CHANNELS_MONO): OpusDecoder
 }

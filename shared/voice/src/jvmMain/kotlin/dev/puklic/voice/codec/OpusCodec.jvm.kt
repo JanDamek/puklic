@@ -52,12 +52,15 @@ public actual object OpusCodecFactory {
 
     public actual fun createEncoder(config: OpusEncoderConfig): OpusEncoder = LibavOpusEncoder(config)
 
-    public actual fun createDecoder(): OpusDecoder = LibavOpusDecoder()
+    public actual fun createDecoder(channels: Int): OpusDecoder = LibavOpusDecoder(channels)
 }
 
 private const val OPUS_ENCODER_NAME = "libopus"
 
 private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
+
+    override val channels: Int = config.channels
+    private val expectedPcmSize: Int = AudioConstants.SAMPLES_PER_FRAME * channels
 
     private val codec: AVCodec
     private val ctx: AVCodecContext
@@ -80,7 +83,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
         ctx.sample_rate(AudioConstants.SAMPLE_RATE_HZ)
         ctx.sample_fmt(AV_SAMPLE_FMT_S16)
         ctx.bit_rate(config.bitrate.toLong())
-        av_channel_layout_default(ctx.ch_layout(), AudioConstants.CHANNELS_MONO)
+        av_channel_layout_default(ctx.ch_layout(), channels)
 
         // Opus wrapper options (libavcodec/libopusenc.c):
         //   application: voip | audio | lowdelay
@@ -89,7 +92,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
         //   fec: in-band forward error correction (0/1)
         //   packet_loss: expected packet loss percentage 0..100 (gates FEC activity)
         //   dtx: discontinuous transmission (0/1)
-        av_opt_set(ctx.priv_data(), "application", "voip", 0)
+        av_opt_set(ctx.priv_data(), "application", config.application.libopusName, 0)
         av_opt_set(ctx.priv_data(), "vbr", "on", 0)
         av_opt_set_int(ctx.priv_data(), "frame_duration", 20, 0)
         av_opt_set_int(ctx.priv_data(), "fec", if (config.inbandFec) 1L else 0L, 0)
@@ -114,7 +117,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
         frame.nb_samples(AudioConstants.SAMPLES_PER_FRAME)
         frame.format(AV_SAMPLE_FMT_S16)
         frame.sample_rate(AudioConstants.SAMPLE_RATE_HZ)
-        av_channel_layout_default(frame.ch_layout(), AudioConstants.CHANNELS_MONO)
+        av_channel_layout_default(frame.ch_layout(), channels)
         val bufRc = av_frame_get_buffer(frame, 0)
         if (bufRc < 0) {
             av_frame_free(frame)
@@ -131,8 +134,9 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
 
     override fun encode(pcm: ShortArray): ByteArray {
         check(!closed.get()) { "OpusEncoder is closed" }
-        require(pcm.size == AudioConstants.SAMPLES_PER_FRAME) {
-            "Frame must be ${AudioConstants.SAMPLES_PER_FRAME} samples, got ${pcm.size}"
+        require(pcm.size == expectedPcmSize) {
+            "Frame must be $expectedPcmSize samples " +
+                "(${AudioConstants.SAMPLES_PER_FRAME} per channel * $channels channels), got ${pcm.size}"
         }
 
         val makeWritable = av_frame_make_writable(frame)
@@ -177,7 +181,9 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
     }
 }
 
-private class LibavOpusDecoder : OpusDecoder {
+private class LibavOpusDecoder(override val channels: Int) : OpusDecoder {
+
+    private val outputSize: Int = AudioConstants.SAMPLES_PER_FRAME * channels
 
     private val codec: AVCodec
     private val ctx: AVCodecContext
@@ -186,6 +192,10 @@ private class LibavOpusDecoder : OpusDecoder {
     private val closed = AtomicBoolean(false)
 
     init {
+        require(channels == AudioConstants.CHANNELS_MONO || channels == AudioConstants.CHANNELS_STEREO) {
+            "Opus channels must be 1 (mono) or 2 (stereo), got $channels"
+        }
+
         // Prefer the libopus wrapper for the decoder too (S16 output, matches our pipeline
         // without the int16<-float32 downcast). Fall back to native FFmpeg Opus decoder
         // (emits FLTP) if libopus wrapper is unavailable for some reason.
@@ -204,7 +214,7 @@ private class LibavOpusDecoder : OpusDecoder {
             ?: throw OpusException("avcodec_alloc_context3 returned null")
         ctx = allocated
         ctx.sample_rate(AudioConstants.SAMPLE_RATE_HZ)
-        av_channel_layout_default(ctx.ch_layout(), AudioConstants.CHANNELS_MONO)
+        av_channel_layout_default(ctx.ch_layout(), channels)
         // Request S16 output where supported. The native FFmpeg Opus decoder will still emit
         // FLTP regardless; we handle both shapes when reading the frame.
         if (usingLibopus) ctx.request_sample_fmt(AV_SAMPLE_FMT_S16)
@@ -257,22 +267,23 @@ private class LibavOpusDecoder : OpusDecoder {
         val recvRc = avcodec_receive_frame(ctx, frame)
         if (recvRc == AVERROR_EAGAIN() || recvRc == AVERROR_EOF()) {
             // No output produced yet — return silence the caller can mix.
-            return ShortArray(AudioConstants.SAMPLES_PER_FRAME)
+            return ShortArray(outputSize)
         }
         if (recvRc < 0) throw OpusException("avcodec_receive_frame failed", recvRc)
 
         val samples = frame.nb_samples()
-        val out = ShortArray(AudioConstants.SAMPLES_PER_FRAME)
+        val out = ShortArray(outputSize)
         when (frame.format()) {
             AV_SAMPLE_FMT_S16 -> {
+                // Packed S16 interleaved: nb_samples * channels shorts in data[0].
                 val src = ShortPointer(frame.data(0))
-                val n = minOf(samples, out.size)
+                val n = minOf(samples * channels, out.size)
                 src.position(0L).get(out, 0, n)
             }
             AV_SAMPLE_FMT_FLT -> {
-                // Native FFmpeg Opus decoder path: interleaved float32 in data[0]. Mono → one channel.
+                // Native FFmpeg Opus decoder path: packed interleaved float32 in data[0].
                 val src = org.bytedeco.javacpp.FloatPointer(frame.data(0))
-                val n = minOf(samples, out.size)
+                val n = minOf(samples * channels, out.size)
                 val tmp = FloatArray(n)
                 src.position(0L).get(tmp, 0, n)
                 for (i in 0 until n) {

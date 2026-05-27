@@ -73,6 +73,7 @@ class PlaybackPipelineTest {
             // First decoder yields pcm1, second yields pcm2 — order matches SSRC creation.
             val emitted = AtomicReference<ShortArray>()
             object : OpusDecoder {
+                override val channels: Int = AudioConstants.CHANNELS_MONO
                 override fun decode(opus: ByteArray?, fec: Boolean): ShortArray {
                     val out = if (emitted.compareAndSet(null, pcm1)) pcm1 else pcm2
                     return out
@@ -151,6 +152,7 @@ class PlaybackPipelineTest {
             val mine = if (count == 0) pcms else pcm2
             count++
             return object : OpusDecoder {
+                override val channels: Int = AudioConstants.CHANNELS_MONO
                 override fun decode(opus: ByteArray?, fec: Boolean): ShortArray = mine
                 override fun close() {}
             }

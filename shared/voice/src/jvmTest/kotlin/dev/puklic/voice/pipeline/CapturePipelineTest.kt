@@ -35,6 +35,7 @@ class CapturePipelineTest {
     }
 
     private class FakeEncoder : OpusEncoder {
+        override val channels: Int = AudioConstants.CHANNELS_MONO
         var calls = 0
         override fun encode(pcm: ShortArray): ByteArray {
             calls++
