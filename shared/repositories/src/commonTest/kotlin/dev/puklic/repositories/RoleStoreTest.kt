@@ -56,6 +56,16 @@ class RoleStoreTest {
     }
 
     @Test
+    fun `findById locates role across guilds`() {
+        val store = RoleStore()
+        store.upsert(role(10, g1))
+        store.upsert(role(20, g2))
+        store.findById(RoleId(10L))?.guildId shouldBe g1
+        store.findById(RoleId(20L))?.guildId shouldBe g2
+        store.findById(RoleId(999L)) shouldBe null
+    }
+
+    @Test
     fun `per-guild scoping is preserved`() {
         val store = RoleStore()
         store.upsert(role(10, g1))

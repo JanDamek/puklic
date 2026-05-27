@@ -49,4 +49,17 @@ public class RoleStore {
     /** Convenience non-suspending lookup of the current role map for [guildId]. */
     public fun rolesFor(guildId: GuildId): Map<RoleId, Role> =
         rolesByGuild.value[guildId].orEmpty()
+
+    /**
+     * Flat lookup across all guilds — used by mention resolution where the source AST only
+     * carries a [RoleId] (not the guildId). Returns the first match; role ids are unique
+     * across Discord so duplicates are not expected.
+     */
+    public fun findById(roleId: RoleId): Role? {
+        for ((_, guildMap) in rolesByGuild.value) {
+            val hit = guildMap[roleId]
+            if (hit != null) return hit
+        }
+        return null
+    }
 }

@@ -406,6 +406,16 @@ class ParserTest {
     }
 
     @Test
+    fun `legacy nickname user mention with bang prefix`() {
+        // Discord legacy syntax `<@!ID>` was used for nickname-style user mentions.
+        // Modern clients send `<@ID>` for both, but messages older than 2021 still arrive
+        // with the bang form and must resolve to the same UserId.
+        val runs = firstParagraphRuns("hi <@!4242>")
+        val m = runs.filterIsInstance<RichTextInline.Mention>().first()
+        assertEquals(MentionTarget.User(UserId(4242L)), m.target)
+    }
+
+    @Test
     fun `role mention`() {
         val runs = firstParagraphRuns("<@&456>")
         val m = runs[0] as RichTextInline.Mention

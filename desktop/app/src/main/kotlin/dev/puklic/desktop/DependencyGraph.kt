@@ -141,6 +141,13 @@ public class DependencyGraph private constructor(
                 expectSuccess = false
             }
 
+            // App-scoped role cache — shared between the per-session ChannelOrchestrator (which
+            // populates it from gateway events for visibility filtering) and the app-scoped
+            // RepositoryMentionResolver (which reads it to render `<@&role>` mention labels).
+            // Per architect note 2026-05-24-channel-permission-design.md §4 the store is ephemeral
+            // in-memory; on session restart the orchestrator's READY handler wholesale replaces it.
+            val roleStore = dev.puklic.repositories.RoleStore()
+
             val sessionFactory: (String) -> DiscordSession = { token ->
                 buildSession(
                     token = token,
@@ -152,6 +159,7 @@ public class DependencyGraph private constructor(
                     userStore = userStore,
                     outboundQueue = outboundQueue,
                     notificationService = notifications,
+                    roleStore = roleStore,
                 )
             }
 
@@ -203,7 +211,7 @@ public class DependencyGraph private constructor(
                 rootComponent = root,
                 httpClient = httpClient,
                 database = database,
-                mentionResolver = RepositoryMentionResolver(userStore, channelStore),
+                mentionResolver = RepositoryMentionResolver(userStore, channelStore, roleStore),
                 emojiResolver = CdnEmojiResolver,
                 updateScheduler = updateScheduler,
             )
@@ -220,6 +228,7 @@ public class DependencyGraph private constructor(
             userStore: UserRepositoryImpl,
             outboundQueue: OutboundQueueImpl,
             notificationService: dev.puklic.platform.NotificationService,
+            roleStore: dev.puklic.repositories.RoleStore,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
             val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
@@ -278,6 +287,7 @@ public class DependencyGraph private constructor(
                 gatewaySource = gatewayEventSource,
                 storage = channelStore,
                 persistenceContext = kotlinx.coroutines.Dispatchers.IO,
+                roleStore = roleStore,
                 // Issue #18 — owner lookup for the @everyone / owner-bypass branch in
                 // Permissions.canView. Reads the current snapshot from GuildOrchestrator.
                 guildOwnerProvider = { guildId ->

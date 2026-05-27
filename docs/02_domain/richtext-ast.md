@@ -143,9 +143,11 @@ fun RichTextView(
 ```kotlin
 interface MentionResolver {
     fun resolveUser(id: UserId): Flow<UserSummary?>
-    fun resolveRole(id: RoleId): Flow<Role?>
+    fun resolveRole(id: RoleId): Flow<RoleDisplay?>
     fun resolveChannel(id: ChannelId): Flow<Channel?>
 }
+
+data class RoleDisplay(val name: String, val colorArgb: Int?)
 
 interface EmojiResolver {
     fun resolveCustom(id: EmojiId): Flow<CustomEmojiInfo?>   // CDN URL, animated
@@ -153,7 +155,26 @@ interface EmojiResolver {
 }
 ```
 
-Lives in `:shared:repositories`, implemented against Repository + cache.
+Lives in `:shared:compose-ui` (`dev.puklic.ui.resolvers`). The shipped implementation
+`RepositoryMentionResolver` is backed by:
+
+| Target | Source | Render thread cost |
+|---|---|---|
+| `<@user>` / `<@!user>` | `UserRepository.findById` (SQLite, cached) | suspending lookup once per id, cached recomposition thereafter |
+| `<#channel>` | `ChannelRepository.findById` (SQLite, cached) | suspending lookup once per id |
+| `<@&role>` | `RoleStore` (in-memory `StateFlow`) | reactive, no IO — re-emits on `GUILD_ROLE_*` events |
+| `@everyone` / `@here` | n/a — rendered literally with mention chip style | none |
+
+Unresolved mentions fall back to the literal placeholder produced by `renderMention()`
+(`@user`, `@role`, `#channel`). The fallback is deterministic — there is no spinner and no
+async retry on the render path, satisfying the "UI must not parse or transform data" rule
+from CLAUDE.md.
+
+**Role colour.** `RoleDisplay.colorArgb` is currently always `null`. The Discord DTO layer
+(`shared/protocol-discord/.../dto/RoleDto.kt`) does not yet expose the `color` field, so
+plumbing a coloured chip would require a DTO + mapper change owned by a different module.
+The renderer is colour-ready — when the DTO gains the field, `RepositoryMentionResolver`
+needs only to forward it (no UI change required).
 
 ## Test strategy
 

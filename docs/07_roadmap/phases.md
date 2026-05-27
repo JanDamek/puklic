@@ -31,7 +31,8 @@ Goal: a usable read+write client for everyday text communication.
 
 ## Phase 2 — Rich content
 
-- [ ] Mentions (user, channel, role) — parser + renderer + resolve
+- [x] Mentions (user, channel, role) — parser + renderer + resolve
+  - 2026-05-27: parser already tokenised `<@id>`, `<@!id>` (legacy nickname), `<#id>`, `<@&id>`, `@everyone`, `@here`. This pass wires `RepositoryMentionResolver` to the app-scoped `RoleStore` (populated by `ChannelOrchestrator` from `GUILD_ROLE_*` gateway events) so role mentions resolve to `@RoleName` reactively with no render-thread IO. User + channel lookups continue via the persistence repositories (one-shot suspending `findById`). Role colour stays `null` (Discord DTO lacks the `color` field; renderer is colour-ready for when the DTO gains it). Unresolved targets fall back to deterministic `@user` / `@role` / `#channel` placeholders — no spinner, no async retry. See `docs/02_domain/richtext-ast.md` §Resolvers.
 - [ ] Custom emoji (Discord CDN, disk cache)
 - [x] Link detection + preview (OpenGraph fetch)
   - 2026-05-23: Bare URLs already autolinked by `:shared:chat-parser` (autolink pass for `http(s)://`). Discord delivers OG previews server-side as `message.embeds` (type=link/article/website/image/video). Renderer in `:shared:compose-ui` (`MessageRow.EmbedCard`) reworked into a rich card: left color bar (from `embed.color`), site/provider name, author row (avatar + name, clickable if `author.url`), title (semibold, link-coloured + underline, clickable to `embed.url`), description (max 4 lines, ellipsised), right-aligned 80x80dp thumbnail, full image bounded at 400x300dp, fields with two-column grid for consecutive inline fields, footer with icon. Title click + image click + thumbnail click all open via `LocalUriHandler`. No local OG fetcher — Discord's server-side embeds cover this slice (Option A).
