@@ -96,7 +96,25 @@ jobs:
             echo "ERROR: puklic.version not found in gradle.properties" >&2
             exit 1
           fi
-          APP_IMAGE_DIR="desktop/app/build/compose/binaries/main/app-image/Puklic"
+          # Locate the jpackage app-image dir. Compose Desktop's
+          # createDistributable emits it as a single subdirectory under
+          # build/compose/binaries/main/app/ (the dir name is the packageName,
+          # i.e. "Puklic"). Resolve robustly.
+          ROOT="desktop/app/build/compose/binaries/main"
+          echo "--- inspecting $ROOT ---"
+          find "$ROOT" -maxdepth 3 -mindepth 1 -type d 2>/dev/null || true
+          APP_IMAGE_DIR=""
+          for candidate in "$ROOT/app/Puklic" "$ROOT/app-image/Puklic"; do
+            if [ -d "$candidate" ] && [ -x "$candidate/bin/Puklic" ]; then
+              APP_IMAGE_DIR="$candidate"
+              break
+            fi
+          done
+          if [ -z "$APP_IMAGE_DIR" ]; then
+            echo "ERROR: could not locate jpackage app-image dir under $ROOT" >&2
+            exit 1
+          fi
+          echo "Using APP_IMAGE_DIR=$APP_IMAGE_DIR"
           OUT_DIR="desktop/app/build/appimage"
           ICON_PATH="icons/linux/512x512/puklic.png"
           mkdir -p "$OUT_DIR"
