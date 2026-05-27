@@ -52,6 +52,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.runtime.rememberCoroutineScope
 import dev.puklic.platform.PlatformOpen
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import dev.puklic.domain.Channel
 import dev.puklic.domain.DmChannel
@@ -729,7 +730,7 @@ private fun RingbackLabel(targetName: String) {
         while (true) {
             dots = cycle[idx % cycle.size]
             idx += 1
-            kotlinx.coroutines.delay(500L)
+            delay(RINGBACK_DOT_CYCLE_MS)
         }
     }
     Text(
@@ -738,6 +739,9 @@ private fun RingbackLabel(targetName: String) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
 }
+
+/** Ringback dot animation cadence (one cycle = one new dot appended). */
+private const val RINGBACK_DOT_CYCLE_MS: Long = 500L
 
 private class ChannelMessagesHolder(
     val viewModel: MessageListViewModel,

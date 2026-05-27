@@ -592,9 +592,9 @@ public class DefaultVoiceClient(
         _daveState.value = DaveUiState.Off
         runCatching { voiceGateway?.close() }
         runCatching { udp?.close() }
-        // For Connected sessions (mid-handshake revocation already sent above) emit the
-        // normal leave Op 4. DM revocation may have already covered this; double-send is
-        // harmless (Discord treats it as idempotent).
+        // For fully-Connected sessions (mid-handshake already revoked above via the
+        // pre-cleanup Op 4) emit the normal leave Op 4. The `!midHandshake` guard ensures
+        // exactly one Op 4 per disconnect — no double-send.
         if (!midHandshake) {
             runCatching {
                 mainGateway.sendVoiceStateUpdate(
