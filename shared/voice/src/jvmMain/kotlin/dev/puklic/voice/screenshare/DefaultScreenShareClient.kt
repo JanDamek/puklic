@@ -4,15 +4,18 @@ import co.touchlab.kermit.Logger
 import dev.puklic.voice.crypto.AeadCipher
 import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.gateway.VoiceGatewayConnection
+import dev.puklic.voice.screenshare.encoder.VideoCodec
 import dev.puklic.voice.screenshare.encoder.VideoEncoder
 import dev.puklic.voice.screenshare.encoder.ffmpegVideoEncoder
 import dev.puklic.voice.screenshare.encoder.libavVideoEncoder
 import dev.puklic.voice.screenshare.linux.LinuxPortalScreenCast
 import dev.puklic.voice.screenshare.source.LinuxScreenSourceEnumerator
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
-import dev.puklic.voice.transport.RtpPacket
+import dev.puklic.voice.transport.H264FrameFragmenter
 import dev.puklic.voice.transport.UdpRtpTransport
+import dev.puklic.voice.transport.VideoFrameFragmenter
 import dev.puklic.voice.transport.VideoRtpSender
+import dev.puklic.voice.transport.Vp8Packetiser
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -44,13 +47,19 @@ internal class DefaultScreenShareClient(
     private val getVideoSsrc: () -> Int,
     private val enumerator: ScreenSourceEnumerator,
     private val scope: CoroutineScope,
-    private val encoderFactory: (ScreenSource, Boolean) -> VideoEncoder = { src, audio ->
+    /**
+     * Codec selected by Discord's SessionDescription (`video_codec` field) and resolved via
+     * [dev.puklic.voice.screenshare.encoder.chooseCodec]. Drives BOTH the encoder backend
+     * (libx264 vs libvpx) and the RTP send pipeline (payload type + packetisation strategy).
+     */
+    private val videoCodec: VideoCodec = VideoCodec.H264,
+    private val encoderFactory: (ScreenSource, Boolean, VideoCodec) -> VideoEncoder = { src, audio, codec ->
         // Self-contained Phase 2: default to in-process libavcodec encoder. Set
         // `-Dpuklic.voice.encoder=cli` to force the legacy subprocess path (dev/debug only).
         if (System.getProperty(ENCODER_PROPERTY, ENCODER_LIBAV) == ENCODER_CLI) {
             ffmpegVideoEncoder(src, audio)
         } else {
-            libavVideoEncoder(src, audio)
+            libavVideoEncoder(src, audio, codec)
         }
     },
     /**
@@ -129,17 +138,22 @@ internal class DefaultScreenShareClient(
                 widthPx = 0,
                 heightPx = 0,
             )
-            libavVideoEncoder(realSource, shareAudio, stream.fd)
+            libavVideoEncoder(realSource, shareAudio, stream.fd, videoCodec)
         } else {
-            encoderFactory(source, shareAudio)
+            encoderFactory(source, shareAudio, videoCodec)
         }
         encoder = enc
+        val fragmenter: VideoFrameFragmenter = when (videoCodec) {
+            VideoCodec.H264 -> H264FrameFragmenter
+            VideoCodec.VP8 -> Vp8Packetiser
+        }
         val sender = VideoRtpSender(
             udp = udpTransport,
             encryptor = packetEncryptor,
             nonceGen = nonceGen,
             videoSsrc = videoSsrc,
-            payloadType = RtpPacket.PAYLOAD_TYPE_H264,
+            payloadType = videoCodec.payloadType(),
+            fragmenter = fragmenter,
         )
 
         // Op 5 — speaking bitmask MICROPHONE(1) | SOUNDSHARE(2) = 3.

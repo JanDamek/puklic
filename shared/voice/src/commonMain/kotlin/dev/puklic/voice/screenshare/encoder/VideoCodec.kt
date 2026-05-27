@@ -1,5 +1,7 @@
 package dev.puklic.voice.screenshare.encoder
 
+import dev.puklic.voice.transport.RtpPacket
+
 /**
  * Video codecs the screen-share encoder can produce. Discord's voice gateway advertises both
  * H.264 and VP8 in Op 1 SelectProtocol (see
@@ -17,6 +19,17 @@ package dev.puklic.voice.screenshare.encoder
 internal enum class VideoCodec(val encoderName: String) {
     H264("libx264"),
     VP8("libvpx"),
+    ;
+
+    /**
+     * RTP payload type advertised by Discord for this codec (see `VoiceGatewayConnection.DEFAULT_CODECS`):
+     *  - H.264 → 101 (0x65)
+     *  - VP8   → 103 (0x67)
+     */
+    fun payloadType(): Byte = when (this) {
+        H264 -> RtpPacket.PAYLOAD_TYPE_H264
+        VP8 -> RtpPacket.PAYLOAD_TYPE_VP8
+    }
 }
 
 /**

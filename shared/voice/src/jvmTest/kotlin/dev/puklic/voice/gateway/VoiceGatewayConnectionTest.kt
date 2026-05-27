@@ -116,6 +116,31 @@ class VoiceGatewayConnectionTest {
     }
 
     @Test
+    fun session_description_exposes_negotiated_video_codec() = runTest(UnconfinedTestDispatcher()) {
+        val transport = FakeVoiceTransport()
+        val gw = newGateway(transport)
+        val received = mutableListOf<VoiceGatewayEvent>()
+        val collectJob = launch { gw.events.collect { received.add(it) } }
+        gw.connect("wss://voice.test", "tok", "sess-1", "guild-99", "user-7")
+
+        transport.deliver(VoiceFrameIn.Text("""{"op":8,"d":{"heartbeat_interval":13750.0}}"""))
+        // Op 4 with video_codec = VP8 (the negotiated codec from our SelectProtocol advertisement).
+        val keyJson = (0 until 32).joinToString(",") { "0" }
+        transport.deliver(
+            VoiceFrameIn.Text(
+                """{"op":4,"d":{"mode":"aead_xchacha20_poly1305_rtpsize","secret_key":[$keyJson],"video_codec":"VP8"}}""",
+            ),
+        )
+
+        waitFor { received.any { it is VoiceGatewayEvent.SessionDescription } }
+        val sd = received.first { it is VoiceGatewayEvent.SessionDescription } as VoiceGatewayEvent.SessionDescription
+        assertEquals("VP8", sd.videoCodec)
+
+        collectJob.cancel()
+        gw.close()
+    }
+
+    @Test
     fun heartbeat_loop_sends_op3_with_incrementing_nonce() = runTest(UnconfinedTestDispatcher()) {
         val transport = FakeVoiceTransport()
         // Use a fake sleeper so we can advance heartbeats deterministically without virtual time.

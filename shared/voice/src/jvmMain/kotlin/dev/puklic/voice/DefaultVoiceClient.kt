@@ -18,6 +18,8 @@ import dev.puklic.voice.dave.mlsClient
 import dev.puklic.voice.screenshare.DefaultScreenShareClient
 import dev.puklic.voice.screenshare.NoOpScreenShareClient
 import dev.puklic.voice.screenshare.ScreenShareClient
+import dev.puklic.voice.screenshare.encoder.VideoCodec
+import dev.puklic.voice.screenshare.encoder.chooseCodec
 import dev.puklic.voice.screenshare.source.screenSourceEnumerator
 import dev.puklic.voice.gateway.DefaultVoiceGatewayConnection
 import dev.puklic.voice.gateway.VoiceGatewayConnection
@@ -357,7 +359,7 @@ public class DefaultVoiceClient(
                             initDaveSession(ssrc)
                         }
                         startPipelines(ssrc, ev.secretKey)
-                        installScreenShareClient(ev.secretKey)
+                        installScreenShareClient(ev.secretKey, ev.videoCodec)
                         emitConnected()
                     }
                 }
@@ -523,10 +525,18 @@ public class DefaultVoiceClient(
         return fresh
     }
 
-    private fun installScreenShareClient(secretKey: ByteArray) {
+    private fun installScreenShareClient(secretKey: ByteArray, negotiatedCodecName: String?) {
         val scope = sessionScope ?: return
         val udpT = udp ?: return
         val gw = voiceGateway ?: return
+        // Per architect report 2026-05-23-screenshare.md §4: SessionDescription.video_codec is
+        // the codec Discord picked from our SelectProtocol advertisement. When the field is
+        // missing (older test fixtures, certain server builds) fall back to the highest-priority
+        // codec we advertised (H.264) — chooseCodec(emptyList) would return null which would
+        // crash the screenshare client install at session-up time.
+        val codec = negotiatedCodecName
+            ?.let { chooseCodec(listOf(it)) }
+            ?: VideoCodec.H264
         screenShareImpl = DefaultScreenShareClient(
             voiceGateway = gw,
             packetEncryptor = xchacha20Poly1305(secretKey),
@@ -536,6 +546,7 @@ public class DefaultVoiceClient(
             getVideoSsrc = { activeVideoSsrc },
             enumerator = screenSourceEnumerator(),
             scope = scope,
+            videoCodec = codec,
         )
     }
 

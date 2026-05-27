@@ -102,6 +102,7 @@ internal data class VoiceSessionDescription(
     val mode: String,
     @SerialName("secret_key") val secretKey: List<Int>,
     @SerialName("dave_protocol_version") val daveProtocolVersion: Int? = null,
+    @SerialName("video_codec") val videoCodec: String? = null,
 )
 
 @Serializable

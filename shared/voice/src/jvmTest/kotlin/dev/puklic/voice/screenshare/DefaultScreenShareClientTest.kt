@@ -55,7 +55,7 @@ class DefaultScreenShareClientTest {
             udp = udp,
             videoSsrc = 0xCAFE,
             audioSsrc = 0xBEEF,
-            encoderFactory = { _, _ -> enc },
+            encoderFactory = { _, _, _ ->enc },
         )
 
         client.start(sampleSource(), shareAudio = false)
@@ -91,7 +91,7 @@ class DefaultScreenShareClientTest {
             gw = gw,
             videoSsrc = 7,
             audioSsrc = 13,
-            encoderFactory = { _, _ -> FakeEncoder() },
+            encoderFactory = { _, _, _ ->FakeEncoder() },
         )
 
         client.start(sampleSource(), shareAudio = true)
@@ -113,7 +113,7 @@ class DefaultScreenShareClientTest {
             gw = gw,
             videoSsrc = 1,
             audioSsrc = 2,
-            encoderFactory = { _, _ -> FakeEncoder() },
+            encoderFactory = { _, _, _ ->FakeEncoder() },
         )
         client.start(sampleSource(), shareAudio = false)
         assertEquals(1, gw.videoStreams.size)
@@ -139,7 +139,7 @@ class DefaultScreenShareClientTest {
             gw = gw,
             videoSsrc = 1,
             audioSsrc = 2,
-            encoderFactory = { _, _ -> FakeEncoder() },
+            encoderFactory = { _, _, _ ->FakeEncoder() },
         )
         client.start(sampleSource(), shareAudio = false)
         assertFails {
@@ -160,7 +160,8 @@ class DefaultScreenShareClientTest {
         udp: UdpRtpTransport = CapturingTransport(),
         audioSsrc: Int = 0,
         videoSsrc: Int = 0,
-        encoderFactory: (ScreenSource, Boolean) -> VideoEncoder = { _, _ -> FakeEncoder() },
+        encoderFactory: (ScreenSource, Boolean, dev.puklic.voice.screenshare.encoder.VideoCodec) -> VideoEncoder =
+            { _, _, _ -> FakeEncoder() },
     ): DefaultScreenShareClient = DefaultScreenShareClient(
         voiceGateway = gw,
         packetEncryptor = NullCipher(),

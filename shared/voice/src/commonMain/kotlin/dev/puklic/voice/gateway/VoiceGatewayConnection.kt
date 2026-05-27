@@ -55,13 +55,25 @@ internal sealed interface VoiceGatewayEvent {
         val mode: String,
         val secretKey: ByteArray,
         val daveProtocolVersion: Int = 0,
+        /**
+         * Negotiated video codec name as reported by Discord (e.g. "H264", "VP8"). `null` when the
+         * server omits the field — callers fall back to the highest-priority codec they advertised
+         * (H.264, per `DEFAULT_CODECS`).
+         */
+        val videoCodec: String? = null,
     ) : VoiceGatewayEvent {
         override fun equals(other: Any?): Boolean =
             other is SessionDescription && mode == other.mode &&
                 secretKey.contentEquals(other.secretKey) &&
-                daveProtocolVersion == other.daveProtocolVersion
-        override fun hashCode(): Int =
-            31 * (31 * mode.hashCode() + secretKey.contentHashCode()) + daveProtocolVersion
+                daveProtocolVersion == other.daveProtocolVersion &&
+                videoCodec == other.videoCodec
+        override fun hashCode(): Int {
+            var h = mode.hashCode()
+            h = 31 * h + secretKey.contentHashCode()
+            h = 31 * h + daveProtocolVersion
+            h = 31 * h + (videoCodec?.hashCode() ?: 0)
+            return h
+        }
     }
     data class Speaking(val userId: String, val ssrc: Int, val flags: Int) : VoiceGatewayEvent
     data class ClientDisconnect(val userId: String) : VoiceGatewayEvent
@@ -370,6 +382,7 @@ internal class DefaultVoiceGatewayConnection(
                         mode = sd.mode,
                         secretKey = key,
                         daveProtocolVersion = sd.daveProtocolVersion ?: 0,
+                        videoCodec = sd.videoCodec,
                     ),
                 )
             }
