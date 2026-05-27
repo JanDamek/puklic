@@ -98,20 +98,33 @@ internal class DefaultScreenShareClient(
         val enc: VideoEncoder = if (source.id == LinuxScreenSourceEnumerator.PORTAL_PICKER_ID) {
             val portal = portalScreenCastFactory()
             activePortal = portal
-            val stream = try {
-                portal.open(includeAudio = shareAudio)
-            } catch (e: Throwable) {
-                runCatching { portal.close() }
-                activePortal = null
-                _state.value = ScreenShareState.Failed("xdg-desktop-portal handshake failed: ${e.message}")
-                return
+            val stream = when (
+                val r = portal.open(
+                    captureMode = LinuxPortalScreenCast.CaptureMode.MonitorsAndWindows,
+                    cursorMode = LinuxPortalScreenCast.CursorMode.Hidden,
+                    includeAudio = shareAudio,
+                )
+            ) {
+                is LinuxPortalScreenCast.PortalResult.Ok -> r.stream
+                LinuxPortalScreenCast.PortalResult.UserCancelled -> {
+                    runCatching { portal.close() }
+                    activePortal = null
+                    _state.value = ScreenShareState.Idle
+                    return
+                }
+                is LinuxPortalScreenCast.PortalResult.Error -> {
+                    runCatching { portal.close() }
+                    activePortal = null
+                    _state.value = ScreenShareState.Failed("xdg-desktop-portal handshake failed: ${r.message}")
+                    return
+                }
             }
             // Construct the encoder with the real PipeWire node id (replacing the synthetic
             // "portal" sentinel) plus the portal-allocated fd.
             // Width/height stay 0 (UNKNOWN); the encoder reads real dimensions from the
             // PipeWire stream once libavdevice opens it.
             val realSource = ScreenSource.Monitor(
-                id = stream.nodeId.toString(),
+                id = stream.firstNodeId.toString(),
                 displayName = source.displayName,
                 widthPx = 0,
                 heightPx = 0,

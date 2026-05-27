@@ -35,19 +35,46 @@ import java.util.concurrent.ConcurrentHashMap
  * Caller (DefaultScreenShareClient on Linux) is responsible for invoking [close] when capture
  * tears down so the session is released compositor-side.
  *
- * NOTE on completeness: this implementation compiles and the D-Bus calls are wired correctly,
- * but **it has only been smoke-tested on a real Linux+GNOME session**, not in CI (no portal
- * available there). The `parseStartResponseStreams` helper handles the most common shape
- * (List<Object[]> where each entry is `[UInt32 nodeId, Map<String,Variant> props]`), but
- * dbus-java's auto-marshalling for `a(ua{sv})` can also surface as `List<DBusStruct>`;
- * production runs on Linux should verify and extend [extractStreams] as needed.
- *
  * See architect report `docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md`
  * §4 phase 3, and `docs/05_platforms/linux-wayland.md`.
  */
 internal class LinuxPortalScreenCast : AutoCloseable {
 
-    data class PipeWireStream(val nodeId: Int, val fd: Int)
+    /** What sources the portal picker offers the user. Bit-mask per portal spec. */
+    enum class CaptureMode(val mask: Int) {
+        Monitors(MASK_MONITORS),
+        Windows(MASK_WINDOWS),
+        MonitorsAndWindows(MASK_MONITORS or MASK_WINDOWS),
+    }
+
+    /**
+     * How the cursor is rendered in the captured stream (per portal spec).
+     * - [Hidden] — never include the cursor.
+     * - [Embedded] — composite the cursor into the framebuffer (default).
+     * - [Metadata] — deliver cursor position as PipeWire metadata; client renders it.
+     */
+    enum class CursorMode(val mask: Int) {
+        Hidden(CURSOR_MASK_HIDDEN),
+        Embedded(CURSOR_MASK_EMBEDDED),
+        Metadata(CURSOR_MASK_METADATA),
+    }
+
+    data class PipeWireStream(val nodeIds: List<Int>, val fd: Int) {
+        /** First node id — most picks are a single monitor or single window. */
+        val firstNodeId: Int get() = nodeIds.first()
+    }
+
+    /**
+     * Result of [open]. Distinguishes the three terminal portal states:
+     *  - [Ok] — user accepted, PipeWire fd ready.
+     *  - [UserCancelled] — user dismissed the picker (Response code 1).
+     *  - [Error] — portal returned code 2, threw, or another failure (e.g. dbus connect failed).
+     */
+    sealed interface PortalResult {
+        data class Ok(val stream: PipeWireStream) : PortalResult
+        data object UserCancelled : PortalResult
+        data class Error(val message: String) : PortalResult
+    }
 
     /** Manually-defined stub for the portal's ScreenCast interface (dbus-java works fine with this). */
     @Suppress("FunctionNaming")
@@ -63,21 +90,41 @@ internal class LinuxPortalScreenCast : AutoCloseable {
 
     /**
      * Run the full portal handshake. Suspends until the user picks a source in the compositor
-     * picker (Step 3), or times out after [overallTimeoutMs].
+     * picker (Step 3), cancels, or times out after [overallTimeoutMs]. Never throws for
+     * user-cancellation — returns [PortalResult.UserCancelled] instead, so the UI does not
+     * surface an error when the user simply closes the picker.
      */
+    suspend fun open(
+        captureMode: CaptureMode = CaptureMode.Monitors,
+        cursorMode: CursorMode = CursorMode.Hidden,
+        includeAudio: Boolean = false,
+        parentWindow: String = "",
+        overallTimeoutMs: Long = DEFAULT_TIMEOUT_MS,
+    ): PortalResult {
+        return try {
+            PortalResult.Ok(runHandshake(captureMode, cursorMode, includeAudio, parentWindow, overallTimeoutMs))
+        } catch (e: UserCancelledException) {
+            PortalResult.UserCancelled
+        } catch (e: TimeoutCancellationException) {
+            PortalResult.Error("xdg-desktop-portal handshake timed out after ${overallTimeoutMs}ms")
+        } catch (e: Throwable) {
+            PortalResult.Error(e.message ?: e.javaClass.simpleName)
+        }
+    }
+
     @Suppress("LongMethod")
-    suspend fun open(includeAudio: Boolean = false, overallTimeoutMs: Long = DEFAULT_TIMEOUT_MS): PipeWireStream {
+    private suspend fun runHandshake(
+        captureMode: CaptureMode,
+        cursorMode: CursorMode,
+        includeAudio: Boolean,
+        parentWindow: String,
+        overallTimeoutMs: Long,
+    ): PipeWireStream {
         val connection = DBusConnectionBuilder.forSessionBus().build()
         conn = connection
 
-        val sc = connection.getRemoteObject(
-            PORTAL_BUS,
-            PORTAL_PATH,
-            ScreenCast::class.java,
-        )
+        val sc = connection.getRemoteObject(PORTAL_BUS, PORTAL_PATH, ScreenCast::class.java)
 
-        // Register a single generic Response handler scoped by Request-path; the dispatcher
-        // routes by signal-path to the right pending CompletableDeferred.
         val rule = DBusMatchRule(
             /* _type   = */ "signal",
             /* _iface  = */ REQUEST_IFACE,
@@ -87,46 +134,52 @@ internal class LinuxPortalScreenCast : AutoCloseable {
 
         return try {
             withTimeout(overallTimeoutMs) {
-                // 1) CreateSession
-                val sessionToken = newToken(SESSION_TOKEN_PREFIX)
-                val createOpts = mapOf<String, Variant<*>>(
-                    "session_handle_token" to Variant(sessionToken),
-                    "handle_token" to Variant(newToken(REQUEST_TOKEN_PREFIX)),
-                )
-                val createReq = sc.CreateSession(createOpts)
-                val createRes = awaitResponse(createReq)
-                val sessionHandleStr = (createRes.results["session_handle"]?.value as? String)
-                    ?: error("CreateSession: missing session_handle")
-                val sessionHandle = DBusPath(sessionHandleStr)
-
-                // 2) SelectSources
-                val selectOpts = buildMap<String, Variant<*>> {
-                    put("types", Variant(UInt32(MONITOR_BIT.toLong())))
-                    put("multiple", Variant(false))
-                    put("cursor_mode", Variant(UInt32(CURSOR_MODE_EMBEDDED.toLong())))
-                    put("handle_token", Variant(newToken(REQUEST_TOKEN_PREFIX)))
-                    if (includeAudio) put("audio", Variant(true))
-                }
-                val selectReq = sc.SelectSources(sessionHandle, selectOpts)
-                awaitResponse(selectReq)
-
-                // 3) Start — compositor pops up the picker GUI here; user picks a monitor.
-                val startOpts = mapOf<String, Variant<*>>(
-                    "handle_token" to Variant(newToken(REQUEST_TOKEN_PREFIX)),
-                )
-                val startReq = sc.Start(sessionHandle, /* parent_window */ "", startOpts)
-                val startRes = awaitResponse(startReq)
-                val nodeId = extractStreams(startRes.results)
-
-                // 4) OpenPipeWireRemote → unix fd we'll pass into libavdevice/pipewire.
+                val sessionHandle = createSession(sc)
+                selectSources(sc, sessionHandle, captureMode, cursorMode, includeAudio)
+                val nodeIds = start(sc, sessionHandle, parentWindow)
                 val fd = sc.OpenPipeWireRemote(sessionHandle, emptyMap())
-                PipeWireStream(nodeId, fd.getIntFileDescriptor())
+                PipeWireStream(nodeIds, fd.getIntFileDescriptor())
             }
-        } catch (e: TimeoutCancellationException) {
-            error("xdg-desktop-portal handshake timed out after ${overallTimeoutMs}ms: ${e.message}")
         } finally {
             runCatching { handlerCloseable.close() }
         }
+    }
+
+    private suspend fun createSession(sc: ScreenCast): DBusPath {
+        val opts = mapOf<String, Variant<*>>(
+            "session_handle_token" to Variant(newToken(SESSION_TOKEN_PREFIX)),
+            "handle_token" to Variant(newToken(REQUEST_TOKEN_PREFIX)),
+        )
+        val req = sc.CreateSession(opts)
+        val res = awaitResponse(req)
+        val handle = res.results["session_handle"]?.value as? String
+            ?: error("CreateSession: missing session_handle")
+        return DBusPath(handle)
+    }
+
+    private suspend fun selectSources(
+        sc: ScreenCast,
+        session: DBusPath,
+        captureMode: CaptureMode,
+        cursorMode: CursorMode,
+        includeAudio: Boolean,
+    ) {
+        val opts = buildMap<String, Variant<*>> {
+            put("types", Variant(UInt32(captureMode.mask.toLong())))
+            put("multiple", Variant(false))
+            put("cursor_mode", Variant(UInt32(cursorMode.mask.toLong())))
+            put("handle_token", Variant(newToken(REQUEST_TOKEN_PREFIX)))
+            if (includeAudio) put("audio", Variant(true))
+        }
+        awaitResponse(sc.SelectSources(session, opts))
+    }
+
+    private suspend fun start(sc: ScreenCast, session: DBusPath, parentWindow: String): List<Int> {
+        val opts = mapOf<String, Variant<*>>(
+            "handle_token" to Variant(newToken(REQUEST_TOKEN_PREFIX)),
+        )
+        val res = awaitResponse(sc.Start(session, parentWindow, opts))
+        return extractAllStreams(res.results)
     }
 
     private suspend fun awaitResponse(requestPath: DBusPath): ResponseTuple {
@@ -149,6 +202,8 @@ internal class LinuxPortalScreenCast : AutoCloseable {
 
     private data class ResponseTuple(val responseCode: Int, val results: Map<String, Variant<*>>)
 
+    private class UserCancelledException : RuntimeException("User dismissed portal picker")
+
     /**
      * Generic dispatcher: every `org.freedesktop.portal.Request.Response` signal arrives here;
      * we look up the matching pending request by path and complete its deferred. Unmatched
@@ -164,18 +219,21 @@ internal class LinuxPortalScreenCast : AutoCloseable {
                 val params = signal.parameters
                 val code = ((params.getOrNull(0) as? UInt32)?.toInt()) ?: -1
                 val results = (params.getOrNull(1) as? Map<String, Variant<*>>) ?: emptyMap()
-                if (code != 0) {
-                    deferred.completeExceptionally(
-                        IllegalStateException("Portal Response code=$code on ${signal.path} results=$results"),
+                when (decodeResponseCode(code)) {
+                    ResponseCode.Ok -> deferred.complete(ResponseTuple(code, results))
+                    ResponseCode.UserCancelled -> deferred.completeExceptionally(UserCancelledException())
+                    ResponseCode.Error -> deferred.completeExceptionally(
+                        IllegalStateException("Portal Response error code=$code on ${signal.path} results=$results"),
                     )
-                } else {
-                    deferred.complete(ResponseTuple(code, results))
                 }
             } catch (e: Throwable) {
                 deferred.completeExceptionally(e)
             }
         }
     }
+
+    /** Per portal Request.Response spec: 0=ok, 1=user-cancelled, 2=other error. */
+    internal enum class ResponseCode { Ok, UserCancelled, Error }
 
     internal companion object {
         const val PORTAL_BUS = "org.freedesktop.portal.Desktop"
@@ -184,26 +242,51 @@ internal class LinuxPortalScreenCast : AutoCloseable {
         const val RESPONSE_SIGNAL = "Response"
         const val SESSION_TOKEN_PREFIX = "puklic_sess_"
         const val REQUEST_TOKEN_PREFIX = "puklic_req_"
-        const val MONITOR_BIT = 1
-        const val CURSOR_MODE_EMBEDDED = 2
+
+        // Portal SourceType bitmask (org.freedesktop.portal.ScreenCast):
+        // 1 = MONITOR, 2 = WINDOW, 4 = VIRTUAL (rarely supported, not exposed).
+        const val MASK_MONITORS = 1
+        const val MASK_WINDOWS = 2
+
+        // CursorMode bitmask:
+        const val CURSOR_MASK_HIDDEN = 1
+        const val CURSOR_MASK_EMBEDDED = 2
+        const val CURSOR_MASK_METADATA = 4
+
+        const val RESPONSE_CODE_OK = 0
+        const val RESPONSE_CODE_CANCELLED = 1
+        const val RESPONSE_CODE_ERROR = 2
+
         const val DEFAULT_TIMEOUT_MS = 60_000L
+
+        internal fun decodeResponseCode(code: Int): ResponseCode = when (code) {
+            RESPONSE_CODE_OK -> ResponseCode.Ok
+            RESPONSE_CODE_CANCELLED -> ResponseCode.UserCancelled
+            else -> ResponseCode.Error
+        }
 
         private fun newToken(prefix: String): String =
             prefix + UUID.randomUUID().toString().replace("-", "")
 
         /**
          * Pulls the first PipeWire node id out of the `streams` variant in a Start response.
+         * Wire signature is `a(ua{sv})`. Kept for legacy callers / tests.
+         */
+        internal fun extractStreams(results: Map<String, Variant<*>>): Int =
+            extractAllStreams(results).first()
+
+        /**
+         * Pulls all PipeWire node ids out of the `streams` variant in a Start response.
          * Wire signature is `a(ua{sv})`. dbus-java typically deserialises this as
          * `List<Object[]>` where each row is `[UInt32 nodeId, Map<String,Variant<?>> props]`.
          */
-        internal fun extractStreams(results: Map<String, Variant<*>>): Int {
+        internal fun extractAllStreams(results: Map<String, Variant<*>>): List<Int> {
             val streamsVariant = results["streams"]
                 ?: error("Start response missing 'streams'")
             val list = streamsVariant.value as? List<*>
                 ?: error("Start 'streams' not a List, was ${streamsVariant.value?.javaClass}")
-            val first = list.firstOrNull()
-                ?: error("Start 'streams' list empty")
-            return extractNodeId(first)
+            if (list.isEmpty()) error("Start 'streams' list empty")
+            return list.map { extractNodeId(it) }
         }
 
         /** Tolerant of either `Object[]` rows (dbus-java common) or a typed `DBusStruct`. */
