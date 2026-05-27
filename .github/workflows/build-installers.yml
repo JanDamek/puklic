@@ -48,7 +48,7 @@ jobs:
             target: linux-x86_64
             artifact-glob: |
               desktop/app/build/compose/binaries/main/deb/*.deb
-              desktop/app/build/compose/binaries/main/appimage/*.AppImage
+              desktop/app/build/appimage/*.AppImage
           - os: macos-14
             target: macos-arm64
             artifact-glob: |
@@ -74,11 +74,37 @@ jobs:
       - name: Build installer (packageDistributionForCurrentOS)
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache --stacktrace
 
+      # Compose Desktop's `TargetFormat.AppImage` is jpackage's `--type app-image`
+      # which emits a runtime DIRECTORY tree (build/compose/binaries/main/app-image/Puklic/),
+      # NOT a real .AppImage file. We wrap it into a real .AppImage with
+      # appimagetool. See desktop/app/src/main/appimage/build-appimage.sh.
+      - name: Package AppImage (Linux only)
+        if: startsWith(matrix.os, 'ubuntu')
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(grep -E '^puklic\.version=' gradle.properties | cut -d= -f2)"
+          if [ -z "$VERSION" ]; then
+            echo "ERROR: puklic.version not found in gradle.properties" >&2
+            exit 1
+          fi
+          APP_IMAGE_DIR="desktop/app/build/compose/binaries/main/app-image/Puklic"
+          OUT_DIR="desktop/app/build/appimage"
+          ICON_PATH="icons/linux/512x512/puklic.png"
+          mkdir -p "$OUT_DIR"
+          PUKLIC_VERSION="$VERSION" \
+            APP_IMAGE_DIR="$APP_IMAGE_DIR" \
+            OUT_DIR="$OUT_DIR" \
+            ICON_PATH="$ICON_PATH" \
+            bash desktop/app/src/main/appimage/build-appimage.sh
+
       - name: List built artifacts
         shell: bash
         run: |
           echo "--- compose binaries tree ---"
           find desktop/app/build/compose/binaries -maxdepth 6 -type f 2>/dev/null || true
+          echo "--- appimage output ---"
+          find desktop/app/build/appimage -maxdepth 2 -type f 2>/dev/null || true
 
       - name: Upload installer
         uses: actions/upload-artifact@v4

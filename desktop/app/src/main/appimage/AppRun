@@ -1,0 +1,14 @@
+#!/bin/sh
+# AppRun — AppImage entry point for Puklic.
+#
+# AppImage extracts this AppDir to a temporary mount point and invokes
+# $APPDIR/AppRun. We forward control to the jpackage-produced launcher
+# at $APPDIR/bin/Puklic with all original arguments.
+#
+# Compose Desktop / jpackage emits a fully self-contained app-image:
+#   bin/Puklic    — native launcher (runs bundled JRE)
+#   lib/...       — application jars, bundled runtime, resources
+# Nothing else is required at runtime; the AppRun is purely a relay.
+HERE="$(dirname "$(readlink -f "${0}")")"
+export APPDIR="${HERE}"
+exec "${HERE}/bin/Puklic" "$@"

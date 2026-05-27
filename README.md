@@ -99,11 +99,24 @@ Developers on Apple Silicon can also run from source:
 ### Build installers from source
 
 ```bash
-# Produces the host platform's installer (.deb + .AppImage on Linux, .dmg on macOS)
+# Produces the host platform's installer (.deb + app-image dir on Linux, .dmg on macOS).
+# To also produce the final .AppImage on Linux, run the wrapper script below.
 ./gradlew :desktop:app:packageDistributionForCurrentOS
+
+# Linux only — wrap the jpackage app-image directory into a real .AppImage.
+# Requires Linux host (uses appimagetool, x86_64).
+PUKLIC_VERSION="$(grep -E '^puklic\.version=' gradle.properties | cut -d= -f2)" \
+  APP_IMAGE_DIR="desktop/app/build/compose/binaries/main/app-image/Puklic" \
+  OUT_DIR="desktop/app/build/appimage" \
+  ICON_PATH="icons/linux/512x512/puklic.png" \
+  bash desktop/app/src/main/appimage/build-appimage.sh
 ```
 
-Output: `desktop/app/build/compose/binaries/main/{deb,appimage,dmg}/`.
+Output:
+- `.deb` — `desktop/app/build/compose/binaries/main/deb/`
+- `.dmg` — `desktop/app/build/compose/binaries/main/dmg/`
+- `app-image/` (jpackage runtime tree, used as input to the AppImage wrapper) — `desktop/app/build/compose/binaries/main/app-image/`
+- `.AppImage` — `desktop/app/build/appimage/`
 
 Per-OS FFmpeg natives are selected automatically by `detectFfmpegClassifier()` in
 `shared/voice/build.gradle.kts` to keep each installer slim (~30 MB of natives instead

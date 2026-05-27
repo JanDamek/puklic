@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Puklic
+GenericName=Discord Client
+Comment=Lightweight native Discord client (Compose Multiplatform)
+Exec=Puklic %U
+Icon=puklic
+Terminal=false
+Categories=Network;InstantMessaging;
+StartupNotify=true
+StartupWMClass=Puklic
