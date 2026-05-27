@@ -18,10 +18,11 @@ private const val DM_LIST_TAG = "DmListOrchestrator"
 /**
  * Tracks the user's Direct-Message channels (channel types 1 + 3) entirely in memory.
  *
- * DM channels are not persisted in the SQLite `channel` table for now — the table is keyed by
- * guild_id and the recipients hydration would require a join. Holding the list in a StateFlow
- * is sufficient for the UI: the gateway delivers the full set inside READY and per-channel
- * deltas via CHANNEL_CREATE / CHANNEL_DELETE.
+ * DM channels live outside the SQLite `channel` table: that table is keyed by guild_id (which
+ * DMs lack) and DM rendering needs recipient hydration that would require a cross-table join.
+ * A `StateFlow` is sufficient for the UI because the gateway delivers the full set inside READY
+ * and per-channel deltas via CHANNEL_CREATE / CHANNEL_DELETE — there is no cold-start case
+ * where DMs must be served before the gateway is connected.
  */
 public class DmListOrchestrator(
     sessionScope: CoroutineScope,

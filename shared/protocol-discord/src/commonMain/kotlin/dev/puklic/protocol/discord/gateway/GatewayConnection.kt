@@ -105,7 +105,9 @@ public class GatewayConnection(
                 when (frame) {
                     is GatewayFrameIn.Text -> handleText(transport, frame.text)
                     is GatewayFrameIn.Binary -> {
-                        // Reserved for zlib-stream path; gateway text path only for now.
+                        // Gateway is configured with `encoding=json` (text frames only).
+                        // Binary frames belong to the zlib-stream / etf transport variants,
+                        // which this client deliberately does not negotiate; ignore.
                     }
                     is GatewayFrameIn.Close -> {
                         handleClose(frame.code)

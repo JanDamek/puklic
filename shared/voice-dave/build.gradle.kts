@@ -5,9 +5,10 @@
 // behind a Puklic-internal MlsClient interface. Wire types are NEVER exposed across this
 // boundary — see CLAUDE.md repo rule §3 (Discord/library DTOs must not leak).
 //
-// JVM-only for now: `core-crypto-jvm` ships a Rust JNI native (.so / .dylib / .dll) and
-// the matching `core-crypto-iosarm64` artifact is stuck at 0.6.0-rc on Maven Central
-// (Feb 2024). Android target is feasible (.aar exists) but is deferred to Phase 3.2.
+// JVM-only: `core-crypto-jvm` ships a Rust JNI native (.so / .dylib / .dll). Android and
+// iOS targets are added by the engineer who wires the corresponding native artifacts
+// (Android .aar exists; `core-crypto-iosarm64` is currently stuck at 0.6.0-rc on Maven
+// Central as of Feb 2024).
 //
 // Licensing: `com.wire:core-crypto-jvm` is GPL-3.0-or-later. Puklic source remains
 // Apache-2.0; the distributed binary's effective license becomes GPL-3.0-or-later
@@ -20,10 +21,6 @@ plugins {
 
 kotlin {
     jvm()
-    // androidTarget()                // TODO Phase 3.2: enable when Android DAVE backend lands.
-    // iosArm64()                     // BLOCKED: core-crypto-iosarm64 stuck at 0.6.0-rc.
-    // iosX64()
-    // iosSimulatorArm64()
 
     jvmToolchain(21)
 

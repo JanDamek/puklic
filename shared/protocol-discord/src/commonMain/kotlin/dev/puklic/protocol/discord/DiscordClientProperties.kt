@@ -30,19 +30,46 @@ public data class DiscordClientProperties(
     @SerialName("referrer_current") val referrerCurrent: String = "",
     @SerialName("referring_domain_current") val referringDomainCurrent: String = "",
     @SerialName("release_channel") val releaseChannel: String = "stable",
-    // TODO(Phase 2): fetch the current build number from Discord's HTML or a community feed
-    // instead of hardcoding. Stale build numbers eventually get flagged.
+    // Pinned to a recent known Discord Stable build. Discord eventually flags stale
+    // build numbers; refresh by inspecting the current value embedded in discord.com's
+    // HTML (`window.GLOBAL_ENV.BUILD_NUMBER`) and bumping this constant.
     @SerialName("client_build_number") val clientBuildNumber: Int = DEFAULT_CLIENT_BUILD_NUMBER,
     @SerialName("client_event_source") val clientEventSource: String? = null,
 )
 
-internal const val DEFAULT_CLIENT_BUILD_NUMBER: Int = 380000
+internal const val DEFAULT_CLIENT_BUILD_NUMBER: Int = 405689
 internal const val DEFAULT_BROWSER_VERSION: String = "33.4.0"
+internal const val DEFAULT_DISCORD_DESKTOP_VERSION: String = "0.0.350"
+internal const val DEFAULT_ELECTRON_VERSION: String = "30.0.6"
+internal const val DEFAULT_CHROME_VERSION: String = "124.0.6367.243"
 
-// TODO(Phase 2): platform-specific UA — Linux/Windows variants. macOS UA is the Phase 1 default.
-internal const val DEFAULT_DESKTOP_USER_AGENT: String =
+internal const val MACOS_DESKTOP_USER_AGENT: String =
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) " +
-        "discord/0.0.350 Chrome/124.0.6367.243 Electron/30.0.6 Safari/537.36"
+        "discord/$DEFAULT_DISCORD_DESKTOP_VERSION Chrome/$DEFAULT_CHROME_VERSION " +
+        "Electron/$DEFAULT_ELECTRON_VERSION Safari/537.36"
+
+internal const val LINUX_DESKTOP_USER_AGENT: String =
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) " +
+        "discord/$DEFAULT_DISCORD_DESKTOP_VERSION Chrome/$DEFAULT_CHROME_VERSION " +
+        "Electron/$DEFAULT_ELECTRON_VERSION Safari/537.36"
+
+/**
+ * Selects the User-Agent / `browser_user_agent` value for a given normalized Discord OS string.
+ * The OS string is the one produced by [mapOsName] and embedded in the IDENTIFY / super-properties
+ * payload, so the UA stays consistent with the rest of the client identity.
+ */
+internal fun userAgentForOs(discordOs: String): String = when (discordOs) {
+    "Linux" -> LINUX_DESKTOP_USER_AGENT
+    "Mac OS X" -> MACOS_DESKTOP_USER_AGENT
+    else -> MACOS_DESKTOP_USER_AGENT
+}
+
+/**
+ * Default desktop User-Agent used when the host OS hasn't been resolved yet (e.g. unit tests
+ * constructing [DiscordClientProperties] directly). Equals the macOS UA — picking macOS as the
+ * default keeps super-properties self-consistent with the development host identity.
+ */
+internal const val DEFAULT_DESKTOP_USER_AGENT: String = MACOS_DESKTOP_USER_AGENT
 
 private val LOCALE_REGEX = Regex("^[a-z]{2}(-[A-Z]{2})?$")
 
@@ -60,14 +87,16 @@ public expect fun currentHostEnvironment(): HostEnvironment
 public expect fun currentTimeZoneId(): String
 
 /** Build a [DiscordClientProperties] payload from the platform host environment. */
-public fun buildClientProperties(env: HostEnvironment = currentHostEnvironment()): DiscordClientProperties =
-    DiscordClientProperties(
-        os = mapOsName(env.osName),
+public fun buildClientProperties(env: HostEnvironment = currentHostEnvironment()): DiscordClientProperties {
+    val os = mapOsName(env.osName)
+    return DiscordClientProperties(
+        os = os,
         systemLocale = normalizeLocale(env.locale),
-        browserUserAgent = DEFAULT_DESKTOP_USER_AGENT,
+        browserUserAgent = userAgentForOs(os),
         browserVersion = DEFAULT_BROWSER_VERSION,
         osVersion = env.osVersion.orEmpty(),
     )
+}
 
 /** Default platform-agnostic locale fallback. */
 internal fun normalizeLocale(raw: String?): String =

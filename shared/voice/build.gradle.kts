@@ -1,14 +1,15 @@
-// :shared:voice — Voice Phase 3.0 (jvm-only initially).
+// :shared:voice — Voice Phase 3.0.
 //
 // Per architect report docs/03_infrastructure/architect-reports/2026-05-23-voice.md §2,
 // this module exposes a KMP commonMain public API (VoiceClient, VoiceState, AudioDevice,
 // AudioConstants) but its real audio/codec/AEAD I/O is jvm-only (concentus, BouncyCastle,
-// javax.sound.sampled). Android / iOS targets are intentionally commented out — they will
-// be enabled in Phase 3.1+ once platform-native audio backends land.
+// javax.sound.sampled).
 //
 // We do NOT use the puklic.kmp-library convention plugin here, because that plugin
-// always declares Android + iOS targets, and we want to keep this module strictly
-// jvm-only for now to avoid compiling against unimplemented expect/actual surfaces.
+// always declares Android + iOS targets, which would force commonMain to compile against
+// expect/actual surfaces that have no current actual implementation. When an Android or
+// iOS audio backend is added, that engineer adds the target declaration alongside the
+// real platform sources.
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -17,10 +18,6 @@ plugins {
 
 kotlin {
     jvm()
-    // androidTarget()                // TODO Phase 3.1: enable when Android audio backend lands.
-    // iosArm64()                     // TODO Phase 3.x: iOS voice support.
-    // iosX64()
-    // iosSimulatorArm64()
 
     jvmToolchain(21)
 
