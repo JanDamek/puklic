@@ -97,7 +97,7 @@ is deferred to 4.1.
 - [x] Per-OS FFmpeg classifier (`detectFfmpegClassifier()` in `shared/voice/build.gradle.kts`) — ~30 MB natives instead of ~150 MB umbrella
 - [x] App icons wired (`icons/linux/512x512/puklic.png`, `icons/macos/puklic.icns`)
 - [x] `.dmg` build verified on macOS arm64 host — version follows `puklic.version` in `gradle.properties` (same string as Linux .deb / .AppImage)
-- [ ] `.deb` + `.AppImage` build verified on Linux host (CI)
+- [x] `.deb` + `.AppImage` build verified on Linux host (CI) — verified by `build-installers.yml` since 2026-05-27 (commit ea511c4); v1.1.0 release ships real `Puklic-1.1.0-x86_64.AppImage` via `appimagetool` step
 - [x] README install instructions
 
 See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md](../03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md) §6–§8.
