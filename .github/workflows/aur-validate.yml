@@ -15,7 +15,7 @@ jobs:
   validate:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate PKGBUILD (namcap + .SRCINFO drift check)
         run: |

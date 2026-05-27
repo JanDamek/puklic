@@ -56,16 +56,16 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: 21
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v3
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Linux deb tooling
         if: startsWith(matrix.os, 'ubuntu')
@@ -133,7 +133,7 @@ jobs:
           find desktop/app/build/appimage -maxdepth 2 -type f 2>/dev/null || true
 
       - name: Upload installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: puklic-${{ matrix.target }}
           path: ${{ matrix.artifact-glob }}
@@ -150,13 +150,13 @@ jobs:
       # Both officially shipped platforms attach to GitHub Releases:
       # Linux x86_64 (.deb + .AppImage) and macOS arm64 (.dmg).
       - name: Download Linux installer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: puklic-linux-x86_64
           path: dist
 
       - name: Download macOS installer
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: puklic-macos-arm64
           path: dist
@@ -165,7 +165,7 @@ jobs:
         run: ls -la dist || true
 
       - name: Create GitHub Release (draft)
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           files: dist/**/*
           generate_release_notes: true

@@ -25,7 +25,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Clone libdave (with FULL vcpkg submodule)
         shell: bash
@@ -73,7 +73,7 @@ jobs:
           ls -la out
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: libdave-${{ matrix.target }}
           path: out/${{ steps.locate.outputs.dest }}
@@ -88,9 +88,9 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: native-libs
 
@@ -107,7 +107,7 @@ jobs:
           find shared/voice-dave/src/jvmMain/resources/libdave -type f | sort
 
       - name: Open PR with built libs
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@v8
         with:
           commit-message: "feat(voice-dave): libdave native libs for shipping platforms (auto-built)"
           title: "Add libdave native libs (auto-built via CI)"
