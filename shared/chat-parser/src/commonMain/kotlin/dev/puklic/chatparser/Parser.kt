@@ -12,6 +12,13 @@ import dev.puklic.domain.TextStyle
  * Suitable for [kotlinx.coroutines.Dispatchers.Default].
  *
  * Spec: docs/02_domain/richtext-ast.md
+ *
+ * Why hand-rolled (not a markdown library): Discord's dialect diverges from
+ * CommonMark in load-bearing ways (`__x__` is underline not bold; `||x||` is
+ * spoiler; `>>> ` block quote; Discord-specific inline tokens `<@id>`,
+ * `<#id>`, `<@&id>`, `<:name:id>`, `<a:name:id>`, `<t:unix:style>`,
+ * `@everyone`, `@here`; tolerant on unmatched delimiters). See
+ * `docs/01_architecture/adr/0008-chat-parser-library-decision.md`.
  */
 public fun parseRichText(raw: String): RichTextDocument {
     if (raw.isBlank()) return RichTextDocument(emptyList())

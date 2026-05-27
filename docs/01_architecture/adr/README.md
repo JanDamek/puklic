@@ -12,6 +12,8 @@ Every non-trivial architectural decision has its own ADR. For the format see [`0
 | [0004](0004-coroutine-first.md) | Coroutine-first architecture | accepted |
 | [0005](0005-decompose-navigation.md) | Decompose as the navigation library | accepted |
 | [0006](0006-discord-json-leniency-exception.md) | `ignoreUnknownKeys = true` exception for the Discord DTO parser | accepted |
+| [0007](0007-dave-licensing.md) | DAVE licensing | accepted |
+| [0008](0008-chat-parser-library-decision.md) | Keep custom Discord-markdown parser (do not adopt `org.jetbrains:markdown`) | accepted |
 
 ## Rules
 
