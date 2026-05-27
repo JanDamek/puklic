@@ -7,6 +7,7 @@ import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.voice.AudioDevice
 import dev.puklic.voice.DaveUiState
+import dev.puklic.voice.IncomingCall
 import dev.puklic.voice.IncomingVideoFrame
 import dev.puklic.voice.VoiceBusyException
 import dev.puklic.voice.VoiceClient
@@ -97,6 +98,12 @@ private class RecordingVoiceClient(
 
     private val _incomingVideo = MutableStateFlow<Map<Int, IncomingVideoFrame>>(emptyMap())
     override val incomingVideo: StateFlow<Map<Int, IncomingVideoFrame>> = _incomingVideo.asStateFlow()
+
+    private val _incomingCalls = MutableStateFlow<List<IncomingCall>>(emptyList())
+    override val incomingCalls: StateFlow<List<IncomingCall>> = _incomingCalls.asStateFlow()
+
+    override suspend fun acceptIncoming(channelId: ChannelId) { /* no-op */ }
+    override suspend fun declineIncoming(channelId: ChannelId) { /* no-op */ }
 
     override suspend fun connect(guildId: GuildId?, channelId: ChannelId) {
         connectCalls.add(guildId to channelId)
