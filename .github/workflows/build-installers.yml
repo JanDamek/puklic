@@ -74,6 +74,14 @@ jobs:
       - name: Build installer (packageDistributionForCurrentOS)
         run: ./gradlew :desktop:app:packageDistributionForCurrentOS --no-daemon --no-configuration-cache --stacktrace
 
+      # `packageDistributionForCurrentOS` produces the packaged installers
+      # (.deb on Linux, .dmg on macOS) but does NOT emit the jpackage app-image
+      # directory we need as input to appimagetool. `createDistributable` is
+      # the Compose Desktop task that explicitly emits app-image/Puklic/.
+      - name: Build app-image directory (Linux only)
+        if: startsWith(matrix.os, 'ubuntu')
+        run: ./gradlew :desktop:app:createDistributable --no-daemon --no-configuration-cache --stacktrace
+
       # Compose Desktop's `TargetFormat.AppImage` is jpackage's `--type app-image`
       # which emits a runtime DIRECTORY tree (build/compose/binaries/main/app-image/Puklic/),
       # NOT a real .AppImage file. We wrap it into a real .AppImage with
