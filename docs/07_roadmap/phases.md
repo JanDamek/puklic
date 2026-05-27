@@ -46,7 +46,8 @@ Goal: a usable read+write client for everyday text communication.
 - [x] Reactions UI (add/remove, list)
 - [x] Message edit/delete sync via gateway
   - 2026-05-23: MESSAGE_UPDATE merges payload while preserving existing reactions; MESSAGE_DELETE + MESSAGE_DELETE_BULK remove from local storage; MessageRow shows "(edited)" next to the timestamp when `editedTimestamp != null`.
-- [ ] Email+password login (ADR-0002 Option B)
+- [x] Email+password login (ADR-0002 Option B)
+  - 2026-05-27: LoginScreen has Token/Email-Password tabs; `DiscordLoginClient` calls `POST /api/v10/auth/login`; TOTP MFA handled via `POST /api/v10/auth/mfa/totp`; captcha responses surface an error directing the user to the Token tab (no captcha solver — would be self-bot behavior); SMS/WebAuthn factors documented as token-paste fallback; resulting token persisted via the same `SecureStorage` path as token paste; passwords never logged or persisted.
 
 ## Phase 3 — Voice
 
