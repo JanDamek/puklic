@@ -22,7 +22,7 @@ public class UserOrchestrator(
     sessionScope: CoroutineScope,
     gatewaySource: GatewayEventSource,
     private val storage: UserRepository,
-) {
+) : CachedUserSearch {
     private val _selfUser = MutableStateFlow<UserSummary?>(null)
     public val selfUser: StateFlow<UserSummary?> = _selfUser.asStateFlow()
 
@@ -64,4 +64,11 @@ public class UserOrchestrator(
 
     /** Synchronous cache lookup against [storage]. */
     public suspend fun findById(id: dev.puklic.ids.UserId): UserSummary? = storage.findById(id)
+
+    /**
+     * Case-insensitive substring search across cached users (issue #17 — New DM picker).
+     * Delegates to [UserRepository.searchByName]; ordering / limit semantics are defined there.
+     */
+    public override suspend fun searchByName(query: String, limit: Int): List<UserSummary> =
+        storage.searchByName(query, limit)
 }

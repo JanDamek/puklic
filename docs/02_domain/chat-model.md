@@ -109,6 +109,25 @@ data class DmChannel(
 
 Sealed hierarchy → exhaustive `when` in UI / repository, no runtime casts.
 
+#### DM lifecycle (issue #17)
+
+A DM channel may already exist (delivered in `READY.private_channels` or via `CHANNEL_CREATE`)
+or be created on-demand by the user picking a recipient in the "Start new DM" picker. The
+picker sources candidates from the local cache only:
+
+1. Existing DM recipients (in-memory via `DmListOrchestrator.dms`)
+2. Persisted cached users (`UserRepository.searchByName` — populated by `READY.users`,
+   message authors, mentions, observed guild members)
+
+Self user, bots and system users are filtered out (manual DMs are user-to-user). Discord ToS
+forbids server-side user-directory enumeration; the picker therefore never queries any
+"search users" endpoint — only the local cache. See `NewDmSearch` in `:shared:repositories`.
+
+DM creation goes through `DiscordSessionBridge.createOrOpenDm` →
+`POST /users/@me/channels` with body `{"recipients":["<userId>"]}`. The endpoint is
+idempotent on Discord's side: calling it with a recipient that already has a DM channel
+returns the existing channel (same id). No client-side dedup is needed.
+
 ### `Attachment`
 
 ```kotlin

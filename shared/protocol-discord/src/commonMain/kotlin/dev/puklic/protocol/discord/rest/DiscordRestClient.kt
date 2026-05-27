@@ -78,6 +78,38 @@ public class DiscordRestClient(
     internal suspend fun getDmChannels(): Result<List<DiscordChannelDto>> =
         request("$baseUrl/users/@me/channels", ListSerializer(serializer<DiscordChannelDto>()))
 
+    /**
+     * Create a DM channel with the given recipient. Per Discord API v10 docs:
+     * `POST /users/@me/channels` with body `{"recipients":["<user_id>"]}` returns either a new
+     * DM channel or the existing one with that recipient — idempotent on Discord's side
+     * (issue #17). No client-side dedup needed.
+     */
+    internal suspend fun createDm(recipientId: dev.puklic.ids.UserId): Result<DiscordChannelDto> =
+        runCatching {
+            executeWithRetry {
+                httpClient.post("$baseUrl/users/@me/channels") {
+                    applyAuth()
+                    contentType(ContentType.Application.Json)
+                    setBody(
+                        DiscordJson.encodeToString(
+                            JsonElement.serializer(),
+                            buildJsonObject {
+                                put(
+                                    "recipients",
+                                    kotlinx.serialization.json.buildJsonArray {
+                                        add(kotlinx.serialization.json.JsonPrimitive(recipientId.value.toString()))
+                                    },
+                                )
+                            },
+                        ),
+                    )
+                }
+            }
+        }.fold(
+            onSuccess = { response -> decodeOrError(response, serializer<DiscordChannelDto>()) },
+            onFailure = { Result.failure(it) },
+        )
+
     internal suspend fun getMessages(
         channelId: ChannelId,
         limit: Int = MESSAGE_LIMIT_DEFAULT,

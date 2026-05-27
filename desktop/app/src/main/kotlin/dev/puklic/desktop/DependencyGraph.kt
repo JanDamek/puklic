@@ -342,12 +342,20 @@ public class DependencyGraph private constructor(
                     dev.puklic.voice.NoOpVoiceClient()
                 }
 
+            // Issue #17 — bridge the protocol-discord `DiscordSessionBridge.createOrOpenDm`
+            // surface to the session-layer `DmCreator` seam without leaking the protocol
+            // module's types into `:shared:session`.
+            val dmCreator = dev.puklic.session.DmCreator { recipientId ->
+                sessionBridge.createOrOpenDm(recipientId)
+            }
+
             return DiscordSession(
                 applicationScope = applicationScope,
                 token = token,
                 transport = transport,
                 orchestrators = orchestrators,
                 voiceClient = voiceClient,
+                dmCreator = dmCreator,
             )
         }
 

@@ -14,8 +14,10 @@ import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.domain.UserSummary
+import dev.puklic.repositories.NewDmSearch
 import dev.puklic.repositories.Orchestrators
 import dev.puklic.repositories.PresenceState
+import dev.puklic.session.DmCreator
 import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
 import dev.puklic.ui.screens.settings.SettingsCategory
@@ -43,6 +45,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
@@ -84,7 +87,83 @@ public class MainViewModel(
     initialPosition: LastPosition = LastPosition.Empty,
     public val voiceClient: Any? = null,
     private val sessionManager: SessionManager? = null,
+    private val dmCreator: DmCreator? = null,
 ) : ComponentContext by componentContext {
+
+    // ----- New DM picker state (issue #17) -----
+
+    /** Domain-level snapshot of the New-DM picker. */
+    public data class NewDmState(
+        val isOpen: Boolean = false,
+        val query: String = "",
+        val results: List<UserSummary> = emptyList(),
+        val isSubmitting: Boolean = false,
+    )
+
+    private val newDmState = MutableStateFlow(NewDmState())
+    public val newDm: StateFlow<NewDmState> = newDmState.asStateFlow()
+
+    private val newDmSearch: NewDmSearch? = orchestrators?.let { orch ->
+        NewDmSearch(
+            users = orch.user,
+            dms = orch.dms,
+            selfUserId = { orch.user.selfUser.value?.id },
+        )
+    }
+
+    /** Open the picker — resets query/results to a clean slate. */
+    public fun openNewDm() {
+        newDmState.value = NewDmState(isOpen = true)
+    }
+
+    public fun closeNewDm() {
+        newDmState.value = NewDmState()
+    }
+
+    /** Update the search query and refresh the result list (cancels in-flight searches). */
+    public fun updateNewDmQuery(query: String) {
+        val search = newDmSearch
+        newDmState.update { it.copy(query = query) }
+        if (search == null) return
+        scope.launch {
+            val matches = runCatching { search.search(query) }.getOrElse {
+                Logger.w("MainViewModel", it) { "newDm search failed" }
+                emptyList()
+            }
+            newDmState.update { state ->
+                if (state.query == query) state.copy(results = matches) else state
+            }
+        }
+    }
+
+    /**
+     * Issue `POST /users/@me/channels` for [recipientId], then select the returned DM channel.
+     * Idempotent on Discord's side — picking the same user repeatedly opens the same channel.
+     * Errors are logged and surfaced via the existing snackbar mechanism.
+     */
+    public fun pickNewDmRecipient(recipientId: UserId) {
+        val creator = dmCreator ?: run {
+            Logger.w("MainViewModel") { "pickNewDmRecipient called with no DmCreator wired" }
+            return
+        }
+        newDmState.update { it.copy(isSubmitting = true) }
+        scope.launch {
+            val outcome = runCatching { creator.createOrOpenDm(recipientId) }
+                .getOrElse { Result.failure(it) }
+            outcome
+                .onSuccess { channel ->
+                    selectDmHome()
+                    selectChannel(channel.id)
+                    closeNewDm()
+                }
+                .onFailure { t ->
+                    Logger.w("MainViewModel", t) { "createDm failed for recipient=$recipientId" }
+                    newDmState.update { it.copy(isSubmitting = false) }
+                    _snackbarMessage.emit(SNACKBAR_NEW_DM_FAILED)
+                }
+        }
+    }
+
 
     /**
      * Sign the user out of the current Discord session. Disconnects the gateway, clears the
@@ -406,5 +485,6 @@ public class MainViewModel(
         const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
         const val SNACKBAR_BUFFER = 4
         const val SNACKBAR_LEAVE_CURRENT_CALL = "Leave current call first"
+        const val SNACKBAR_NEW_DM_FAILED = "Could not start the DM. Please try again."
     }
 }

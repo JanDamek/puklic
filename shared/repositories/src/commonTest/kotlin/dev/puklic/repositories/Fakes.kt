@@ -170,6 +170,16 @@ internal class FakeUserRepository : UserRepository {
         persistedAll += users
         state.update { current -> current + users.associateBy { it.id } }
     }
+    override suspend fun searchByName(query: String, limit: Int): List<dev.puklic.domain.UserSummary> {
+        val q = query.trim().lowercase()
+        if (q.isEmpty() || limit <= 0) return emptyList()
+        return state.value.values
+            .filter {
+                it.username.lowercase().contains(q) ||
+                    (it.globalName?.lowercase()?.contains(q) == true)
+            }
+            .take(limit)
+    }
     override suspend fun delete(id: UserId) { state.update { it - id } }
 }
 

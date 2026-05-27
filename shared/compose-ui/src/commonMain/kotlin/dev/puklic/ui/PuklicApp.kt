@@ -80,6 +80,7 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
             initialPosition = pos,
             voiceClient = activeSession?.voiceClient,
             sessionManager = root.sessionManager,
+            dmCreator = activeSession?.dmCreator,
         )
     }
     val uriHandler = LocalUriHandler.current

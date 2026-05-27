@@ -15,6 +15,13 @@ SELECT * FROM user WHERE id = ?;
 selectByIds:
 SELECT * FROM user WHERE id IN ?;
 
+searchByName:
+SELECT * FROM user
+WHERE LOWER(username) LIKE LOWER(:pattern)
+   OR (global_name IS NOT NULL AND LOWER(global_name) LIKE LOWER(:pattern))
+ORDER BY updated_at DESC
+LIMIT :max;
+
 upsert:
 INSERT OR REPLACE INTO user(id, username, global_name, discriminator, avatar_hash, bot, system, updated_at)
 VALUES (?, ?, ?, ?, ?, ?, ?, ?);

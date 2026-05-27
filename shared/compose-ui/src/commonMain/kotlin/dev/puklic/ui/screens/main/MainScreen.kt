@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material3.CircularProgressIndicator
@@ -107,6 +108,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     dms = state.dmChannels,
                     selectedChannelId = state.selectedChannelId,
                     onSelectChannel = viewModel::selectChannel,
+                    onStartNewDm = viewModel::openNewDm,
                     modifier = paneModifier,
                 )
             } else {
@@ -152,6 +154,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
     }
         SnackbarHostMount(viewModel = viewModel)
         IncomingCallMount(viewModel = viewModel)
+        NewDmDialogMount(viewModel = viewModel)
         val settingsOpen by viewModel.settingsOpen.collectAsState()
         val settingsCategory by viewModel.selectedSettingsCategory.collectAsState()
         SettingsOverlay(
@@ -193,6 +196,25 @@ private fun UserInfoRowMount(viewModel: MainViewModel) {
         onMicToggle = viewModel::toggleSelfMute,
         onDeafToggle = viewModel::toggleSelfDeaf,
         onOpenSettings = { viewModel.openSettings(null) },
+    )
+}
+
+/**
+ * Mounts the "Start new DM" picker (issue #17). The picker is opened from the "+" affordance in
+ * [DmListPane]'s header. On result-click, the ViewModel issues `POST /users/@me/channels` and
+ * switches selection to the resulting (or existing) DM channel.
+ */
+@Composable
+private fun NewDmDialogMount(viewModel: MainViewModel) {
+    val state by viewModel.newDm.collectAsState()
+    if (!state.isOpen) return
+    dev.puklic.ui.components.NewDmDialog(
+        query = state.query,
+        results = state.results,
+        isSubmitting = state.isSubmitting,
+        onQueryChange = viewModel::updateNewDmQuery,
+        onPick = viewModel::pickNewDmRecipient,
+        onDismiss = viewModel::closeNewDm,
     )
 }
 
@@ -275,15 +297,28 @@ private fun DmListPane(
     dms: List<DmChannel>,
     selectedChannelId: ChannelId?,
     onSelectChannel: (ChannelId) -> Unit,
+    onStartNewDm: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalPuklicSpacing.current
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface).padding(spacing.space4)) {
-        Text(
-            "Direct Messages",
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                "Direct Messages",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            IconButton(onClick = onStartNewDm) {
+                Icon(
+                    imageVector = Icons.Filled.Add,
+                    contentDescription = "Start new DM",
+                )
+            }
+        }
         Spacer(Modifier.height(spacing.space4))
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Spacer(Modifier.height(spacing.space4))

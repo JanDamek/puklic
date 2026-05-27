@@ -867,4 +867,18 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
 public class DiscordSessionBridge(private val rest: DiscordRestClient) {
 
     public suspend fun fetchSelfUser(): Result<UserSummary> = rest.getSelfUser().map { it.toDomain() }
+
+    /**
+     * Create (or open the existing) DM channel with [recipientId]. Maps the REST DTO to a
+     * domain [Channel]. The endpoint `POST /users/@me/channels` is idempotent server-side:
+     * Discord returns the existing channel if one with that recipient already exists. The
+     * caller does not need to dedupe (issue #17).
+     *
+     * Returns [Result.failure] if the response cannot be mapped to a DM channel (unexpected
+     * channel type), or any [DiscordError] surfaced by the REST layer.
+     */
+    public suspend fun createOrOpenDm(recipientId: UserId): Result<Channel> =
+        rest.createDm(recipientId).mapCatching { dto ->
+            dto.toDomain() ?: error("createDm: unexpected channel type ${dto.type}")
+        }
 }

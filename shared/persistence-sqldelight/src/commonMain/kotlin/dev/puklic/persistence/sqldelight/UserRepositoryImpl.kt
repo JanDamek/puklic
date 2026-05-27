@@ -24,6 +24,21 @@ class UserRepositoryImpl(
         }
     }
 
+    override suspend fun searchByName(query: String, limit: Int): List<UserSummary> {
+        val trimmed = query.trim()
+        if (trimmed.isEmpty() || limit <= 0) return emptyList()
+        val pattern = "%${escapeLike(trimmed)}%"
+        return withContext(dispatcher) {
+            db.userQueries.searchByName(pattern, limit.toLong()).executeAsList().map { it.toDomain() }
+        }
+    }
+
+    private fun escapeLike(input: String): String =
+        // SQLite LIKE: % and _ are wildcards, \ used here as escape would require ESCAPE clause;
+        // simplest safe option is stripping them from user input — the picker query box is for
+        // names, not patterns, so wildcards are not a real user need.
+        input.replace("%", "").replace("_", "")
+
     override suspend fun persist(user: UserSummary) {
         withContext(dispatcher) { insert(user) }
     }
