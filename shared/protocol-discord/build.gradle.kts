@@ -25,7 +25,7 @@ kotlin {
             implementation(libs.ktor.client.okhttp)
         }
         // iosMain only exists on Apple hosts; guarded to support Linux CI.
-        sourceSets.findByName("iosMain")?.apply {
+        sourceSets.matching { it.name == "iosMain" }.configureEach {
             dependencies {
                 implementation(libs.ktor.client.darwin)
             }

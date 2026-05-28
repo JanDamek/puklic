@@ -11,6 +11,10 @@ kotlin {
         binaries.framework {
             baseName = "PuklicShared"
             isStatic = false
+            // SQLDelight NativeSqliteDriver pulls in co.touchlab:sqliter which expects the
+            // system libsqlite3 to be linked. Xcode would add it automatically for an app
+            // target, but a standalone Kotlin/Native framework needs the linker flag.
+            linkerOpts("-lsqlite3")
         }
     }
 
@@ -22,11 +26,26 @@ kotlin {
             implementation(projects.ios.platform)
             implementation(projects.shared.composeUi)
             implementation(projects.shared.session)
+            implementation(projects.shared.repositories)
+            implementation(projects.shared.protocolDiscord)
+            implementation(projects.shared.persistenceApi)
+            implementation(projects.shared.persistenceSqldelight)
+            implementation(projects.shared.voiceApi)
             implementation(projects.shared.platformApi)
+            implementation(projects.shared.ids)
             implementation(libs.koin.core)
             implementation(libs.decompose)
             implementation(compose.runtime)
             implementation(compose.ui)
+            implementation(libs.kotlinx.coroutines.core)
+            implementation(libs.kotlinx.datetime)
+            implementation(libs.kermit)
+            implementation(libs.ktor.client.core)
+            implementation(libs.ktor.client.darwin)
+            implementation(libs.ktor.client.websockets)
+            implementation(libs.ktor.client.content.negotiation)
+            implementation(libs.ktor.serialization.kotlinx.json)
+            implementation(libs.sqldelight.runtime)
         }
     }
 }

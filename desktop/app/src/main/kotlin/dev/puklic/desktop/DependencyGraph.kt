@@ -32,6 +32,7 @@ import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.protocol.discord.DiscordSessionBridge
 import dev.puklic.protocol.discord.discordJson
 import dev.puklic.protocol.discord.gateway.GatewayConnection
+import dev.puklic.protocol.discord.gateway.ktorGatewayTransportFactory
 import dev.puklic.protocol.discord.rest.DiscordLoginClient
 import dev.puklic.protocol.discord.rest.DiscordRestClient
 import dev.puklic.repositories.ChannelOrchestrator

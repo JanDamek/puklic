@@ -28,7 +28,7 @@ kotlin {
         }
         // iosMain is only created when Kotlin/Native iOS targets are enabled (Apple host).
         // On Linux CI, iOS targets are disabled — iosMain source set is not created.
-        sourceSets.findByName("iosMain")?.apply {
+        sourceSets.matching { it.name == "iosMain" }.configureEach {
             dependencies {
                 implementation(libs.sqldelight.native.driver)
             }

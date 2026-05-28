@@ -1,8 +1,5 @@
-package dev.puklic.desktop
+package dev.puklic.protocol.discord.gateway
 
-import dev.puklic.protocol.discord.gateway.GatewayFrameIn
-import dev.puklic.protocol.discord.gateway.GatewayTransport
-import dev.puklic.protocol.discord.gateway.GatewayTransportFactory
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
