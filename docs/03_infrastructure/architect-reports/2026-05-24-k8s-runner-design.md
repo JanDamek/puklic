@@ -82,14 +82,14 @@ Install **`actions-runner-controller`** in `gha-runner-scale-set` mode (GitHub-r
 **Pin:** AutoscalingRunnerSet always references specific date-sha tag, NOT `:latest`
 **Size budget:** <1.5 GiB
 
-**Base:** `ghcr.io/actions/actions-runner:2.323.0` (pinned to specific release; matches gha-runner-scale-set mode expectations).
+**Base:** Multi-stage. Stage 1 = `ghcr.io/actions/actions-runner:2.323.0` (used purely as the source of the runner agent binaries + node20 — pinned to specific release; matches gha-runner-scale-set mode expectations). Stage 2 = `ubuntu:22.04` for the actual runtime so the ~200 MB of docker-in-docker (`dockerd`, `containerd`, `runc`, `ctr`, `docker-proxy`) that the actions-runner image ships does NOT end up in the final layers. Puklic builds Compose Desktop apps + AppImages, not container images — there is no use case for the embedded Docker daemon.
 
-See `k8s/runner-image/Dockerfile` (SSOT). Layout (issue #10 slim — single
-RUN, aggressive cleanup, ninja-build dropped, bootstrap tools purged):
+See `k8s/runner-image/Dockerfile` (SSOT). Layout (issue #10 slim, 2026-05-28
+refactor — multi-stage + aggressive cleanup):
 
-1. Base: `ghcr.io/actions/actions-runner:2.323.0`
-2. Single `RUN` layer installs:
-   - bootstrap (transient): `ca-certificates curl wget gnupg`
+1. **Stage 1 (`runner-src`):** `ghcr.io/actions/actions-runner:2.323.0`. Prunes `/home/runner/externals` to `node20` only (modern actions use node20; legacy node16 dropped).
+2. **Stage 2 (final):** `ubuntu:22.04`. Single `RUN` installs:
+   - bootstrap (transient): `ca-certificates curl wget gnupg sudo`
    - JDK: `temurin-21-jdk` (Adoptium repo, GPG fingerprint verified against
      `ADOPTIUM_KEY_FP=3B04D753C9050D9A5D343F39843C48A565F8F04B`)
    - C++ toolchain: `build-essential cmake pkg-config libssl-dev` (no
@@ -100,11 +100,19 @@ RUN, aggressive cleanup, ninja-build dropped, bootstrap tools purged):
    - `appimagetool` 13 pinned by SHA-256
      (`0019dfc4b32d63c1392aa264aed2253c1e0c2fb09216f8e2cc269bbfb8bb49b5`)
 3. Same RUN purges `wget gnupg` (apt --auto-remove), wipes apt lists, doc/man
-   pages, non-English locales, tmp + logs.
+   pages, non-English locales, tmp + logs, JDK `src.zip`/`demo`/`sample`/`man`,
+   `/usr/share/{X11,icons,themes,backgrounds,applications,mime}`, all tzdata
+   except UTC + Europe/Prague, GCC LTO-dump debug tool.
+4. Final `COPY --from=runner-src` brings the runner agent (`/home/runner`) +
+   `node20` into the final image. UID/GID 1001 match upstream.
+5. `runner` user created with NOPASSWD sudo (matches upstream behaviour).
 
-Size budget (issue #10): <1.5 GiB. `build.sh` enforces with
-`docker image inspect --format '{{.Size}}'` and fails the build above the
-limit.
+Size budget (issue #10): <1.5 GiB. Measured **0.91 GiB** with the 2026-05-28
+multi-stage refactor (was 1.82 GiB single-stage, 1.62 GiB single-stage with
+aggressive strips — the docker-in-docker layer kept the single-stage image
+above budget because child-layer `rm` only creates whiteouts, not actual size
+reduction). `build.sh` continues to enforce with `docker image inspect
+--format '{{.Size}}'`.
 
 **Build + scan script** `k8s/runner-image/build.sh`:
 ```bash
