@@ -1,0 +1,4 @@
+app_identifier(ENV["BUNDLE_ID"] || "cz.damek.puklic.app")
+apple_id(ENV["FASTLANE_USER"]) if ENV["FASTLANE_USER"]
+team_id(ENV["TEAM_ID"] || "GR74KSG8M9")
+itc_team_id(ENV["ITC_TEAM_ID"]) if ENV["ITC_TEAM_ID"]

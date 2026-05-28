@@ -1,0 +1,82 @@
+# xcodegen config — generates iosApp/iosApp.xcodeproj
+#
+# Regenerate after edits:
+#   cd iosApp && xcodegen generate
+#
+# Architect references:
+#   docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md §2 / §5
+#   docs/03_infrastructure/architect-reports/2026-05-28-ios-app-framework.md
+#   docs/03_infrastructure/architect-reports/2026-05-28-ios-dependency-graph.md
+
+name: iosApp
+options:
+  bundleIdPrefix: cz.damek.puklic
+  deploymentTarget:
+    iOS: "15.0"
+  developmentLanguage: en
+  defaultConfig: Release
+  groupSortPosition: top
+  createIntermediateGroups: true
+
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    ENABLE_USER_SCRIPT_SANDBOXING: NO
+    # The framework is produced by Gradle; Xcode just links it.
+    LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+
+targets:
+  iosApp:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: iosApp/Sources
+      - path: iosApp/Resources
+        type: folder
+    info:
+      path: iosApp/Sources/Info.plist
+      properties:
+        CFBundleDisplayName: Puklic
+        CFBundleShortVersionString: "1.2.1"
+        CFBundleVersion: "1"
+        UILaunchScreen:
+          UIColorName: ""
+        UIRequiredDeviceCapabilities:
+          - armv7
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        NSAppTransportSecurity:
+          NSAllowsArbitraryLoads: false
+        ITSAppUsesNonExemptEncryption: false
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.damek.puklic.app
+        DEVELOPMENT_TEAM: GR74KSG8M9
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Embed the Compose iOS framework produced by Gradle.
+        FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
+        OTHER_LDFLAGS: "$(inherited) -framework PuklicShared"
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: -Onone
+          ONLY_ACTIVE_ARCH: YES
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: -O
+    preBuildScripts:
+      - name: "Build Kotlin framework"
+        script: |
+          cd "$SRCROOT/.."
+          ./gradlew :ios:app:embedAndSignAppleFrameworkForXcode
+        basedOnDependencyAnalysis: false

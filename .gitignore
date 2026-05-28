@@ -35,3 +35,17 @@ local.properties
 # K8s runner — realized Secrets (templates `.yaml.tmpl` are tracked)
 k8s/runner/secret-github-app.yaml
 k8s/runner/secret-registry-pull.yaml
+
+# Apple / iOS — secrets + generated artifacts
+/iosApp/iosApp.xcodeproj/xcuserdata/
+/iosApp/iosApp.xcodeproj/project.xcworkspace/xcuserdata/
+/dist/apple/ExportOptions-AppStore.filled.plist
+/dist/push/AuthKey_*.p8
+/.appstoreconnect/
+/build/ios-archive/
+/fastlane/report.xml
+/fastlane/Preview.html
+/fastlane/screenshots
+/fastlane/test_output
+/vendor/bundle/
+Gemfile.lock
