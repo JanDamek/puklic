@@ -59,9 +59,20 @@ internal class LinuxPortalScreenCast : AutoCloseable {
         Metadata(CURSOR_MASK_METADATA),
     }
 
-    data class PipeWireStream(val nodeIds: List<Int>, val fd: Int) {
-        /** First node id — most picks are a single monitor or single window. */
-        val firstNodeId: Int get() = nodeIds.first()
+    /**
+     * Result of a successful portal handshake: the PipeWire endpoint fd plus every sub-stream
+     * (video and audio) the compositor granted. Audio sub-streams only appear when both
+     * (a) `SelectSources(audio=true)` was requested and (b) the compositor honours it
+     * (see `PortalStream` kdoc for the support matrix).
+     */
+    data class PipeWireStream(val streams: List<PortalStream>, val fd: Int) {
+        /** First video node id — most picks are a single monitor or single window. */
+        val firstVideoNodeId: Int
+            get() = streams.videoNodes().firstOrNull()
+                ?: error("PipeWireStream has no video sub-stream (only audio?)")
+
+        /** First audio node id, or null if the compositor did not emit one. */
+        val firstAudioNodeId: Int? get() = streams.audioNodes().firstOrNull()
     }
 
     /**
@@ -136,9 +147,9 @@ internal class LinuxPortalScreenCast : AutoCloseable {
             withTimeout(overallTimeoutMs) {
                 val sessionHandle = createSession(sc)
                 selectSources(sc, sessionHandle, captureMode, cursorMode, includeAudio)
-                val nodeIds = start(sc, sessionHandle, parentWindow)
+                val streams = start(sc, sessionHandle, parentWindow)
                 val fd = sc.OpenPipeWireRemote(sessionHandle, emptyMap())
-                PipeWireStream(nodeIds, fd.getIntFileDescriptor())
+                PipeWireStream(streams, fd.getIntFileDescriptor())
             }
         } finally {
             runCatching { handlerCloseable.close() }
@@ -174,7 +185,7 @@ internal class LinuxPortalScreenCast : AutoCloseable {
         awaitResponse(sc.SelectSources(session, opts))
     }
 
-    private suspend fun start(sc: ScreenCast, session: DBusPath, parentWindow: String): List<Int> {
+    private suspend fun start(sc: ScreenCast, session: DBusPath, parentWindow: String): List<PortalStream> {
         val opts = mapOf<String, Variant<*>>(
             "handle_token" to Variant(newToken(REQUEST_TOKEN_PREFIX)),
         )
@@ -268,34 +279,54 @@ internal class LinuxPortalScreenCast : AutoCloseable {
         private fun newToken(prefix: String): String =
             prefix + UUID.randomUUID().toString().replace("-", "")
 
-        /**
-         * Pulls the first PipeWire node id out of the `streams` variant in a Start response.
-         * Wire signature is `a(ua{sv})`. Kept for legacy callers / tests.
-         */
-        internal fun extractStreams(results: Map<String, Variant<*>>): Int =
-            extractAllStreams(results).first()
+        // Per portal spec `org.freedesktop.portal.ScreenCast`: each stream's properties dict may
+        // contain `size: (ii)` (video pixel dims), `source_type: u`, `id: s`, etc. We rely on
+        // `size` as the canonical video discriminator — audio sub-streams have no pixel dims.
+        const val PORTAL_PROPERTY_SIZE = "size"
+        const val PORTAL_PROPERTY_SOURCE_TYPE = "source_type"
 
         /**
-         * Pulls all PipeWire node ids out of the `streams` variant in a Start response.
-         * Wire signature is `a(ua{sv})`. dbus-java typically deserialises this as
-         * `List<Object[]>` where each row is `[UInt32 nodeId, Map<String,Variant<?>> props]`.
+         * Pulls every PipeWire sub-stream out of the `streams` variant in a Start response.
+         * Wire signature is `a(ua{sv})`. dbus-java deserialises rows either as `Object[]` or
+         * `List<*>` (depending on version); both shapes are accepted. Each row becomes one
+         * [PortalStream]; the [PortalStreamKind] is inferred from the presence of a `size`
+         * property (see [PORTAL_PROPERTY_SIZE]).
+         *
+         * Returns an empty list when the compositor returned no streams. Throws on:
+         *  - missing `streams` key
+         *  - non-list value
+         *  - a row that is neither `Array<*>` nor `List<*>` (would mean a dbus-java API break)
+         *  - a row whose first element is not a `UInt32` node id
          */
-        internal fun extractAllStreams(results: Map<String, Variant<*>>): List<Int> {
+        @Suppress("UNCHECKED_CAST")
+        internal fun extractAllStreams(results: Map<String, Variant<*>>): List<PortalStream> {
             val streamsVariant = results["streams"]
                 ?: error("Start response missing 'streams'")
             val list = streamsVariant.value as? List<*>
                 ?: error("Start 'streams' not a List, was ${streamsVariant.value?.javaClass}")
-            if (list.isEmpty()) error("Start 'streams' list empty")
-            return list.map { extractNodeId(it) }
+            return list.map { row ->
+                val (nodeId, props) = decodeStreamRow(row)
+                val kind = if (props.containsKey(PORTAL_PROPERTY_SIZE)) {
+                    PortalStreamKind.Video
+                } else {
+                    PortalStreamKind.Audio
+                }
+                PortalStream(nodeId = nodeId, kind = kind, properties = props)
+            }
         }
 
-        /** Tolerant of either `Object[]` rows (dbus-java common) or a typed `DBusStruct`. */
-        internal fun extractNodeId(row: Any?): Int = when (row) {
-            is Array<*> -> (row.firstOrNull() as? UInt32)?.toInt()
-                ?: error("Stream row[0] not UInt32: ${row.firstOrNull()?.javaClass}")
-            is List<*> -> (row.firstOrNull() as? UInt32)?.toInt()
-                ?: error("Stream row[0] not UInt32 (List form): ${row.firstOrNull()?.javaClass}")
-            else -> error("Unknown stream row shape: ${row?.javaClass}")
+        /** Tolerant of either `Object[]` rows (dbus-java common) or a typed list. */
+        @Suppress("UNCHECKED_CAST")
+        private fun decodeStreamRow(row: Any?): Pair<Int, Map<String, Variant<*>>> {
+            val (idCell, propsCell) = when (row) {
+                is Array<*> -> row.getOrNull(0) to row.getOrNull(1)
+                is List<*> -> row.getOrNull(0) to row.getOrNull(1)
+                else -> error("Unknown stream row shape: ${row?.javaClass}")
+            }
+            val nodeId = (idCell as? UInt32)?.toInt()
+                ?: error("Stream row[0] not UInt32: ${idCell?.javaClass}")
+            val props = (propsCell as? Map<String, Variant<*>>) ?: emptyMap()
+            return nodeId to props
         }
     }
 }

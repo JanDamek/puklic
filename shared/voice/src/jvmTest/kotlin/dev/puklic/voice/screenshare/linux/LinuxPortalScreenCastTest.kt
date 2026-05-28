@@ -1,5 +1,8 @@
 package dev.puklic.voice.screenshare.linux
 
+import dev.puklic.voice.screenshare.linux.PortalStreamKind
+import dev.puklic.voice.screenshare.linux.audioNodes
+import dev.puklic.voice.screenshare.linux.videoNodes
 import org.freedesktop.dbus.FileDescriptor
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
@@ -61,45 +64,75 @@ class LinuxPortalScreenCastTest {
     }
 
     @Test
-    fun `extractStreams parses array-shaped row`() {
-        val nodeId = 42
-        val row: Array<Any?> = arrayOf(UInt32(nodeId.toLong()), emptyMap<String, Variant<*>>())
+    fun `extractAllStreams classifies a single video row by size property`() {
+        val sizeStruct: Array<Any?> = arrayOf(1920, 1080)
+        val props: Map<String, Variant<*>> = mapOf("size" to Variant<Array<Any?>>(sizeStruct, "(ii)"))
+        val row: Array<Any?> = arrayOf(UInt32(12L), props)
         val results: Map<String, Variant<*>> = mapOf(
             "streams" to Variant<List<*>>(listOf<Any?>(row), "a(ua{sv})"),
         )
-        assertEquals(nodeId, LinuxPortalScreenCast.extractStreams(results))
+
+        val streams = LinuxPortalScreenCast.extractAllStreams(results)
+        assertEquals(1, streams.size)
+        assertEquals(12, streams[0].nodeId)
+        assertEquals(PortalStreamKind.Video, streams[0].kind)
+        assertEquals(listOf(12), streams.videoNodes())
+        assertEquals(emptyList(), streams.audioNodes())
     }
 
     @Test
-    fun `extractStreams parses list-shaped row`() {
-        val nodeId = 7
-        val row: List<Any?> = listOf(UInt32(nodeId.toLong()), emptyMap<String, Variant<*>>())
+    fun `extractAllStreams classifies video plus audio rows`() {
+        val sizeStruct: Array<Any?> = arrayOf(1920, 1080)
+        val videoProps: Map<String, Variant<*>> = mapOf("size" to Variant<Array<Any?>>(sizeStruct, "(ii)"))
+        val videoRow: Array<Any?> = arrayOf(UInt32(12L), videoProps)
+        // Audio sub-stream: no "size" property — heuristic flags this as Audio.
+        val audioRow: List<Any?> = listOf(UInt32(13L), emptyMap<String, Variant<*>>())
         val results: Map<String, Variant<*>> = mapOf(
-            "streams" to Variant<List<*>>(listOf<Any?>(row), "a(ua{sv})"),
+            "streams" to Variant<List<*>>(listOf<Any?>(videoRow, audioRow), "a(ua{sv})"),
         )
-        assertEquals(nodeId, LinuxPortalScreenCast.extractStreams(results))
+
+        val streams = LinuxPortalScreenCast.extractAllStreams(results)
+        assertEquals(2, streams.size)
+        assertEquals(PortalStreamKind.Video, streams[0].kind)
+        assertEquals(PortalStreamKind.Audio, streams[1].kind)
+        assertEquals(listOf(12), streams.videoNodes())
+        assertEquals(listOf(13), streams.audioNodes())
     }
 
     @Test
-    fun `extractAllStreams returns every node id in order`() {
-        val rowA: List<Any?> = listOf(UInt32(11L), emptyMap<String, Variant<*>>())
-        val rowB: Array<Any?> = arrayOf(UInt32(22L), emptyMap<String, Variant<*>>())
+    fun `extractAllStreams treats all rows lacking size as audio`() {
+        val rowA: List<Any?> = listOf(UInt32(33L), emptyMap<String, Variant<*>>())
+        val rowB: Array<Any?> = arrayOf(UInt32(44L), emptyMap<String, Variant<*>>())
         val results: Map<String, Variant<*>> = mapOf(
             "streams" to Variant<List<*>>(listOf<Any?>(rowA, rowB), "a(ua{sv})"),
         )
-        assertEquals(listOf(11, 22), LinuxPortalScreenCast.extractAllStreams(results))
+
+        val streams = LinuxPortalScreenCast.extractAllStreams(results)
+        assertEquals(listOf(PortalStreamKind.Audio, PortalStreamKind.Audio), streams.map { it.kind })
+        assertEquals(emptyList(), streams.videoNodes())
+        assertEquals(listOf(33, 44), streams.audioNodes())
     }
 
     @Test
-    fun `extractStreams fails when streams missing`() {
-        assertFails { LinuxPortalScreenCast.extractStreams(emptyMap()) }
+    fun `extractAllStreams fails when streams missing`() {
+        assertFails { LinuxPortalScreenCast.extractAllStreams(emptyMap()) }
     }
 
     @Test
-    fun `extractStreams fails when streams empty list`() {
+    fun `extractAllStreams returns empty list when streams empty`() {
         val results: Map<String, Variant<*>> = mapOf(
             "streams" to Variant<List<*>>(emptyList<Any?>(), "a(ua{sv})"),
         )
-        assertFails { LinuxPortalScreenCast.extractStreams(results) }
+        assertEquals(emptyList(), LinuxPortalScreenCast.extractAllStreams(results))
+    }
+
+    @Test
+    fun `extractAllStreams fails on malformed row shape`() {
+        // A row that is neither Array nor List — bare nodeId. extractNodeId should surface
+        // an error rather than silently drop the stream (per HARD RULE #2 fail-fast).
+        val results: Map<String, Variant<*>> = mapOf(
+            "streams" to Variant<List<*>>(listOf<Any?>("not-a-row"), "a(ua{sv})"),
+        )
+        assertFails { LinuxPortalScreenCast.extractAllStreams(results) }
     }
 }

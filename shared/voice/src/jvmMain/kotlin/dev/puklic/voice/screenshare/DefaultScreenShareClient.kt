@@ -133,7 +133,7 @@ internal class DefaultScreenShareClient(
             // Width/height stay 0 (UNKNOWN); the encoder reads real dimensions from the
             // PipeWire stream once libavdevice opens it.
             val realSource = ScreenSource.Monitor(
-                id = stream.firstNodeId.toString(),
+                id = stream.firstVideoNodeId.toString(),
                 displayName = source.displayName,
                 widthPx = 0,
                 heightPx = 0,

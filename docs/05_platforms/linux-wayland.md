@@ -193,8 +193,30 @@ D-Bus runtime dependencies (already on every modern Wayland desktop):
 ### Known caveats
 
 - The portal flow is currently smoke-tested only; CI runs only the small reflection-based unit tests in `LinuxPortalScreenCastTest`.
-- dbus-java's deserialisation of `a(ua{sv})` (the `streams` field on Start's Response) is shape-dependent; `LinuxPortalScreenCast.extractStreams` currently handles both `Object[]` and `List<*>` rows. If a future dbus-java release switches to a typed `DBusStruct` shape, extend that helper.
+- dbus-java's deserialisation of `a(ua{sv})` (the `streams` field on Start's Response) is shape-dependent; `LinuxPortalScreenCast.extractAllStreams` handles both `Object[]` and `List<*>` rows. If a future dbus-java release switches to a typed `DBusStruct` shape, extend that helper.
 - No restore-token support yet; every screencast triggers the compositor picker. Adding `restore_token`/`persist_mode` (portal v4+) is a follow-up.
+
+### Audio sub-stream parsing (Phase 4.1 prerequisite)
+
+`SelectSources(audio=true)` is a best-effort request — the compositor may emit a second
+PipeWire node id for system audio alongside the video node, embed nothing, or silently
+ignore the request. `LinuxPortalScreenCast.extractAllStreams` parses every row of the
+portal's `streams: a(ua{sv})` payload into a typed `PortalStream` with `kind = Video |
+Audio`. Heuristic: presence of the `size: (ii)` property in the per-stream property dict
+marks a stream as video; absence marks it audio. Helpers `streams.videoNodes()` and
+`streams.audioNodes()` expose the two sub-lists.
+
+Compositor support matrix (verified May 2026):
+
+| Compositor               | Audio sub-stream emitted?                         |
+|--------------------------|---------------------------------------------------|
+| GNOME Mutter ≥ 45        | Yes — separate PipeWire node id                    |
+| KDE KWin ≥ 6.0           | Partial — gated by user's PipeWire setup           |
+| wlroots (Sway, Hyprland) | No — `audio` flag silently ignored                 |
+
+Encoder wiring for the audio node (Opus encode + transmit) is tracked in issue #25
+prerequisite (1) "SSRC / mixing model". Until that lands, an audio node returned by the
+portal is parsed and exposed via `PipeWireStream.firstAudioNodeId` but not consumed.
 
 ## Open questions
 
