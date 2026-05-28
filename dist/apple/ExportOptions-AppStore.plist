@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  ExportOptions plist template for `xcodebuild -exportArchive` (App Store distribution).
+  This file is a TEMPLATE. Before use:
+    1. Replace TEAM_ID_PLACEHOLDER with the Apple Team ID (current: GR74KSG8M9).
+    2. Replace BUNDLE_ID_PLACEHOLDER with the bundle ID (suggested: dev.puklic.ios).
+    3. Replace PROVISIONING_PROFILE_NAME_PLACEHOLDER with the App Store provisioning
+       profile name (created automatically when App ID is registered with Push
+       Notifications capability).
+    4. Save as `ExportOptions-AppStore.filled.plist` (gitignored) before running
+       fastlane/xcodebuild — never commit a filled copy.
+
+  See architect report:
+    docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md §5
+-->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>method</key>
+    <string>app-store</string>
+
+    <key>teamID</key>
+    <string>TEAM_ID_PLACEHOLDER</string>
+
+    <key>uploadBitcode</key>
+    <false/>
+
+    <key>uploadSymbols</key>
+    <true/>
+
+    <key>compileBitcode</key>
+    <false/>
+
+    <key>signingStyle</key>
+    <string>manual</string>
+
+    <key>provisioningProfiles</key>
+    <dict>
+        <key>BUNDLE_ID_PLACEHOLDER</key>
+        <string>PROVISIONING_PROFILE_NAME_PLACEHOLDER</string>
+    </dict>
+
+    <key>signingCertificate</key>
+    <string>Apple Distribution</string>
+
+    <key>destination</key>
+    <string>upload</string>
+
+    <key>stripSwiftSymbols</key>
+    <true/>
+</dict>
+</plist>

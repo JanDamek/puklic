@@ -1,0 +1,89 @@
+# Fastfile.template — fastlane configuration for puklic iOS TestFlight uploads.
+#
+# This is a TEMPLATE. Copy to `fastlane/Fastfile` (NOT committed) and verify all
+# environment variables are set in the calling environment (CI secrets or local
+# shell). Never put credentials inline.
+#
+# Required environment variables (set externally, never in this file):
+#
+#   ASC_KEY_ID            App Store Connect API Key ID
+#                         (currently active: 6C6D4D726S)
+#   ASC_ISSUER_ID         App Store Connect Issuer UUID
+#                         (currently: 69a6de7f-7dab-47e3-e053-5b8c7c11a4d1)
+#   ASC_KEY_PATH          Absolute path to ASC API .p8 file
+#                         (currently: ~/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8)
+#   TEAM_ID               Apple Developer Team ID (currently: GR74KSG8M9)
+#   BUNDLE_ID             iOS bundle identifier (suggested: dev.puklic.ios)
+#
+# Optional:
+#   GITHUB_RUN_NUMBER     Monotonic build number for TestFlight (default: timestamp)
+#
+# Reference:
+#   docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md §5
+#   https://docs.fastlane.tools/actions/pilot/
+#   https://docs.fastlane.tools/app-store-connect-api/
+
+default_platform(:ios)
+
+REQUIRED_ENV = %w[ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_PATH TEAM_ID BUNDLE_ID].freeze
+
+before_all do
+  missing = REQUIRED_ENV.reject { |k| ENV[k] && !ENV[k].empty? }
+  UI.user_error!("Missing required env vars: #{missing.join(', ')}") unless missing.empty?
+end
+
+platform :ios do
+  desc "Build iOS framework, archive, export, and upload to TestFlight (internal)."
+  lane :beta do
+    # 1. Build the Kotlin/Native framework via Gradle.
+    sh("cd .. && ./gradlew :ios:app:embedAndSignAppleFrameworkForXcode")
+
+    # 2. Set build number to CI run number (monotonic) or current epoch.
+    build_number = ENV["GITHUB_RUN_NUMBER"] || Time.now.to_i.to_s
+    increment_build_number(
+      build_number: build_number,
+      xcodeproj: "../iosApp/iosApp.xcodeproj"
+    )
+
+    # 3. App Store Connect API key for non-interactive auth.
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200, # 20 min, Apple max
+      in_house: false
+    )
+
+    # 4. Build + archive.
+    build_app(
+      project: "../iosApp/iosApp.xcodeproj",
+      scheme: "iosApp",
+      configuration: "Release",
+      export_method: "app-store",
+      export_options: "../dist/apple/ExportOptions-AppStore.filled.plist",
+      clean: true,
+      output_directory: "../build/ios-archive",
+      output_name: "Puklic.ipa"
+    )
+
+    # 5. Upload to TestFlight (internal testers only; no external review submission).
+    pilot(
+      api_key: api_key,
+      ipa: "../build/ios-archive/Puklic.ipa",
+      skip_waiting_for_build_processing: true,
+      skip_submission: true, # do not submit for external beta review
+      changelog: "Internal build #{build_number}"
+    )
+  end
+
+  desc "Smoke-check ASC API connectivity (no upload)."
+  lane :asc_ping do
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"]
+    )
+    UI.success("ASC API key loaded: KID=#{ENV['ASC_KEY_ID']}, issuer=#{ENV['ASC_ISSUER_ID']}")
+    UI.message("Verify with: ~/.appstoreconnect/asc_api.sh apps")
+  end
+end

@@ -109,6 +109,26 @@ is deferred to 4.1.
 
 See [docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md](../03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md) §6–§8.
 
+## Phase 6 — Apple distribution (iOS + Mac App Store via TestFlight, internal testers)
+
+Scope set 2026-05-28 per architect report
+[`2026-05-28-apple-distribution.md`](../03_infrastructure/architect-reports/2026-05-28-apple-distribution.md).
+Strategy: single "Designed for iPad on Mac" app (one iOS arm64 binary serves
+iPhone, iPad, and Apple Silicon Macs). Chat-only build (no voice, no screenshare)
+— GPL-3.0 deps (FFmpeg, libx264, libdave) excluded to satisfy App Store §3.
+Desktop builds (GitHub Releases) keep full feature set.
+
+- [ ] Slice 1 — iOS dep boundary + `verifyIosNoGplDeps` Gradle task
+- [ ] Slice 2 — Shared modules enable iOS targets; iOS `actual` impls
+- [ ] Slice 3 — `:ios:app` Compose iOS framework export (`PuklicShared.framework`)
+- [ ] Slice 4 — `iosApp/iosApp.xcodeproj` (Swift host) + Info.plist + entitlements
+- [ ] Slice 5 — App ID + ASC record (manual user steps in Apple portals)
+- [ ] Slice 6 — fastlane Fastfile + ExportOptions + CI workflow `apple-testflight.yml`
+- [ ] Slice 7 — First TestFlight upload + Beta App Review submission
+- [ ] Slice 8 — Internal-tester group invite
+- [ ] Slice 9 — APN `.p8` auth key provisioning (push infra prep; no consumer yet)
+- [ ] Slice 10 — Firebase project + service-account JSON (Android push prep; no consumer yet)
+
 ## Phase 5 — Optimisation
 
 - [ ] Memory profiling (JFR baseline + per-screen flamegraph)
@@ -143,4 +163,5 @@ user "všechny platformy stejně":
 - Windows desktop (any arch): **out of scope**
 - macOS x86_64 (Intel): **out of scope**
 - Android: future mobile phase (KMP scaffolding ready, not actively shipping)
-- iOS: future mobile phase (depends on Compose iOS maturity)
+- iOS (App Store, chat-only, Designed for iPad on Mac): **planned Phase 6** —
+  architect report 2026-05-28, see Phase 6 above.
