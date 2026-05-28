@@ -20,12 +20,12 @@ Neither file is consumed directly. You **must** fill the placeholders into
 
 1. **Confirm Apple Team ID**: currently `GR74KSG8M9` (from `~/.appstoreconnect/asc_api.sh`).
 
-2. **Decide bundle ID**: suggested `dev.puklic.ios`. Whatever value chosen MUST
+2. **Decide bundle ID**: suggested `cz.damek.puklic.app`. Whatever value chosen MUST
    match the App ID registered in Apple Developer portal.
 
 3. **Register App ID** (manual, in Apple Developer portal):
    - Certificates, Identifiers & Profiles → Identifiers → ➕ → App IDs → App
-   - Bundle ID = explicit, e.g. `dev.puklic.ios`
+   - Bundle ID = explicit, e.g. `cz.damek.puklic.app`
    - Capabilities: ✅ Push Notifications. Nothing else.
    - Register.
 
@@ -69,7 +69,7 @@ Neither file is consumed directly. You **must** fill the placeholders into
    export ASC_ISSUER_ID=69a6de7f-7dab-47e3-e053-5b8c7c11a4d1
    export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8"
    export TEAM_ID=GR74KSG8M9
-   export BUNDLE_ID=dev.puklic.ios
+   export BUNDLE_ID=cz.damek.puklic.app
    ```
 
 9. **Smoke-test ASC connectivity**:

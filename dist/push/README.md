@@ -33,7 +33,7 @@ Apple Developer portal access required.
 - [ ] Name: `Puklic APNs`.
 - [ ] Check ✅ "Apple Push Notifications service (APNs)".
 - [ ] (Optional, recommended) restrict the key to specific app IDs by selecting
-      "Configure" → restrict to `dev.puklic.ios` (or your chosen bundle ID).
+      "Configure" → restrict to `cz.damek.puklic.app` (or your chosen bundle ID).
 - [ ] Continue → Register → **Download `AuthKey_<KID>.p8`** (one-shot — Apple
       will never let you re-download).
 - [ ] Note the Key ID shown on the Keys list (10-character alphanumeric).
@@ -61,7 +61,7 @@ Key**, NOT an APNs key (confirmed in `~/.appstoreconnect/asc_api.sh`). Add the
 | Auth | `Authorization: bearer <JWT>` — JWT signed with the `.p8` key |
 | JWT header | `{"alg":"ES256","kid":"<KEY_ID>","typ":"JWT"}` |
 | JWT payload | `{"iss":"<TEAM_ID>","iat":<now>}` (TTL ≤ 1 hour) |
-| `apns-topic` header | Bundle ID exactly (e.g. `dev.puklic.ios`) |
+| `apns-topic` header | Bundle ID exactly (e.g. `cz.damek.puklic.app`) |
 | `apns-push-type` header | `alert` for visible notifications, `background` for silent |
 | `apns-priority` | `10` (immediate) or `5` (conserve battery) |
 
@@ -103,7 +103,7 @@ Android push consumer wired up violates HARD RULE #2 (no half-states).
 When Android push is implemented:
 
 - Firebase Console → Project settings → Your apps → ➕ Add app → Android.
-- Android package name: `dev.puklic.android`.
+- Android package name: `cz.damek.puklic.android`.
 - Download `google-services.json` → place at `android/app/google-services.json`.
 - Add to `.gitignore`.
 

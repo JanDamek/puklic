@@ -130,7 +130,7 @@ A new convention plugin `puklic.kmp-shared-ios` (or extend existing `puklic.kmp-
 - Build a Kotlin/Native framework that exports `ComposeUIViewController { PuklicAppRoot() }`.
 - The Xcode app (`iosApp/iosApp.xcodeproj`) imports the framework and hosts the
   view controller as its root.
-- Bundle ID: `dev.puklic.ios` (suggested; user decides at App ID creation in
+- Bundle ID: `cz.damek.puklic.app` (suggested; user decides at App ID creation in
   Developer portal).
 - **No dependency on `:shared:voice` or `:shared:voice-dave`.** Enforced by:
   ```
@@ -233,7 +233,7 @@ task). No CocoaPods, no SPM — direct Gradle integration is the modern path
 
 | Key | Value | Why |
 |---|---|---|
-| `CFBundleIdentifier` | `dev.puklic.ios` (TBD with user) | App ID |
+| `CFBundleIdentifier` | `cz.damek.puklic.app` (TBD with user) | App ID |
 | `CFBundleShortVersionString` | from `gradle.properties:puklic.version` | matches desktop |
 | `CFBundleVersion` | CI build number | TestFlight requires monotonic |
 | `LSApplicationCategoryType` | `public.app-category.social-networking` | App Store category |
@@ -289,7 +289,7 @@ ASC_KEY_ID=6C6D4D726S
 ASC_ISSUER_ID=69a6de7f-7dab-47e3-e053-5b8c7c11a4d1
 ASC_KEY_PATH=/Users/runner/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8
 TEAM_ID=GR74KSG8M9
-BUNDLE_ID=dev.puklic.ios     # TBD; user confirms at App ID creation
+BUNDLE_ID=cz.damek.puklic.app     # TBD; user confirms at App ID creation
 APP_STORE_CONNECT_APP_ID=    # populated after App Store Connect record created
 ```
 
@@ -307,7 +307,7 @@ TestFlight rejects duplicate `(CFBundleShortVersionString, CFBundleVersion)`. Us
 - Apple Developer membership (paid, user has — Team ID `GR74KSG8M9` confirmed in `asc_api.sh`).
 - macOS host with Xcode 15+ (CI: `macos-14` runner).
 - Distribution certificate "Apple Distribution" in keychain (fastlane `match` recommended for CI; for local-host the user installs once).
-- Provisioning profile "App Store" for `dev.puklic.ios`. Auto-managed via `xcodebuild -allowProvisioningUpdates` once Team ID + App ID are configured.
+- Provisioning profile "App Store" for `cz.damek.puklic.app`. Auto-managed via `xcodebuild -allowProvisioningUpdates` once Team ID + App ID are configured.
 
 ---
 
@@ -343,7 +343,7 @@ APN keys).
 1. Apple Developer portal → Keys → ➕ → name "Puklic APNs", check "Apple Push Notifications service (APNs)" → Continue → Register.
 2. Download the generated `AuthKey_<KID>.p8` **once** (cannot be re-downloaded).
 3. Store at `~/.appstoreconnect/private_keys/AuthKey_<KID>_APNS.p8` (rename to disambiguate from the ASC key).
-4. Record the Key ID + Team ID (`GR74KSG8M9`) + topic (bundle ID `dev.puklic.ios`).
+4. Record the Key ID + Team ID (`GR74KSG8M9`) + topic (bundle ID `cz.damek.puklic.app`).
 5. The APN topic for HTTP/2 push is exactly the bundle ID for alerts. (`.voip` and `.complication` suffixes are NOT needed for puklic.)
 
 ### 6.3 Why `.p8` over legacy `.p12`
@@ -354,7 +354,7 @@ APN keys).
 
 ### 6.4 Bundle ID push capability
 
-When the App ID `dev.puklic.ios` is created (manual step in Developer portal):
+When the App ID `cz.damek.puklic.app` is created (manual step in Developer portal):
 - Check "Push Notifications" capability.
 - No additional configuration needed for the `.p8` key path (one key services all App IDs in the team).
 
@@ -383,7 +383,7 @@ See `dist/push/README.md` for the manual steps list, kept in repo for future ref
 2. Inside the project → ⚙️ Project settings → "Service accounts" → "Generate new private key" → downloads `puklic-firebase-adminsdk-<hash>.json`.
 3. Store at `~/.firebase/puklic-fcm-service-account.json` (do not commit).
 4. ⚙️ Project settings → "Cloud Messaging" tab → note the Sender ID + Server Key (only for reference; not used in HTTP v1).
-5. For Android (future): ⚙️ → "Add app" → Android → package `dev.puklic.android` → download `google-services.json` → place at `android/app/google-services.json`. **Not added to repo yet** (no Android push consumer).
+5. For Android (future): ⚙️ → "Add app" → Android → package `cz.damek.puklic.android` → download `google-services.json` → place at `android/app/google-services.json`. **Not added to repo yet** (no Android push consumer).
 6. For iOS — Firebase has an APNs bridge but **not needed for puklic**: we use APNs directly. FCM is only consulted for Android in our design. (FCM-on-iOS is for projects that want a single push abstraction; we don't.)
 
 ### 7.3 What gets prepared in repo today
@@ -416,7 +416,7 @@ Each slice has its own architect/critic/test-first/impl/critic/deploy pipeline (
 | 2 | **Shared modules iOS targets enabled** | All Apache-2.0 shared modules declare `iosArm64/iosX64/iosSimulatorArm64`. New `actual` impls for `:shared:platform-api` (Keychain, file picker stub, clipboard, logdir, openURL), `:shared:protocol-discord` (Ktor Darwin), `:shared:persistence-sqldelight` (NativeSqliteDriver). Tests green on all three iOS targets. | none |
 | 3 | **`:ios:app` Compose iOS framework** | `:ios:app` exports `PuklicShared.framework` via `binaries.framework`. `ComposeUIViewController { PuklicAppRoot() }` returns a real composable that hosts the existing Compose UI tree. Gradle task `embedAndSignAppleFrameworkForXcode` works. | none |
 | 4 | **Xcode project (iosApp/)** | `iosApp/iosApp.xcodeproj` committed (no `.xcuserdata`). `iOSApp.swift` + `ContentView.swift` hosting the framework. Builds to `.ipa` on local macOS host (manual signing OK). Info.plist + entitlements per §4. | Apple Developer membership active (have it). |
-| 5 | **App ID + capabilities in Developer portal** | User creates App ID `dev.puklic.ios`, enables Push Notifications + (no other capabilities). Records App Store Connect app record. **Manual user step** — architect issues a checklist. | User action |
+| 5 | **App ID + capabilities in Developer portal** | User creates App ID `cz.damek.puklic.app`, enables Push Notifications + (no other capabilities). Records App Store Connect app record. **Manual user step** — architect issues a checklist. | User action |
 | 6 | **fastlane + ExportOptions** | `fastlane/` directory with Fastfile (from template in `dist/apple/Fastfile.template`), `ExportOptions-AppStore.plist`. CI workflow `apple-testflight.yml` triggered manually or on git tag `ios-v*`. | ASC API key already on disk (`AuthKey_6C6D4D726S.p8`). User adds CI secrets. |
 | 7 | **First TestFlight upload + Beta App Review** | CI uploads .ipa to TestFlight. First build triggers Beta App Review (always required for new app, internal-only or not — Apple's rule for first build). Submission notes acknowledge §9 risks. | App Store Connect record created in #5. |
 | 8 | **Internal tester group invite** | App Store Connect → TestFlight → Internal Testing → group "Internal" with the user's Apple ID(s). After build is approved by Beta App Review (~24-48h), users receive TestFlight invite. | Beta App Review approval. |
@@ -469,7 +469,7 @@ ready, consumer when designed).
 | ASC Issuer ID | `69a6de7f-7dab-47e3-e053-5b8c7c11a4d1` | Already in `asc_api.sh`. ✅ resolved. |
 | ASC API Key ID | `6C6D4D726S` | Already on disk + in `asc_api.sh`. ✅ resolved. |
 | Apple Team ID | `GR74KSG8M9` | Already in `asc_api.sh`. ✅ resolved. |
-| iOS Bundle ID | **TBD** (recommendation: `dev.puklic.ios`) | User confirms in Slice 5. |
+| iOS Bundle ID | **TBD** (recommendation: `cz.damek.puklic.app`) | User confirms in Slice 5. |
 | App Store Connect App ID | **TBD** | User creates App Record in Slice 5. |
 | **APN Auth Key (`.p8`)** | **NOT YET CREATED** | User manually generates in Apple Developer portal — Slice 9. |
 | **APN Key ID** | **TBD** | Output of Slice 9. |
@@ -484,7 +484,7 @@ The two `.p8` files on disk today are BOTH ASC API keys (the modern Team Key + a
 
 Cannot be automated. User does these in order:
 
-- [ ] Slice 5a: Apple Developer portal → Certificates, Identifiers & Profiles → Identifiers → ➕ → App IDs → App → Bundle ID `dev.puklic.ios` (or chosen) → enable "Push Notifications" capability → Register.
+- [ ] Slice 5a: Apple Developer portal → Certificates, Identifiers & Profiles → Identifiers → ➕ → App IDs → App → Bundle ID `cz.damek.puklic.app` (or chosen) → enable "Push Notifications" capability → Register.
 - [ ] Slice 5b: App Store Connect → My Apps → ➕ → New App → platform "iOS" → check "Make this app available on Apple Silicon Macs" (Designed for iPad on Mac) → Bundle ID = above → SKU = `puklic-ios` → Primary Language = English → Create.
 - [ ] Slice 5c: App Store Connect → Apps → Puklic → App Information → fill in: category (Social Networking), content rights, age rating questionnaire. Privacy policy URL + support URL required (host on GitHub Pages or puklic.dev).
 - [ ] Slice 9 (push prep): Developer portal → Keys → ➕ → "Puklic APNs" → check "Apple Push Notifications service (APNs)" → Continue → Register → Download `.p8` (one-shot) → store at `~/.appstoreconnect/private_keys/AuthKey_<KID>_APNS.p8`.
@@ -500,7 +500,7 @@ See §7.2 above. Repeated as checklist:
 - [ ] "Add project" → name "Puklic" → disable Google Analytics (not needed) → Create.
 - [ ] Project settings ⚙️ → "Service accounts" tab → "Firebase Admin SDK" → "Generate new private key" → download JSON.
 - [ ] Store at `~/.firebase/puklic-fcm-service-account.json` (chmod 600).
-- [ ] (Future, when Android push lands) Project settings → "Your apps" → ➕ → Android → package name `dev.puklic.android` → download `google-services.json` → place in `android/app/`. **DO NOT** add until Android push consumer is implemented (would be a half-state).
+- [ ] (Future, when Android push lands) Project settings → "Your apps" → ➕ → Android → package name `cz.damek.puklic.android` → download `google-services.json` → place in `android/app/`. **DO NOT** add until Android push consumer is implemented (would be a half-state).
 
 ---
 

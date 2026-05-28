@@ -13,7 +13,7 @@
 #   ASC_KEY_PATH          Absolute path to ASC API .p8 file
 #                         (currently: ~/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8)
 #   TEAM_ID               Apple Developer Team ID (currently: GR74KSG8M9)
-#   BUNDLE_ID             iOS bundle identifier (suggested: dev.puklic.ios)
+#   BUNDLE_ID             iOS bundle identifier (suggested: cz.damek.puklic.app)
 #
 # Optional:
 #   GITHUB_RUN_NUMBER     Monotonic build number for TestFlight (default: timestamp)
