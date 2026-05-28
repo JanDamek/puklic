@@ -1,8 +1,19 @@
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
+
 plugins {
     id("puklic.ios-library")
+    id("org.jetbrains.compose")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 kotlin {
+    targets.withType<KotlinNativeTarget>().configureEach {
+        binaries.framework {
+            baseName = "PuklicShared"
+            isStatic = false
+        }
+    }
+
     sourceSets {
         // For iOS-only modules, commonMain == iosMain (all targets are iOS).
         // Using commonMain avoids the lazy-initialization issue with the hierarchy template's
@@ -11,7 +22,11 @@ kotlin {
             implementation(projects.ios.platform)
             implementation(projects.shared.composeUi)
             implementation(projects.shared.session)
+            implementation(projects.shared.platformApi)
             implementation(libs.koin.core)
+            implementation(libs.decompose)
+            implementation(compose.runtime)
+            implementation(compose.ui)
         }
     }
 }
