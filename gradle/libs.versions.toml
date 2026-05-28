@@ -28,7 +28,7 @@ coil = "3.1.0"
 compose-material3-adaptive = "1.1.0"
 
 # DI
-koin = "4.1.0"
+koin = "4.2.1"
 
 # Logging
 kermit = "2.0.5"
