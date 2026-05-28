@@ -84,25 +84,85 @@ class DefaultScreenShareClientTest {
     }
 
     @Test
-    fun start_with_share_audio_sends_speaking_mask_three() = runTest(UnconfinedTestDispatcher()) {
+    fun start_with_share_audio_sends_separate_soundshare_speaking_and_op12_audio_ssrc() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Per architect report 2026-05-28-screencast-audio-ssrc.md §4 (Option B):
+            //  - soundshare uses a separate SSRC = videoSsrc + 1
+            //  - Op 5 SPEAKING(2) on soundshare SSRC (mic stays as-is, not promoted to mask 3)
+            //  - Op 12 `audio_ssrc` rebinds to soundshare SSRC for the share-with-audio case
+            val gw = FakeVoiceGateway()
+            val client = newClient(
+                scope = this,
+                gw = gw,
+                videoSsrc = 7,
+                audioSsrc = 13,
+                encoderFactory = { _, _, _ -> FakeEncoder() },
+            )
+
+            client.start(sampleSource(), shareAudio = true)
+
+            val expectedSoundshareSsrc = 7 + 1
+            // Exactly one Op 5 SPEAKING(SOUNDSHARE=2) on the soundshare SSRC. Mic Op 5 is owned
+            // by the audio capture pipeline (DefaultVoiceClient), not by the screenshare client.
+            assertEquals(1, gw.speakings.size, "expected exactly one Op 5 from screenshare client")
+            val sp = gw.speakings.single()
+            assertEquals(SPEAKING_SOUNDSHARE, sp.speaking)
+            assertEquals(expectedSoundshareSsrc, sp.ssrc)
+
+            // Op 12 `audio_ssrc` must point at the soundshare SSRC, not the mic SSRC.
+            val op12 = gw.videoStreams.single()
+            assertEquals(expectedSoundshareSsrc, op12.audioSsrc)
+            assertEquals(7, op12.videoSsrc)
+            assertEquals(true, op12.active)
+
+            client.stop()
+        }
+
+    @Test
+    fun start_without_share_audio_keeps_mic_audio_ssrc_on_op12() = runTest(UnconfinedTestDispatcher()) {
+        // Per architect report §4.3: when shareAudio=false, Op 12 `audio_ssrc` stays = micSsrc.
         val gw = FakeVoiceGateway()
         val client = newClient(
             scope = this,
             gw = gw,
             videoSsrc = 7,
             audioSsrc = 13,
-            encoderFactory = { _, _, _ ->FakeEncoder() },
+            encoderFactory = { _, _, _ -> FakeEncoder() },
+        )
+
+        client.start(sampleSource(), shareAudio = false)
+
+        val op12 = gw.videoStreams.single()
+        assertEquals(13, op12.audioSsrc, "audio_ssrc must remain micSsrc when not sharing audio")
+
+        client.stop()
+    }
+
+    @Test
+    fun stop_with_share_audio_sends_soundshare_speaking_zero() = runTest(UnconfinedTestDispatcher()) {
+        // Per architect report §4.2: stop sends SPEAKING(0) on the soundshare SSRC to release
+        // the share-audio indicator on receivers.
+        val gw = FakeVoiceGateway()
+        val client = newClient(
+            scope = this,
+            gw = gw,
+            videoSsrc = 100,
+            audioSsrc = 200,
+            encoderFactory = { _, _, _ -> FakeEncoder() },
         )
 
         client.start(sampleSource(), shareAudio = true)
-
-        // Exactly one Op 5 SPEAKING with mask 3 (MICROPHONE|SOUNDSHARE) keyed on audio SSRC.
-        assertEquals(1, gw.speakings.size, "expected exactly one Op 5")
-        val sp = gw.speakings.single()
-        assertEquals(SPEAKING_MIC_AND_SOUNDSHARE, sp.speaking)
-        assertEquals(13, sp.ssrc)
+        gw.speakings.clear()
 
         client.stop()
+
+        val expectedSoundshareSsrc = 100 + 1
+        // stop() must emit exactly SPEAKING(0) on the soundshare SSRC. It does NOT touch the mic
+        // SSRC speaking flag because the mic Op 5 frames are owned by the audio capture pipeline.
+        assertEquals(1, gw.speakings.size, "expected exactly one Op 5 from stop()")
+        val sp = gw.speakings.single()
+        assertEquals(0, sp.speaking)
+        assertEquals(expectedSoundshareSsrc, sp.ssrc)
     }
 
     @Test
@@ -149,10 +209,10 @@ class DefaultScreenShareClientTest {
         assertEquals(2, gw.videoStreams.size, "expected a second Op 12 from stop()")
         val stopCall = gw.videoStreams.last()
         assertEquals(false, stopCall.active)
-        // Speaking reset to MIC_ONLY.
+        // No soundshare speaking traffic at all when shareAudio was false on start().
         assertTrue(
-            gw.speakings.any { it.speaking == SPEAKING_MIC_ONLY && it.ssrc == 2 },
-            "expected SPEAKING(1) reset on stop, got=${gw.speakings}",
+            gw.speakings.isEmpty(),
+            "expected no Op 5 from stop() when share started without audio, got=${gw.speakings}",
         )
         assertEquals(ScreenShareState.Idle, client.state.value)
     }
@@ -204,8 +264,7 @@ class DefaultScreenShareClientTest {
     )
 
     private companion object {
-        const val SPEAKING_MIC_ONLY = 1
-        const val SPEAKING_MIC_AND_SOUNDSHARE = 3
+        const val SPEAKING_SOUNDSHARE = 2
     }
 
     private object EmptyEnumerator : ScreenSourceEnumerator {

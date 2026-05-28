@@ -83,6 +83,9 @@ internal class DefaultScreenShareClient(
     private var encoder: VideoEncoder? = null
     private var sendJob: Job? = null
     private var activePortal: LinuxPortalScreenCast? = null
+    // Tracked across start()/stop() so stop() can release the soundshare SPEAKING flag on the
+    // same SSRC that start() raised it on. Null means no share-with-audio session is active.
+    private var activeSoundshareSsrc: Int? = null
 
     override suspend fun listSources(): List<ScreenSource> = enumerator.list()
 
@@ -103,16 +106,22 @@ internal class DefaultScreenShareClient(
         }
         _state.value = ScreenShareState.Negotiating(source)
 
-        val audioSsrc = getAudioSsrc()
+        val micSsrc = getAudioSsrc()
         val videoSsrc = getVideoSsrc()
         if (videoSsrc == 0) {
             _state.value = ScreenShareState.Failed("Voice server did not assign video_ssrc")
             return
         }
 
-        // Op 12 — announce active video stream.
+        // Soundshare SSRC = videoSsrc + SOUNDSHARE_SSRC_OFFSET, per Discord client convention
+        // verified against discord.js-selfbot-v13 and discord-rs. See architect report
+        // 2026-05-28-screencast-audio-ssrc.md §4.1.
+        val soundshareSsrc = videoSsrc + SOUNDSHARE_SSRC_OFFSET
+        // Op 12 — announce active video stream. `audio_ssrc` binds the audio track that belongs
+        // to this video: soundshare SSRC when sharing audio, mic SSRC otherwise (§4.3).
+        val op12AudioSsrc = if (shareAudio) soundshareSsrc else micSsrc
         voiceGateway.sendVideoStream(
-            audioSsrc = audioSsrc,
+            audioSsrc = op12AudioSsrc,
             videoSsrc = videoSsrc,
             rtxSsrc = 0,
             active = true,
@@ -173,9 +182,12 @@ internal class DefaultScreenShareClient(
             fragmenter = fragmenter,
         )
 
-        // Op 5 — speaking bitmask MICROPHONE(1) | SOUNDSHARE(2) = 3.
+        // Op 5 SPEAKING(SOUNDSHARE=2) on the soundshare SSRC. Mic SPEAKING is owned by the
+        // audio-capture pipeline (DefaultVoiceClient) and stays at its own (MICROPHONE=1 / 0)
+        // value — sending mask 3 on the mic SSRC would be protocol-incorrect (§4.2).
         if (shareAudio) {
-            voiceGateway.sendSpeaking(SPEAKING_MIC_AND_SOUNDSHARE, audioSsrc)
+            voiceGateway.sendSpeaking(SPEAKING_SOUNDSHARE, soundshareSsrc)
+            activeSoundshareSsrc = soundshareSsrc
         }
 
         sendJob = scope.launch(sendDispatcher) {
@@ -206,24 +218,36 @@ internal class DefaultScreenShareClient(
         runCatching { activePortal?.close() }
         activePortal = null
 
+        val soundshareSsrc = activeSoundshareSsrc
+        activeSoundshareSsrc = null
         runCatching {
+            // Op 12 audio_ssrc on tear-down: mirror what start() bound. When share-with-audio
+            // was active, the soundshare track owns the binding; otherwise the mic SSRC does.
             voiceGateway.sendVideoStream(
-                audioSsrc = getAudioSsrc(),
+                audioSsrc = soundshareSsrc ?: getAudioSsrc(),
                 videoSsrc = getVideoSsrc(),
                 rtxSsrc = 0,
                 active = false,
             )
         }
-        runCatching {
-            voiceGateway.sendSpeaking(SPEAKING_MIC_ONLY, getAudioSsrc())
+        if (soundshareSsrc != null) {
+            // Release SOUNDSHARE flag on the soundshare SSRC. Mic SPEAKING is the audio
+            // pipeline's responsibility — DefaultScreenShareClient never touches the mic SSRC.
+            runCatching {
+                voiceGateway.sendSpeaking(SPEAKING_OFF, soundshareSsrc)
+            }
         }
         _state.value = ScreenShareState.Idle
     }
 
     private companion object {
         const val TAG = "DefaultScreenShareClient"
-        const val SPEAKING_MIC_ONLY = 1
-        const val SPEAKING_MIC_AND_SOUNDSHARE = 3
+        // Discord SPEAKING bitmask (Op 5 `speaking` field). See architect report §4.2.
+        const val SPEAKING_OFF = 0
+        const val SPEAKING_SOUNDSHARE = 2
+        // Soundshare SSRC = videoSsrc + SOUNDSHARE_SSRC_OFFSET, per §4.1 — Discord reserves
+        // videoSsrc and the immediately-following slot in the Ready payload.
+        const val SOUNDSHARE_SSRC_OFFSET = 1
         const val ENCODER_PROPERTY = "puklic.voice.encoder"
         const val ENCODER_LIBAV = "libav"
         const val ENCODER_CLI = "cli"
