@@ -1,6 +1,11 @@
 package dev.puklic.voice.screenshare
 
 import co.touchlab.kermit.Logger
+import dev.puklic.voice.AudioConstants
+import dev.puklic.voice.codec.OpusApplication
+import dev.puklic.voice.codec.OpusCodecFactory
+import dev.puklic.voice.codec.OpusEncoder
+import dev.puklic.voice.codec.OpusEncoderConfig
 import dev.puklic.voice.crypto.AeadCipher
 import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.gateway.VoiceGatewayConnection
@@ -9,9 +14,11 @@ import dev.puklic.voice.screenshare.encoder.VideoEncoder
 import dev.puklic.voice.screenshare.encoder.ffmpegVideoEncoder
 import dev.puklic.voice.screenshare.encoder.libavVideoEncoder
 import dev.puklic.voice.screenshare.linux.LinuxPortalScreenCast
+import dev.puklic.voice.screenshare.linux.PipeWireAudioReader
 import dev.puklic.voice.screenshare.source.LinuxScreenSourceEnumerator
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
 import dev.puklic.voice.transport.H264FrameFragmenter
+import dev.puklic.voice.transport.SoundshareAudioRtpSender
 import dev.puklic.voice.transport.UdpRtpTransport
 import dev.puklic.voice.transport.VideoFrameFragmenter
 import dev.puklic.voice.transport.VideoRtpSender
@@ -69,6 +76,31 @@ internal class DefaultScreenShareClient(
     private val portalScreenCastFactory: () -> LinuxPortalScreenCast = { LinuxPortalScreenCast() },
     private val sendDispatcher: CoroutineDispatcher = Dispatchers.IO,
     /**
+     * Test seam: factory for the PipeWire PCM audio reader (Linux portal screencast audio).
+     * Default reads from the portal-allocated PipeWire node id + fd using libavdevice.
+     */
+    private val audioReaderFactory: (Int, Int) -> PipeWireAudioReader = { nodeId, fd ->
+        PipeWireAudioReader(nodeId = nodeId, fd = fd)
+    },
+    /**
+     * Test seam: factory for the soundshare Opus encoder (stereo, application=Audio for
+     * music-quality screencast audio per architect report §5).
+     */
+    private val opusEncoderFactory: () -> OpusEncoder = {
+        OpusCodecFactory.createEncoder(
+            OpusEncoderConfig(
+                channels = AudioConstants.CHANNELS_STEREO,
+                application = OpusApplication.Audio,
+            ),
+        )
+    },
+    /**
+     * Test seam: factory for the soundshare RTP sender bound to the soundshare SSRC.
+     */
+    private val soundshareSenderFactory: (Int) -> SoundshareAudioRtpSender = { ssrc ->
+        SoundshareAudioRtpSender(udp = udpTransport, aead = packetEncryptor, ssrc = ssrc)
+    },
+    /**
      * Test seam. Defaults to `os.name` system property; tests on a macOS dev host can pass
      * "Linux" to exercise the audio-share path (which is suppressed on macOS per the
      * 2026-05-28 scope decision — see [start]).
@@ -82,6 +114,9 @@ internal class DefaultScreenShareClient(
     private val mutex = Mutex()
     private var encoder: VideoEncoder? = null
     private var sendJob: Job? = null
+    private var audioSendJob: Job? = null
+    private var audioReader: PipeWireAudioReader? = null
+    private var audioEncoder: OpusEncoder? = null
     private var activePortal: LinuxPortalScreenCast? = null
     // Tracked across start()/stop() so stop() can release the soundshare SPEAKING flag on the
     // same SSRC that start() raised it on. Null means no share-with-audio session is active.
@@ -130,6 +165,7 @@ internal class DefaultScreenShareClient(
         // Linux Wayland path: when the user picked the synthetic "portal" entry from
         // [LinuxScreenSourceEnumerator], run the xdg-desktop-portal handshake to obtain a
         // PipeWire node id + fd. The compositor pops up its own picker during Start().
+        var portalStream: LinuxPortalScreenCast.PipeWireStream? = null
         val enc: VideoEncoder = if (source.id == LinuxScreenSourceEnumerator.PORTAL_PICKER_ID) {
             val portal = portalScreenCastFactory()
             activePortal = portal
@@ -154,6 +190,7 @@ internal class DefaultScreenShareClient(
                     return
                 }
             }
+            portalStream = stream
             // Construct the encoder with the real PipeWire node id (replacing the synthetic
             // "portal" sentinel) plus the portal-allocated fd.
             // Width/height stay 0 (UNKNOWN); the encoder reads real dimensions from the
@@ -203,6 +240,32 @@ internal class DefaultScreenShareClient(
             }
         }
 
+        // Portal screencast audio: when the compositor handed back an audio node alongside the
+        // video stream, run a parallel PipeWire reader → stereo Opus encoder → soundshare RTP
+        // sender. See architect report 2026-05-28-pipewire-pcm-reader.md and §5 of
+        // 2026-05-28-screencast-audio-ssrc.md. Independent of mic audio (separate SSRC, separate
+        // sequence/timestamp/nonce triplet).
+        val capturedStream = portalStream
+        val audioNodeId = capturedStream?.firstAudioNodeId
+        if (shareAudio && capturedStream != null && audioNodeId != null) {
+            val reader = audioReaderFactory(audioNodeId, capturedStream.fd)
+            val encoder = opusEncoderFactory()
+            val audioSender = soundshareSenderFactory(soundshareSsrc)
+            audioReader = reader
+            audioEncoder = encoder
+            audioSendJob = scope.launch(sendDispatcher) {
+                try {
+                    reader.read().collect { pcm ->
+                        audioSender.send(encoder.encode(pcm))
+                    }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Throwable) {
+                    Logger.w(TAG) { "soundshare audio error: ${e.message}" }
+                }
+            }
+        }
+
         _state.value = ScreenShareState.Active(
             source = source,
             videoSsrc = videoSsrc,
@@ -211,6 +274,12 @@ internal class DefaultScreenShareClient(
     }
 
     override suspend fun stop(): Unit = mutex.withLock {
+        audioSendJob?.cancel()
+        audioSendJob = null
+        runCatching { audioReader?.stop() }
+        audioReader = null
+        runCatching { audioEncoder?.close() }
+        audioEncoder = null
         sendJob?.cancel()
         sendJob = null
         runCatching { encoder?.stop() }
