@@ -23,6 +23,10 @@ kotlin {
 
     sourceSets {
         commonMain.dependencies {
+            // Re-export the Apache-2.0 public types so existing JVM consumers
+            // (and :desktop:app) keep resolving dev.puklic.voice.VoiceClient et al.
+            // transitively. See docs/03_infrastructure/architect-reports/2026-05-28-voice-api-split.md.
+            api(projects.shared.voiceApi)
             implementation(projects.shared.ids)
             implementation(projects.shared.domain)
             implementation(projects.shared.platformApi)

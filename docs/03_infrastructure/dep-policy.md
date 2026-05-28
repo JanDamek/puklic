@@ -17,6 +17,14 @@ distribution design — the rationale for the iOS / desktop split).
 The iOS column is the load-bearing constraint: any GPL-3.0 transitive on the
 iOS classpath would block App Store distribution.
 
+## Shared-module licence matrix (KMP)
+
+| Module | Linked into | Permitted licences | Notes |
+|---|---|---|---|
+| `:shared:voice-api` | desktop + iOS shared graph (`:shared:session`, `:shared:compose-ui`) | Apache-2.0 only | KMP-wide public voice/screenshare types (interfaces, sealed states, data classes, no-op clients, `DaveDowngradeDetector` policy). No native deps. Extraction rationale: `architect-reports/2026-05-28-voice-api-split.md`. |
+| `:shared:voice` | `:desktop:app` only (JVM impl) | Apache-2.0, MIT, BSD, GPL-3.0 | JVM-only impl: `DefaultVoiceClient`, gateway, transport, crypto, codec (Opus via FFmpeg-GPL), audio (JavaSound), screenshare encoders/sources, libdave bridge. Forbidden in `:ios:app` graph — already covered by `verifyIosNoGplDeps`. |
+| `:shared:voice-dave` | `:shared:voice` only (JVM impl) | GPL-3.0 (Wire core-crypto) | DAVE MLS bridge. JVM-only. |
+
 ## Forbidden artefacts in `:ios:app`
 
 Enforced by the `verifyIosNoGplDeps` Gradle task

@@ -46,7 +46,7 @@ class DaveDowngradeDetectorTest {
     }
 
     @Test
-    fun `Connecting to Disabled is not a downgrade (never reached E2EE)`() {
+    fun `Connecting to Disabled is not a downgrade - never reached E2EE`() {
         DaveDowngradeDetector.isDowngrade(
             DaveUiState.Connecting,
             DaveUiState.Disabled("unsupported"),
@@ -54,7 +54,7 @@ class DaveDowngradeDetectorTest {
     }
 
     @Test
-    fun `Active to Connecting is not a downgrade (handshake in progress)`() {
+    fun `Active to Connecting is not a downgrade - handshake in progress`() {
         DaveDowngradeDetector.isDowngrade(
             DaveUiState.Active(epoch = 3),
             DaveUiState.Connecting,

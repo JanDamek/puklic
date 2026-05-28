@@ -11,7 +11,7 @@ kotlin {
             implementation(projects.shared.repositories)
             implementation(projects.shared.platformApi)
             implementation(projects.shared.persistenceApi)
-            implementation(projects.shared.voice)
+            implementation(projects.shared.voiceApi)
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.koin.core)
             implementation(libs.kermit)

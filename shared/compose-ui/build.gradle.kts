@@ -12,7 +12,7 @@ kotlin {
             implementation(projects.shared.session)
             implementation(projects.shared.platformApi)
             implementation(projects.shared.persistenceApi)
-            implementation(projects.shared.voice)
+            implementation(projects.shared.voiceApi)
             implementation(compose.runtime)
             implementation(compose.foundation)
             implementation(compose.material3)
