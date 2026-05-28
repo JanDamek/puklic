@@ -60,12 +60,12 @@ Goal: a usable read+write client for everyday text communication.
 - [x] Voice encryption (xsalsa20_poly1305_lite)
   - Shipped as `aead_xchacha20_poly1305_rtpsize` (Discord's current mandatory mode since 2024-11). Legacy `xsalsa20_poly1305_lite` not implemented.
 - [x] Mute/deafen UI + state sync
-- [~] DAVE protocol (E2EE voice, per public spec)
+- [x] DAVE protocol (E2EE voice, per public spec)
   - 2026-05-23 (3.1a): architect report `docs/03_infrastructure/architect-reports/2026-05-23-dave-e2ee.md`.
   - 2026-05-23 (3.1b): `:shared:voice-dave` module + `MlsClient` interface + Wire `core-crypto-jvm:4.2.0` JVM actual + 3 passing smoke tests (init, KeyPackage, two-client Welcome exporter parity). Binary distribution license bumps to GPL-3.0-or-later (ADR-0007). Known gap: Wire 4.2.0 only exposes the AVS-labelled MLS exporter; DAVE label `"Discord Secure Frames v0"` requires a Wire upgrade or libdave-JNI in Phase 3.2.
   - [x] 3.1c: gateway opcodes 21-31 wiring (voice gateway client extension) — JSON ops 21-24, 31 + binary ops 25-30 dispatch through `DaveSession`.
   - [x] 3.1d: per-frame ChaCha20-Poly1305 encrypt/decrypt + key ratchet — libdave Encryptor/Decryptor + KeyRatchet exposed on `DaveSession.frameEncryptor(ssrc)` / `frameDecryptor(userId, ssrc)`; optional `daveEncrypt` / `daveDecrypt` hooks added to CapturePipeline + PlaybackPipeline (null = pass-through for the non-DAVE fallback); backend default flipped to libdave on macOS arm64. `DefaultVoiceClient` now instantiates a `DaveSession` when `SessionDescription.dave_protocol_version > 0`, plumbs voice-gateway binary + JSON DAVE frames into it, and hooks the capture/playback pipelines to its frame encryptor/decryptor. IDENTIFY advertises `max_dave_protocol_version: 1`. `VoiceClient.daveState: StateFlow<DaveUiState>` drives the lock icon on `VoiceStatusBar`.
-  - [ ] 3.1e: pairwise fingerprint UI + multi-party correctness (member churn, epoch transitions mid-speech).
+  - [x] 3.1e: SAS pairwise fingerprint dialog + Active→{Disabled,Off} downgrade detector with 30s auto-hide banner (commit `07b2472`, issue #24 a+c). Multi-party correctness moves to manual E2E QA against real Discord — libdave's C API is consumer-only (Discord backend is the MLS external sender per RFC 9420 §11), so in-process N-party harness has no driver. Production coverage is wire-level frame crypto + two-client Welcome+exporter parity + SAS + downgrade detector. See issue #24 close comment 2026-05-28.
 - [x] Voice state indicators in channel list
   - VoiceStatusBar (slice 10) shows connecting/connected/failed; speaking indicator wired through SSRC ↔ UserId resolver (Op 5 Speaking events). Channel-row click-to-join deferred — `GuildVoiceChannel` data class is not yet in the domain model; users connect through the status bar's Settings affordance for now.
 
@@ -92,7 +92,7 @@ is deferred to 4.1.
 - [x] Monitor picker (ScreenSharePickerDialog, slice 6)
 - [x] H.264 encoder (libx264 via ffmpeg subprocess; slice 3)
 - [x] VP8 encoder (Linux 4.1) — 2026-05-27, libvpx via bundled `ffmpeg-platform-gpl` 7.1-1.5.11; `LibavVideoEncoder` now takes a `VideoCodec` parameter (`H264` default / `VP8`); `chooseCodec(offered)` helper picks H.264 over VP8 from a Discord codec advertisement. End-to-end SDP-driven negotiation (wiring receiver's `SessionDescription.codecs` to encoder construction + VP8 RTP packetiser per RFC 7741) is a follow-up — see issue.
-- [~] Share with audio — macOS routes via BlackHole 2ch (user-installed); PipeWire audio capture in 4.1
+- [~] Share with audio — macOS audio share dropped 2026-05-28 (BlackHole friction; ScreenCaptureKit out of scope for non-priority platform). Linux/Wayland PipeWire system audio capture remains in scope (issue #25, prereqs 1 + 3 open).
 - [x] Video send via voice gateway transport (RTP FU-A + AEAD on Ready.video_ssrc; slices 4–5)
 - [x] Receive incoming screenshare video (Phase 4.2, 2026-05-23) — VoicePacketDispatcher + H.264
       depacketizer + in-process libavcodec H.264 decoder + Compose `IncomingVideoPane`. H.264 only;

@@ -161,10 +161,13 @@ internal class FfmpegVideoEncoder(
 
         private fun macOsInputArgs(
             source: ScreenSource,
-            shareAudio: Boolean,
+            @Suppress("UNUSED_PARAMETER") shareAudio: Boolean,
             framerate: Int,
         ): List<String> {
-            val audioSpec = if (shareAudio) BLACKHOLE_DEVICE_NAME else "none"
+            // macOS audio share is out of scope (2026-05-28 scope decision, issue #25). The
+            // avfoundation audio slot is always "none" on macOS; upstream UI disables the
+            // toggle so shareAudio never arrives as true on this platform.
+            val audioSpec = "none"
             // avfoundation cannot capture a single window by id (no window: input). When the
             // user picks a window from the picker, we fall back to capturing monitor 0 — see
             // architect report 4.0.1. Monitor sources keep their original avfoundation index.
@@ -199,7 +202,6 @@ internal class FfmpegVideoEncoder(
         private const val MAX_WIDTH_FILTER = "scale=w=min(1920\\,iw):h=-2"
         private const val X264_PARAMS = "keyint=60:min-keyint=60:scenecut=0:repeat-headers=1"
         private const val BUFSIZE_DIVISOR = 2
-        private const val BLACKHOLE_DEVICE_NAME = "blackhole-2ch"
         private const val WINDOW_FALLBACK_MONITOR_INDEX = "0"
     }
 }

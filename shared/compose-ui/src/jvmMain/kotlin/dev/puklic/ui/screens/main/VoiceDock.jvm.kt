@@ -22,7 +22,6 @@ import dev.puklic.voice.VoiceClient
 import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
 import dev.puklic.voice.screenshare.ScreenSource
-import dev.puklic.voice.screenshare.source.BlackholeDetector
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -66,7 +65,6 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
         }
     }
     var pickerSources by remember { mutableStateOf<List<ScreenSource>>(emptyList()) }
-    var blackholeAvailable by remember { mutableStateOf(false) }
     var selectedCaptureId by remember { mutableStateOf<String?>(null) }
     var selectedPlaybackId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
@@ -95,7 +93,6 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
         onScreenSharePick = {
             scope.launch {
                 pickerSources = voiceClient.screenShare.listSources()
-                blackholeAvailable = runCatching { BlackholeDetector.isAvailable() }.getOrDefault(false)
                 pickerOpen = true
             }
         },
@@ -131,9 +128,12 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     }
 
     if (pickerOpen && screenShareState !is ScreenShareState.Active) {
+        val osName = remember { System.getProperty("os.name").orEmpty() }
+        val isMacOs = osName.startsWith("Mac")
         ScreenSharePickerDialog(
             sources = pickerSources,
-            blackholeAvailable = blackholeAvailable,
+            audioShareSupported = !isMacOs,
+            audioShareUnsupportedReason = if (isMacOs) MACOS_AUDIO_SHARE_UNSUPPORTED_REASON else null,
             onShare = { source, shareAudio ->
                 pickerOpen = false
                 scope.launch { voiceClient.screenShare.start(source, shareAudio) }
@@ -142,3 +142,6 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
         )
     }
 }
+
+private const val MACOS_AUDIO_SHARE_UNSUPPORTED_REASON: String =
+    "System audio sharing is not supported on macOS."

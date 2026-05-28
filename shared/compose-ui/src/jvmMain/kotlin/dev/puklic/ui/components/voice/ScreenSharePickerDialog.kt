@@ -32,6 +32,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.screenshare.ScreenSource
@@ -42,15 +44,16 @@ import dev.puklic.voice.screenshare.ScreenSource
  *
  * Lists [sources] as cards in an adaptive grid. The user selects one and clicks Share, which
  * invokes [onShare] with the chosen source and the "share system audio" flag. When
- * [blackholeAvailable] is false the audio checkbox is disabled and the dialog shows an install
- * hint for BlackHole 2ch.
+ * [audioShareSupported] is false the audio checkbox is disabled and [audioShareUnsupportedReason]
+ * is shown as helper text + tooltip explaining why.
  *
  * Thumbnails are out of scope in v1 — each card shows a desktop icon plus the display name.
  */
 @Composable
 public fun ScreenSharePickerDialog(
     sources: List<ScreenSource>,
-    blackholeAvailable: Boolean,
+    audioShareSupported: Boolean,
+    audioShareUnsupportedReason: String?,
     onShare: (ScreenSource, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -123,9 +126,10 @@ public fun ScreenSharePickerDialog(
                     }
                 }
                 AudioRow(
-                    enabled = blackholeAvailable,
-                    checked = shareAudio && blackholeAvailable,
+                    enabled = audioShareSupported,
+                    checked = shareAudio && audioShareSupported,
                     onCheckedChange = { shareAudio = it },
+                    unsupportedReason = audioShareUnsupportedReason,
                 )
             }
         },
@@ -134,7 +138,7 @@ public fun ScreenSharePickerDialog(
                 enabled = selected != null,
                 onClick = {
                     val s = selected ?: return@TextButton
-                    onShare(s, shareAudio && blackholeAvailable)
+                    onShare(s, shareAudio && audioShareSupported)
                 },
             ) { Text("Share") }
         },
@@ -201,11 +205,17 @@ private fun AudioRow(
     enabled: Boolean,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    unsupportedReason: String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = if (!enabled && unsupportedReason != null) {
+                Modifier.semantics { contentDescription = unsupportedReason }
+            } else {
+                Modifier
+            },
         ) {
             Checkbox(
                 checked = checked,
@@ -219,9 +229,9 @@ private fun AudioRow(
                 else MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
             )
         }
-        if (!enabled) {
+        if (!enabled && unsupportedReason != null) {
             Text(
-                text = "Install BlackHole 2ch to share audio (https://existential.audio/blackhole/)",
+                text = unsupportedReason,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp),

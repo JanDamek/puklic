@@ -106,6 +106,32 @@ class DefaultScreenShareClientTest {
     }
 
     @Test
+    fun start_with_share_audio_on_macos_drops_audio_and_does_not_send_speaking() =
+        runTest(UnconfinedTestDispatcher()) {
+            // Per 2026-05-28 scope decision (issue #25), macOS audio share is out of scope.
+            // Even if a caller passes shareAudio=true on macOS, DefaultScreenShareClient must
+            // suppress it: no Op 5 SPEAKING, withAudio=false in the resulting Active state.
+            val gw = FakeVoiceGateway()
+            val client = newClient(
+                scope = this,
+                gw = gw,
+                videoSsrc = 7,
+                audioSsrc = 13,
+                encoderFactory = { _, _, _ -> FakeEncoder() },
+                osName = "Mac OS X",
+            )
+
+            client.start(sampleSource(), shareAudio = true)
+
+            assertEquals(0, gw.speakings.size, "expected no Op 5 on macOS")
+            val state = client.state.value
+            assertTrue(state is ScreenShareState.Active, "expected Active state")
+            assertEquals(false, (state as ScreenShareState.Active).withAudio)
+
+            client.stop()
+        }
+
+    @Test
     fun stop_sends_op12_inactive_and_returns_to_idle() = runTest(UnconfinedTestDispatcher()) {
         val gw = FakeVoiceGateway()
         val client = newClient(
@@ -162,6 +188,7 @@ class DefaultScreenShareClientTest {
         videoSsrc: Int = 0,
         encoderFactory: (ScreenSource, Boolean, dev.puklic.voice.screenshare.encoder.VideoCodec) -> VideoEncoder =
             { _, _, _ -> FakeEncoder() },
+        osName: String = "Linux",
     ): DefaultScreenShareClient = DefaultScreenShareClient(
         voiceGateway = gw,
         packetEncryptor = NullCipher(),
@@ -173,6 +200,7 @@ class DefaultScreenShareClientTest {
         scope = scope,
         encoderFactory = encoderFactory,
         sendDispatcher = UnconfinedTestDispatcher(),
+        osName = osName,
     )
 
     private companion object {

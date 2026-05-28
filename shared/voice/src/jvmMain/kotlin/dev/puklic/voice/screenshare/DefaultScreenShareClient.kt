@@ -68,6 +68,12 @@ internal class DefaultScreenShareClient(
      */
     private val portalScreenCastFactory: () -> LinuxPortalScreenCast = { LinuxPortalScreenCast() },
     private val sendDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Test seam. Defaults to `os.name` system property; tests on a macOS dev host can pass
+     * "Linux" to exercise the audio-share path (which is suppressed on macOS per the
+     * 2026-05-28 scope decision — see [start]).
+     */
+    private val osName: String = System.getProperty("os.name").orEmpty(),
 ) : ScreenShareClient {
 
     private val _state = MutableStateFlow<ScreenShareState>(ScreenShareState.Idle)
@@ -83,6 +89,17 @@ internal class DefaultScreenShareClient(
     override suspend fun start(source: ScreenSource, shareAudio: Boolean): Unit = mutex.withLock {
         check(_state.value is ScreenShareState.Idle || _state.value is ScreenShareState.Failed) {
             "Screen share already in progress: ${_state.value}"
+        }
+        // macOS audio share is out of scope (2026-05-28 scope decision, issue #25). The UI
+        // disables the toggle on macOS, but defend the contract here too: drop a shareAudio=true
+        // request on macOS with a single warning instead of attempting a capture path that
+        // cannot succeed.
+        @Suppress("NAME_SHADOWING")
+        val shareAudio = if (shareAudio && osName.startsWith("Mac")) {
+            Logger.w(TAG) { "Ignoring shareAudio=true: system audio sharing is not supported on macOS." }
+            false
+        } else {
+            shareAudio
         }
         _state.value = ScreenShareState.Negotiating(source)
 

@@ -25,7 +25,7 @@ public object AudioConstants {
     public const val FRAME_DURATION_MS: Int = 20
     public const val SAMPLES_PER_FRAME: Int = 960
     public const val CHANNELS_MONO: Int = 1
-    /** Stereo Opus — screencast audio (PipeWire / BlackHole). Mic stays mono. */
+    /** Stereo Opus — screencast audio (Linux PipeWire portal). Mic stays mono. */
     public const val CHANNELS_STEREO: Int = 2
     public const val BYTES_PER_SAMPLE: Int = 2
     public const val MAX_OPUS_FRAME_BYTES: Int = 4000
