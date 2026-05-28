@@ -118,7 +118,7 @@ iPhone, iPad, and Apple Silicon Macs). Chat-only build (no voice, no screenshare
 — GPL-3.0 deps (FFmpeg, libx264, libdave) excluded to satisfy App Store §3.
 Desktop builds (GitHub Releases) keep full feature set.
 
-- [ ] Slice 1 — iOS dep boundary + `verifyIosNoGplDeps` Gradle task
+- [x] Slice 1 — iOS dep boundary + `verifyIosNoGplDeps` Gradle task
 - [ ] Slice 2 — Shared modules enable iOS targets; iOS `actual` impls
 - [ ] Slice 3 — `:ios:app` Compose iOS framework export (`PuklicShared.framework`)
 - [ ] Slice 4 — `iosApp/iosApp.xcodeproj` (Swift host) + Info.plist + entitlements
