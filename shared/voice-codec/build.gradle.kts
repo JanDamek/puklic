@@ -10,6 +10,9 @@
 //   - NonceGenerator (24-byte XChaCha20 nonce counter, _rtpsize layout)
 //   - RtpPacket (12-byte RTP header read/write)
 //   - VoicePacketCodec (encode/decode RTP + AEAD glue)
+//   - EncodedFrame (Annex-B video payload + RTP timestamp + keyframe flag) — FP-2
+//   - H264Encoder / H264Decoder + factories (KMP video codec contract) — FP-2,
+//     platform impls land in FP-5 (iOS / macOS VideoToolbox)
 //
 // Does NOT contain a concrete AeadCipher impl. JVM impl lives in
 // :shared:voice/jvmMain (BouncyCastle); iOS impl will land in FP-4..6

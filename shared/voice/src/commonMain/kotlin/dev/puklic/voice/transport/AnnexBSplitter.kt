@@ -39,17 +39,7 @@ internal object AnnexBSplitter {
     }
 }
 
-/** Encoded video frame (Annex-B bytes, 90 kHz RTP timestamp, keyframe flag). */
-data class EncodedFrame(val bytes: ByteArray, val ts90k: Int, val keyframe: Boolean) {
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (other !is EncodedFrame) return false
-        return ts90k == other.ts90k && keyframe == other.keyframe && bytes.contentEquals(other.bytes)
-    }
-    override fun hashCode(): Int {
-        var result = bytes.contentHashCode()
-        result = 31 * result + ts90k
-        result = 31 * result + keyframe.hashCode()
-        return result
-    }
-}
+// EncodedFrame moved to :shared:voice-codec commonMain in FP-2 (see
+// docs/03_infrastructure/architect-reports/2026-05-29-fp2-h264-interfaces.md).
+// Package retained (`dev.puklic.voice.transport`) so existing imports keep resolving
+// across the transport / screenshare / video-rtp code paths.
