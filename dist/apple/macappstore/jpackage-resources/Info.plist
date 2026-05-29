@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Puklic — Mac App Store Info.plist override template.
+
+    Consumed by jpackage via `--resource-dir`. jpackage MERGES the override
+    with its computed values (bundle id, version, launcher class), so this
+    file declares ONLY the keys we want to override.
+
+    Locked per FP-14a §5 and FP-14d §6.
+-->
+<plist version="1.0">
+<dict>
+    <!-- App Store category. Same as iOS App Store record. -->
+    <key>LSApplicationCategoryType</key>
+    <string>public.app-category.social-networking</string>
+
+    <!-- macOS 13.0 baseline:
+         - ScreenCaptureKit (macOS 12.3+)
+         - Network.framework UDP (macOS 10.14+)
+         - Headroom + parity with iOS 16 minimum. -->
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+
+    <!-- TCC usage description shown the first time AVAudioEngine asks for
+         microphone access. Suppresses jpackage's auto-injected generic
+         string ("The application X is requesting access to the
+         microphone."). -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Puklic uses the microphone for Discord voice channels.</string>
+
+    <!-- TCC usage description shown the first time SCStreamConfiguration
+         starts a screen capture session for Discord screen share. -->
+    <key>NSScreenCaptureUsageDescription</key>
+    <string>Puklic uses ScreenCaptureKit to share your screen in Discord voice channels.</string>
+
+    <!-- Export-compliance declaration. TLS is exempt under §740.17(b)(1);
+         xsalsa20-poly1305 is RFC 8439 — also exempt. -->
+    <key>ITSAppUsesNonExemptEncryption</key>
+    <false/>
+</dict>
+</plist>

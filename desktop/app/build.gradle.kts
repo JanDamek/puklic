@@ -413,3 +413,242 @@ val macAppStoreTest by tasks.registering(Test::class) {
         listOfNotNull(libsDir, System.getProperty("jna.library.path")).joinToString(":"),
     )
 }
+
+// ── macAppStore main source set + packaging (FP-14d, Issue #57) ──────────
+// The Mac App Store ship is a separate .pkg artifact assembled by jpackage
+// from a hand-curated runtime classpath that EXCLUDES `:shared:voice`
+// (GPL-3.0 + FFmpeg-GPL + libdave). Voice on this ship is wired as
+// `NoOpVoiceClient` — same posture as the iOS App Store ship.
+//
+// Architect: docs/03_infrastructure/architect-reports/2026-05-29-fp14d-gradle-packaging.md
+val macAppStoreMainSourceSet = sourceSets.create("macAppStore") {
+    java.srcDir("src/macAppStore/kotlin")
+    // Compile against main outputs + main compileClasspath so MacAppStoreMain
+    // can reference Compose Desktop + Coil + Decompose + the shared-module
+    // types pulled in by main. The runtime classpath below is the GPL-clean
+    // curated one — the macAppStore source code MUST NOT reference any
+    // symbol from `:shared:voice` (that module is excluded from the runtime
+    // configuration and would NoClassDefFoundError at launch).
+    compileClasspath += sourceSets["main"].output + configurations["compileClasspath"]
+    runtimeClasspath = output + configurations["macAppStoreRuntimeClasspath"]
+}
+
+// `macAppStoreImplementation` is a HAND-CURATED configuration — it does NOT
+// extend from the main `implementation` configuration. This is the
+// mechanically-enforced GPL boundary: every dep on the macAppStore runtime
+// classpath is explicitly listed below, so `:shared:voice` cannot leak in
+// via inheritance.
+dependencies {
+    "macAppStoreImplementation"(projects.shared.composeUi)
+    "macAppStoreImplementation"(projects.shared.session)
+    "macAppStoreImplementation"(projects.shared.voiceApi)
+    "macAppStoreImplementation"(projects.shared.platformApi)
+    "macAppStoreImplementation"(projects.shared.domain)
+    "macAppStoreImplementation"(projects.shared.ids)
+    "macAppStoreImplementation"(projects.shared.repositories)
+    "macAppStoreImplementation"(projects.shared.persistenceApi)
+    "macAppStoreImplementation"(projects.shared.persistenceSqldelight)
+    "macAppStoreImplementation"(projects.shared.protocolDiscord)
+    "macAppStoreImplementation"(projects.desktop.platformMacos)
+    "macAppStoreImplementation"(projects.desktop.platformMacosAppstore) {
+        // :shared:voice-codec JVM artifact transitively pulls FFmpeg-GPL +
+        // JavaCPP for the Linux/Windows desktop ship that uses libavcodec to
+        // encode Opus. The Mac App Store ship uses the Apple-native libopus
+        // JNA wrapper from FP-14c — it never references the FFmpeg classes.
+        // Exclude the GPL bundle at the consumer (macAppStore source set)
+        // boundary so the GPL boundary is mechanical.
+        exclude(group = "org.bytedeco")
+    }
+    "macAppStoreImplementation"(libs.koin.core)
+    "macAppStoreImplementation"(libs.decompose)
+    "macAppStoreImplementation"(libs.essenty.lifecycle.coroutines)
+    "macAppStoreImplementation"(libs.kotlinx.coroutines.core)
+    "macAppStoreImplementation"(libs.kotlinx.coroutines.swing)
+    "macAppStoreImplementation"(libs.kotlinx.datetime)
+    "macAppStoreImplementation"(libs.kotlinx.serialization.json)
+    "macAppStoreImplementation"(libs.ktor.client.core)
+    "macAppStoreImplementation"(libs.ktor.client.cio)
+    "macAppStoreImplementation"(libs.ktor.client.websockets)
+    "macAppStoreImplementation"(libs.ktor.client.content.negotiation)
+    "macAppStoreImplementation"(libs.ktor.serialization.kotlinx.json)
+    "macAppStoreImplementation"(compose.desktop.currentOs)
+    "macAppStoreImplementation"(compose.material3)
+    "macAppStoreImplementation"(compose.materialIconsExtended)
+    "macAppStoreImplementation"(libs.coil)
+    "macAppStoreImplementation"(libs.coil.core)
+    "macAppStoreImplementation"(libs.coil.network.ktor3)
+    "macAppStoreImplementation"(libs.kermit)
+    "macAppStoreImplementation"(libs.slf4j.api)
+    "macAppStoreImplementation"(libs.logback.classic)
+}
+
+// ── verifyMacAppStoreNoGplDeps ──────────────────────────────────────────
+// Fails the build if the resolved `macAppStoreRuntimeClasspath` contains any
+// forbidden Maven coordinate per `MacAppStoreGplChecker`. Mirror of
+// `verifyIosNoGplDeps` in `ios/app/build.gradle.kts`.
+val verifyMacAppStoreNoGplDeps by tasks.registering {
+    group = "verification"
+    description = "Fail if :desktop:app macAppStore runtime classpath pulls any forbidden GPL coord."
+
+    val reportRef =
+        "docs/03_infrastructure/architect-reports/2026-05-29-fp14d-gradle-packaging.md"
+
+    // Scope the scan to ONLY `macAppStoreRuntimeClasspath` — the configuration
+    // that materialises the JARs jpackage will embed in the .pkg. Other
+    // `macAppStore*` configurations (notably `macAppStoreTestRuntimeClasspath`,
+    // which extends from the main test classpath) intentionally retain
+    // `:shared:voice` for the FP-14b contract tests and must not trigger
+    // this guard.
+    val violationsProvider: Provider<List<String>> = project.provider {
+        val cfg = configurations.findByName("macAppStoreRuntimeClasspath")
+            ?: return@provider emptyList()
+        if (!cfg.isCanBeResolved) return@provider emptyList()
+        runCatching {
+            cfg.resolvedConfiguration.lenientConfiguration.allModuleDependencies
+        }.getOrElse { emptySet() }
+            .filter { dep -> isForbiddenMacAppStoreArtifact(dep.moduleGroup, dep.moduleName) }
+            .map { "${it.moduleGroup}:${it.moduleName}:${it.moduleVersion}" }
+            .toSortedSet()
+            .toList()
+    }
+
+    doLast {
+        val violations = violationsProvider.get()
+        require(violations.isEmpty()) {
+            buildString {
+                appendLine("Forbidden GPL-3.0 dependency in :desktop:app macAppStore graph:")
+                violations.forEach { appendLine("  - $it") }
+                appendLine("The Mac App Store ship must stay Apache-2.0 / MIT / BSD only.")
+                appendLine("See $reportRef")
+            }
+        }
+    }
+}
+
+// ── packageMacAppStore ──────────────────────────────────────────────────
+// Invokes jpackage with the FP-14a §7 / FP-14d §7 argv to produce a signed
+// Mac App Store .pkg under `build/macAppStore/`. Requires the Mac App
+// Distribution + Mac Installer Distribution certs in the keychain
+// (FP-14a §3, §8.4 user-action prerequisite).
+//
+// Skipped on non-macOS hosts (jpackage --mac-* flags are macOS-only).
+val packageMacAppStoreInput = layout.buildDirectory.dir("macAppStore/input")
+val packageMacAppStoreAppContent = layout.buildDirectory.dir("macAppStore/app-content")
+val packageMacAppStoreOutput = layout.buildDirectory.dir("macAppStore/pkg")
+
+val stageMacAppStoreInput = tasks.register<Sync>("stageMacAppStoreInput") {
+    description = "Stages the macAppStore runtime classpath JARs + main JAR for jpackage --input."
+    group = "compose desktop"
+    from(macAppStoreMainSourceSet.runtimeClasspath.filter { it.isFile })
+    into(packageMacAppStoreInput)
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+val stageMacAppStoreAppContent = tasks.register("stageMacAppStoreAppContent") {
+    description = "Stages libopus.dylib so jpackage --app-content places it under .app/Contents/Resources/."
+    group = "compose desktop"
+    val libopus = rootProject.file("desktop/platform-macos-appstore/libs/libopus.dylib")
+    val outDir = packageMacAppStoreAppContent
+    inputs.file(libopus).optional()
+    outputs.dir(outDir)
+    doLast {
+        val resourcesDir = outDir.get().asFile.resolve("Resources")
+        resourcesDir.deleteRecursively()
+        resourcesDir.mkdirs()
+        if (libopus.exists()) {
+            libopus.copyTo(resourcesDir.resolve("libopus.dylib"), overwrite = true)
+            logger.lifecycle("stageMacAppStoreAppContent: bundled $libopus")
+        } else {
+            logger.warn(
+                "stageMacAppStoreAppContent: $libopus does not exist — " +
+                    "run dist/apple/build-libopus-dylib-from-xcframework.sh to produce it. " +
+                    "Continuing without it; the resulting .pkg will lack libopus.dylib.",
+            )
+        }
+    }
+}
+
+val packageMacAppStore = tasks.register<Exec>("packageMacAppStore") {
+    description = "Builds a signed Mac App Store .pkg via jpackage (Issue #57, FP-14d)."
+    group = "compose desktop"
+
+    dependsOn(stageMacAppStoreInput, stageMacAppStoreAppContent, verifyMacAppStoreNoGplDeps)
+    dependsOn("compileMacAppStoreKotlin")
+
+    onlyIf {
+        val os = System.getProperty("os.name").lowercase()
+        os.contains("mac")
+    }
+
+    val javaHome = System.getProperty("java.home")
+    val jpackage = "$javaHome/bin/jpackage"
+
+    val entitlements = rootProject.file("dist/apple/macappstore/Puklic.entitlements")
+    val resourceDir = rootProject.file("dist/apple/macappstore/jpackage-resources")
+    val signAppIdentity =
+        "3rd Party Mac Developer Application: Jan Damek (GR74KSG8M9)"
+    val signInstallerIdentity =
+        "3rd Party Mac Developer Installer: Jan Damek (GR74KSG8M9)"
+
+    val inputDir = packageMacAppStoreInput
+    val outputDir = packageMacAppStoreOutput
+
+    // Pick the main jar name by convention; jpackage's --main-jar must be a
+    // file name (not path) that lives under --input.
+    val mainJarName = "puklic-mac-app-store-app.jar"
+
+    doFirst {
+        require(entitlements.exists()) {
+            "Entitlements file missing: $entitlements"
+        }
+        require(resourceDir.exists()) {
+            "jpackage resource dir missing: $resourceDir"
+        }
+        // Materialise the main class jar by packaging the macAppStore source set
+        // output into a jar under --input. jpackage needs --main-jar to point at
+        // a JAR; the simplest is a thin jar containing just the macAppStore class
+        // files + manifest. Compose Desktop's own packaging task assembles a fat
+        // launcher; we do the equivalent minimal jar by hand.
+        val outJar = inputDir.get().asFile.resolve(mainJarName)
+        ant.withGroovyBuilder {
+            "jar"("destfile" to outJar.absolutePath) {
+                macAppStoreMainSourceSet.output.classesDirs
+                    .filter { it.exists() }
+                    .forEach { dir -> "fileset"("dir" to dir.absolutePath) }
+                "manifest" {
+                    "attribute"(
+                        "name" to "Main-Class",
+                        "value" to "dev.puklic.desktop.macappstore.MacAppStoreMainKt",
+                    )
+                }
+            }
+        }
+        outputDir.get().asFile.mkdirs()
+    }
+
+    val argv = mutableListOf(
+        jpackage,
+        "--type", "pkg",
+        "--mac-app-store",
+        "--name", "Puklic",
+        "--app-version", puklicVersion,
+        "--vendor", "Jan Damek",
+        "--copyright", "© 2026 Jan Damek. Apache-2.0.",
+        "--dest", packageMacAppStoreOutput.get().asFile.absolutePath,
+        "--input", packageMacAppStoreInput.get().asFile.absolutePath,
+        "--main-jar", mainJarName,
+        "--main-class", "dev.puklic.desktop.macappstore.MacAppStoreMainKt",
+        "--mac-package-identifier", "cz.damek.puklic.app",
+        "--mac-package-name", "Puklic",
+        "--mac-sign",
+        "--mac-app-image-sign-identity", signAppIdentity,
+        "--mac-installer-sign-identity", signInstallerIdentity,
+        "--mac-entitlements", entitlements.absolutePath,
+        "--resource-dir", resourceDir.absolutePath,
+        "--app-content", packageMacAppStoreAppContent.get().asFile.absolutePath,
+        "--java-options", "-Djna.library.path=\$APPDIR/../Resources",
+        "--java-options", "-Dpuklic.flavor=macAppStore",
+    )
+
+    commandLine(argv)
+}

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    Puklic — Mac App Store entitlements.
+
+    Final shape per FP-14a §5 and FP-14d §5. Every key here maps to a
+    shipped v1 feature of the Mac App Store variant:
+
+      - app-sandbox                              REQUIRED by Mac App Store
+      - network.client                           Discord Gateway WSS + voice RTP outbound
+      - network.server                           voice RTP inbound (loopback / UDP receive)
+      - device.audio-input                       AVAudioEngine microphone capture
+      - files.user-selected.read-write           NSOpenPanel attachment upload
+      - files.downloads.read-write               attachment save target
+      - cs.allow-jit                             Temurin 21 C2 JIT page protection
+      - cs.allow-unsigned-executable-memory      JVM invokedynamic / lambda metafactory
+
+    No camera entitlement: camera capture is not a Phase-1 feature
+    (HARD RULE #2 — no pre-added scopes for features we don't ship).
+    No Apple-Events scope: only add empirically if a TCC prompt surfaces it.
+    No disable-library-validation: JNA loads our own bundled libopus.dylib
+    which is signed under the same identity as the app.
+
+    Locked by PuklicMacAppStoreEntitlementsTest (FP-14b).
+-->
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.app-sandbox</key>
+    <true/>
+
+    <key>com.apple.security.network.client</key>
+    <true/>
+
+    <key>com.apple.security.network.server</key>
+    <true/>
+
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+
+    <key>com.apple.security.files.user-selected.read-write</key>
+    <true/>
+
+    <key>com.apple.security.files.downloads.read-write</key>
+    <true/>
+
+    <key>com.apple.security.cs.allow-jit</key>
+    <true/>
+
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+    <true/>
+</dict>
+</plist>
