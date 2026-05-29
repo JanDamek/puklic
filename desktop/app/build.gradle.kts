@@ -384,12 +384,32 @@ configurations["macAppStoreTestRuntimeOnly"].extendsFrom(
     configurations["testRuntimeOnly"],
 )
 
+dependencies {
+    // FP-14c (Issue #56) — JNA bridges over VideoToolbox / libopus / Network.framework.
+    // Provides the impl classes the FP-14b contract tests assert exist + implement
+    // the :shared:voice-codec interfaces. Restricted to the macAppStoreTest source
+    // set so the existing main (Linux / Windows / macOS-DMG) classpath remains
+    // unchanged.
+    "macAppStoreTestImplementation"(projects.desktop.platformMacosAppstore)
+}
+
 val macAppStoreTest by tasks.registering(Test::class) {
     description =
-        "Run RED-phase Mac App Store variant contract tests (FP-14b, Issue #55). " +
-            "Expected to fail with ClassNotFoundException until FP-14d lands the impl."
+        "Run Mac App Store variant contract tests (FP-14b → FP-14c, Issue #55 + #56). " +
+            "JNA codec/transport contract tests turn GREEN after FP-14c lands the impl. " +
+            "Entitlements + fastlane + workflow tests stay RED until FP-14d/e."
     group = "verification"
     testClassesDirs = macAppStoreTestSourceSet.output.classesDirs
     classpath = macAppStoreTestSourceSet.runtimeClasspath
     useJUnitPlatform()
+    // Bundled libopus.dylib lives next to the platform-macos-appstore module
+    // sources — point JNA's library search there so JnaLibopusEncoder /
+    // JnaLibopusDecoder can `Native.load("opus", …)` against it. The packaged
+    // Mac App Store .app sets the same property to Contents/Resources at
+    // launch (FP-14d scope).
+    val libsDir = rootProject.file("desktop/platform-macos-appstore/libs").absolutePath
+    systemProperty(
+        "jna.library.path",
+        listOfNotNull(libsDir, System.getProperty("jna.library.path")).joinToString(":"),
+    )
 }

@@ -19,13 +19,16 @@
 # Slices produced:
 #   ios-arm64                       device
 #   ios-arm64_x86_64-simulator      simulator (arm64 + x86_64 lipo'd)
+#   macos-arm64_x86_64              macOS desktop (arm64 + x86_64 lipo'd) — FP-14c
 #
 # See docs/03_infrastructure/architect-reports/2026-05-29-fp4-ios-opus-libopus.md
+# See docs/03_infrastructure/architect-reports/2026-05-29-fp14c-codec-wrappers.md
 set -euo pipefail
 
 OPUS_VERSION="v1.5.2"
 OPUS_REPO="https://gitlab.xiph.org/xiph/opus.git"
 IOS_DEPLOYMENT_TARGET="15.0"
+MACOS_DEPLOYMENT_TARGET="13.0"
 
 # Resolve repo root from this script's location: dist/apple/<this>
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -87,8 +90,10 @@ echo "[3/5] Building per-arch static libs"
 build_arch iphoneos        arm64  arm-apple-darwin     "-miphoneos-version-min=$IOS_DEPLOYMENT_TARGET"
 build_arch iphonesimulator arm64  arm-apple-darwin     "-mios-simulator-version-min=$IOS_DEPLOYMENT_TARGET"
 build_arch iphonesimulator x86_64 x86_64-apple-darwin  "-mios-simulator-version-min=$IOS_DEPLOYMENT_TARGET"
+build_arch macosx          arm64  arm-apple-darwin     "-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
+build_arch macosx          x86_64 x86_64-apple-darwin  "-mmacosx-version-min=$MACOS_DEPLOYMENT_TARGET"
 
-echo "[4/5] lipo simulator slices → fat libopus.a"
+echo "[4/5] lipo simulator + macOS slices → fat libopus.a"
 # Keep the binary basename `libopus.a` in both slices so cinterop
 # `staticLibraries = libopus.a` resolves with one .def file and per-target
 # `libraryPaths` only differing in directory.
@@ -99,6 +104,14 @@ lipo -create \
     "$WORK/build/iphonesimulator-arm64/libopus.a" \
     "$WORK/build/iphonesimulator-x86_64/libopus.a" \
     -output "$SIM_FAT"
+
+MAC_DIR="$WORK/mac-fat"
+mkdir -p "$MAC_DIR"
+MAC_FAT="$MAC_DIR/libopus.a"
+lipo -create \
+    "$WORK/build/macosx-arm64/libopus.a" \
+    "$WORK/build/macosx-x86_64/libopus.a" \
+    -output "$MAC_FAT"
 
 # Stage headers (xcodebuild requires a directory, not a list of files)
 HDR_STAGE="$WORK/headers"
@@ -114,6 +127,7 @@ mkdir -p "$OUT_DIR"
 xcodebuild -create-xcframework \
     -library "$WORK/build/iphoneos-arm64/libopus.a" -headers "$HDR_STAGE" \
     -library "$SIM_FAT" -headers "$HDR_STAGE" \
+    -library "$MAC_FAT" -headers "$HDR_STAGE" \
     -output "$XCF_OUT" >/dev/null
 
 # Manifest: SHA-256 of every file inside the XCFramework, sorted.
