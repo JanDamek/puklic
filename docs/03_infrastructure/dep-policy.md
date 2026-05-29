@@ -10,8 +10,10 @@ distribution design — the rationale for the iOS / desktop split).
 
 | Target | Distribution | Permitted licences | Why |
 |---|---|---|---|
-| `:desktop:app` | GitHub Releases (.deb / .AppImage / AUR) | Apache-2.0, MIT, BSD, **GPL-3.0** | GPL-compatible distribution channel. Voice (FFmpeg-GPL, libdave, x264) lives here. |
-| `:ios:app` | Apple App Store (TestFlight, internal) | Apache-2.0, MIT, BSD only | App Store Guideline 5.3 + Apple's incompatibility with GPL-3.0 anti-Tivoization clauses. Chat-only — no voice. |
+| `:desktop:app` (main source set) | GitHub Releases (.deb / .AppImage / AUR / .dmg / .exe / .msi) | Apache-2.0, MIT, BSD, **GPL-3.0** | GPL-compatible distribution channel. Voice (FFmpeg-GPL, libdave, x264) lives here. |
+| `:desktop:app` (`macAppStore` source set) | Mac App Store (.pkg via `packageMacAppStore`, FP-14d `1d5a53b`) | Apache-2.0, MIT, BSD, **BSD-3-Clause** (libopus 1.5.2 dylib bundled in Resources) | Mac App Store guidelines incompatible with GPL-3.0 anti-Tivoization. `macAppStoreImplementation` extends `implementation` with explicit `:shared:voice` substitution + `org.bytedeco` excludes. Gated by `verifyMacAppStoreNoGplDeps` Gradle task. Voice ships as `NoOpVoiceClient` until FP-14h wires `AppleNativeVoiceClient`. |
+| `:desktop:platform-macos-appstore` | Linked only into `:desktop:app` `macAppStore` source set (FP-14c `4d3eb38`) | Apache-2.0 (Kotlin surface) + **BSD-3-Clause** (libopus 1.5.2 dylib) + Apple system frameworks (VideoToolbox, Network, AudioToolbox, ScreenCaptureKit — system-provided, no shipping concern) | JNA wrappers for VideoToolbox H.264, libopus, and Network.framework UDP. No transitive GPL — verified mechanically by `verifyMacAppStoreNoGplDeps`. |
+| `:ios:app` | Apple App Store (TestFlight, internal) | Apache-2.0, MIT, BSD only | App Store Guideline 5.3 + Apple's incompatibility with GPL-3.0 anti-Tivoization clauses. Voice ships as `NoOpVoiceClient` until FP-14h wires the iOS `AppleNativeVoiceClient` over FP-4..FP-6 codec primitives. |
 | `:android:app` | (not yet shipping) | TBD when phase activates | — |
 
 The iOS column is the load-bearing constraint: any GPL-3.0 transitive on the
@@ -46,8 +48,16 @@ Case-insensitive substring match on `group:artifact`:
 
 ## Enforcement
 
-Run on every `./gradlew :ios:app:check`. The task fails with the full list of
-violating coordinates and a pointer to this file.
+Run on every `./gradlew :ios:app:check` (`verifyIosNoGplDeps`) and every
+`./gradlew :desktop:app:check` (`verifyMacAppStoreNoGplDeps`, which walks
+`macAppStoreRuntimeClasspath`). Both fail with the full list of violating
+coordinates and a pointer to this file.
+
+Known gap tracked as FP-14h finding F-13: `:shared:voice-codec`'s own JVM
+artifact still references `org.bytedeco` (`LibavOpusEncoder`). FP-14h will
+split it into `voice-codec-api` (no native) + `voice-codec-libav` (JVM/GPL)
+so the App Store classpath does not transitively reach FFmpeg classes even
+in dead code form.
 
 There is **no opt-out flag**. Per HARD RULE #2 (CLAUDE.md: never temporary)
 the guard is absolute — if a legitimate Apache-2.0/MIT replacement is needed

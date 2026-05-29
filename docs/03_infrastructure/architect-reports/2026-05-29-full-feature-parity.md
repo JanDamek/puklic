@@ -130,6 +130,26 @@ Compose Desktop already supports Windows out of the box. Work:
 
 ### 3.6 `:macos:app` for Mac App Store
 
+> **SUPERSEDED 2026-05-29 by FP-14a..g.** The original plan below proposed a
+> separate `:macos:app` Kotlin/Native module (FP-13 in §7). Investigation
+> during FP-14a showed CMP 1.8 ships no native macOS Compose UI runtime, so
+> the Kotlin/Native UI path is not viable today. The Mac App Store ship
+> pivoted to a **JVM Compose Desktop** target implemented as a
+> `macAppStore` source set inside `:desktop:app` plus a new
+> `:desktop:platform-macos-appstore` module. See:
+>
+> - `2026-05-29-fp14a-mac-app-store-architect.md` (verification + jpackage probe)
+> - `2026-05-29-fp14b-test-first.md` (red-phase tests)
+> - `2026-05-29-fp14c-codec-wrappers.md` (VideoToolbox / libopus / Network.framework JNA)
+> - `2026-05-29-fp14d-gradle-packaging.md` (Gradle source set + `packageMacAppStore`)
+> - `2026-05-29-fp14e-fastlane-ci.md` (fastlane lane + GitHub Actions workflow) — landed in `01a0e30`
+> - `2026-05-29-fp14f-critic-findings.md` + `2026-05-29-fp14f-fix-findings.md`
+> - `2026-05-29-fp14g-docs-update.md` (this closure)
+>
+> Voice on the App Store ship will be wired in FP-14h via
+> `AppleNativeVoiceClient` over the FP-14c codec primitives; until then it
+> ships as `NoOpVoiceClient`.
+
 The architect report `2026-05-28-apple-distribution.md` originally suggested "Designed for iPad on Mac" which is valid but only ships the iOS UI. If we want full Mac UX (menu bar, multiple windows, keyboard shortcuts, native Mac look-and-feel), we ship a **separate** Mac App Store target built on Compose Desktop (Mac App Sandbox + entitlements + Mac App Distribution cert). The same Kotlin code runs; only the entry point and the licence-clean module set differ.
 
 Decision: ship **both** — "Designed for iPad" automatically (zero work, already happens when iOS app is published) AND a native Mac App Store target later in the roadmap once iOS App Store is live. Native Mac in scope but ordered after iOS App Store ships.
@@ -188,23 +208,26 @@ JNA-based bindings. Reuse existing JNA `5.14.0` dep that's already in the repo f
 
 Each slice runs the full 11-step pipeline. Slices are dispatched to subagents one-by-one (per HARD RULE #0 v3 — no K8s, Anthropic SDK + persistent pods OR inline). User pre-approval at Step 4 is granted blanket (per 2026-05-28 macro).
 
-| # | Slice | Module ownership | Blocking |
-|---|---|---|---|
-| FP-1 | Extract `XSalsa20Poly1305Cipher` from `:shared:voice` to `:shared:voice-codec` commonMain (foundation for transport encryption shared with App Store builds) | `:shared:voice-codec` create, `:shared:voice` strip | none |
-| FP-2 | `:shared:voice-codec` `H264Encoder` / `H264Decoder` `expect` + JVM `actual` thin-wraps `LibavVideoEncoder` (no behaviour change for desktop) | `:shared:voice-codec` jvmMain | FP-1 |
-| FP-3 | `:shared:voice-codec` `VoiceUdpTransport` `expect` + JVM `actual` wraps `UdpRtpTransport` | same | FP-2 |
-| FP-4 | iOS `actual`s — libopus XCFramework build script + cinterop `.def` + `IosOpusEncoder/Decoder` | `:shared:voice-codec` iosMain | FP-2/3 |
-| FP-5 | iOS `H264Encoder/Decoder actual` via VideoToolbox cinterop | same | FP-4 |
-| FP-6 | iOS `VoiceUdpTransport actual` via Network.framework cinterop | same | FP-4 |
-| FP-7 | `:shared:screencast` module create + JVM Linux `actual` moves `:shared:voice` portal code in | `:shared:screencast` create | FP-1 (no overlap with FP-2..6) |
-| FP-8 | `:shared:screencast` JVM macOS `actual` via ScreenCaptureKit / JNA | `:shared:screencast` jvmMain mac | FP-7 |
-| FP-9 | `:shared:screencast` JVM Windows `actual` via Desktop Duplication / JNA | `:shared:screencast` jvmMain windows | FP-7 |
-| FP-10 | Windows platform actuals (Paths/SecureStorage/Open/Notifications) + DependencyGraph branch + Compose Desktop Windows packaging + CI matrix | `:shared:platform-api` jvm + `:desktop:app` | FP-9 |
-| FP-11 | iOS Broadcast Extension target in `iosApp/` (App Group + Mach IPC + RPSystemBroadcastPickerView) | `iosApp/` extension target + `:ios:app` | FP-5 |
-| FP-12 | iOS `screencast` actual via ReplayKit + VideoToolbox | `:shared:screencast` iosMain | FP-11 |
-| FP-13 | macOS Kotlin/Native target — `:macos:app` module + `MacosDependencyGraph` + macOS-specific `actual`s | `:macos:app` create | FP-1..9 |
-| FP-14 | macOS Mac App Store target — Compose Desktop hardened runtime + Mac App Sandbox + entitlements + macOS Provisioning Profile + new fastlane lane | `dist/apple/mac/` + fastlane | FP-13 |
-| FP-15 | Update CLAUDE.md (done), phases.md, dep-policy.md, module-map.md to reflect new scope | docs | parallel to others |
+**Status as of 2026-05-29 (FP-14g closure):**
+
+| # | Slice | Module ownership | Blocking | Status |
+|---|---|---|---|---|
+| FP-1 | Extract `XSalsa20Poly1305Cipher` from `:shared:voice` to `:shared:voice-codec` commonMain (foundation for transport encryption shared with App Store builds) | `:shared:voice-codec` create, `:shared:voice` strip | none | [x] `8978e6e` (#41) |
+| FP-2 | `:shared:voice-codec` `H264Encoder` / `H264Decoder` `expect` + JVM `actual` thin-wraps `LibavVideoEncoder` (no behaviour change for desktop) | `:shared:voice-codec` jvmMain | FP-1 | [x] `603f57d` (#42) |
+| FP-3 | `:shared:voice-codec` `VoiceUdpTransport` `expect` + JVM `actual` wraps `UdpRtpTransport` | same | FP-2 | [x] `4706637` (#43) |
+| FP-4 | iOS `actual`s — libopus XCFramework build script + cinterop `.def` + `IosOpusEncoder/Decoder` | `:shared:voice-codec` iosMain | FP-2/3 | [x] `49f9854` (#44) |
+| FP-5 | iOS `H264Encoder/Decoder actual` via VideoToolbox cinterop | same | FP-4 | [x] `7076c9c` (#45) |
+| FP-6 | iOS `VoiceUdpTransport actual` via Network.framework cinterop | same | FP-4 | [x] `e84ce88` (#46) |
+| FP-7 | `:shared:screencast` module create + JVM Linux `actual` moves `:shared:voice` portal code in | `:shared:screencast` create | FP-1 (no overlap with FP-2..6) | [x] `e9b0724` (#47) |
+| FP-8 | `:shared:screencast` JVM macOS `actual` via ScreenCaptureKit / JNA | `:shared:screencast` jvmMain mac | FP-7 | [x] `918ed33` (#48) |
+| FP-9 | `:shared:screencast` JVM Windows `actual` via Desktop Duplication / JNA | `:shared:screencast` jvmMain windows | FP-7 | [x] `042e76c` (#49) |
+| FP-10 | Windows platform actuals (Paths/SecureStorage/Open/Notifications) + DependencyGraph branch + Compose Desktop Windows packaging + CI matrix | `:shared:platform-api` jvm + `:desktop:app` | FP-9 | [x] `9ef0545` (#50) |
+| FP-11 | iOS Broadcast Extension target in `iosApp/` (App Group + Mach IPC + RPSystemBroadcastPickerView) | `iosApp/` extension target + `:ios:app` | FP-5 | [x] `7a259c5` (#51) |
+| FP-12 | iOS `screencast` actual via ReplayKit + VideoToolbox | `:shared:screencast` iosMain | FP-11 | [x] `cbd80f7` (#52) |
+| FP-13 | macOS Kotlin/Native target — `:macos:app` module + `MacosDependencyGraph` + macOS-specific `actual`s | `:macos:app` create | FP-1..9 | [-] **REDIRECTED.** CMP 1.8 has no native macOS Compose UI runtime; pivot to JVM Compose Desktop path via FP-14. See §3.6 SUPERSEDED note. |
+| FP-14 | macOS Mac App Store target — **JVM Compose Desktop** hardened runtime + Mac App Sandbox + entitlements + jpackage `--type pkg --mac-app-store` + fastlane lane | `:desktop:app` `macAppStore` source set + `:desktop:platform-macos-appstore` + `dist/apple/mac/` + fastlane | FP-1..FP-12 | [x] FP-14a `9d183f1` (#54), FP-14b `f1651a0` (#55), FP-14c `4d3eb38` (#56), FP-14d `1d5a53b` (#57), FP-14e `01a0e30` (#58), FP-14f-critic `334d26a` (#59), FP-14f-fix `73a8922` (#60), FP-14g (#61) |
+| FP-14h | **NEW follow-up.** Wire `AppleNativeVoiceClient` into Mac App Store + iOS DI graphs (resolves dead-code FP-1..FP-12 primitives); resolve FP-14f deferred critic findings F-2, F-7..F-13, F-16..F-21 (lifetime / refcount / JMM / split `:shared:voice-codec` into api + libav / HARD RULE #2 cleanup of `MacAppStoreMain.kt` voice-not-wired note). | `:desktop:platform-macos-appstore`, `:ios:platform`, `:shared:voice-codec`, `MacAppStoreDependencyGraph`, `IosDependencyGraph` | FP-14 | [ ] **BLOCKING** for any Mac App Store TestFlight submission. |
+| FP-15 | Update CLAUDE.md (done), phases.md, dep-policy.md, module-map.md to reflect new scope | docs | parallel to others | [x] folded into FP-14g (`2026-05-29-fp14g-docs-update.md`) |
 
 Dispatch order: **FP-1 → FP-2 → (FP-3, FP-4) parallel → (FP-5, FP-6, FP-7) parallel → FP-8/9/10 parallel → FP-11/12 sequential → FP-13/14 → FP-15 throughout**.
 

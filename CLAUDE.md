@@ -137,16 +137,16 @@ These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to
 |---|---|---|---|---|---|
 | Linux x86_64 | Compose Desktop | .deb + .AppImage (GitHub Releases) + .pkg.tar.zst (AUR) | ✅ PipeWire + libopus | ✅ xdg-desktop-portal + PipeWire + libx264/libvpx (GPL) | ✅ libdave (GPL) |
 | macOS arm64 desktop | Compose Desktop | .dmg signed Developer ID (GitHub Releases) | ✅ AVAudioEngine + libopus | ✅ ScreenCaptureKit + libx264 (GPL) | ✅ libdave (GPL) |
-| macOS arm64 Mac App Store | Compose iOS via Designed for Mac OR macOS Kotlin/Native | Mac App Store | ✅ AVAudioEngine + libopus | ✅ ScreenCaptureKit + **VideoToolbox** (no GPL) | ❌ ship without DAVE (Discord fallback to non-E2EE) |
+| macOS arm64 Mac App Store | JVM Compose Desktop (`:desktop:app` `macAppStore` source set, FP-14 2026-05-29) | Mac App Store (.pkg via jpackage `--mac-app-store`) | ⚠ FP-14c codec primitives present (VideoToolbox + libopus + Network.framework via JNA); voice **ships as `NoOpVoiceClient` until FP-14h** wires `AppleNativeVoiceClient` | ⚠ Same status — ScreenCaptureKit + VideoToolbox primitives present, no client wired until FP-14h | ❌ ship without DAVE (Discord fallback to non-E2EE) |
 | Windows x86_64 desktop | Compose Desktop | .exe / .msi (GitHub Releases) | ✅ WASAPI + libopus | ✅ Desktop Duplication + libx264 (GPL) | ✅ libdave (GPL) |
-| iOS / iPadOS arm64 | Compose iOS via KMP framework | App Store (also runs on Apple Silicon Mac via Designed for iPad) | ✅ AVAudioEngine + libopus + **Network.framework UDP** | ✅ ReplayKit Broadcast Extension + **VideoToolbox** | ❌ ship without DAVE (Discord fallback) |
+| iOS / iPadOS arm64 | Compose iOS via KMP framework | App Store (also runs on Apple Silicon Mac via Designed for iPad) | ⚠ FP-4..FP-6 codec primitives present (libopus + VideoToolbox + Network.framework UDP); voice **ships as `NoOpVoiceClient` until FP-14h** wires `AppleNativeVoiceClient` | ⚠ FP-11 + FP-12 ReplayKit Broadcast Extension + VideoToolbox primitives present, no client wired until FP-14h | ❌ ship without DAVE (Discord fallback) |
 
 **Out of scope:**
 - macOS x86_64 (Intel Mac) — Apple-Silicon-only Mac shipping; Intel users use the Compose Desktop .dmg if needed.
 - Browser / web.
 - Android — separate roadmap phase after iOS slices stabilise.
 
-**App Store distribution rule:** any module reachable from `:ios:app` or `:macos:app` MUST be Apache-2.0 / MIT (enforced by `verifyIosNoGplDeps` / `verifyMacosNoGplDeps`). GPL deps (libx264, libdave, FFmpeg) live in `:shared:voice` JVM-only impl; App Store builds use Apple-native equivalents (VideoToolbox, AudioToolbox, Network.framework, CryptoKit) via `expect`/`actual` in `:shared:voice-codec`.
+**App Store distribution rule:** any module reachable from `:ios:app` or the `:desktop:app` `macAppStore` source set MUST be Apache-2.0 / MIT / BSD (enforced by `verifyIosNoGplDeps` / `verifyMacAppStoreNoGplDeps`). GPL deps (libx264, libdave, FFmpeg) live in `:shared:voice` JVM-only impl; App Store builds use Apple-native equivalents (VideoToolbox, AudioToolbox, Network.framework, ScreenCaptureKit) — JNA-bridged in `:desktop:platform-macos-appstore` (FP-14c) and Kotlin/Native cinterop in `:shared:voice-codec` iosMain (FP-4..FP-6). **FP-14h follow-up** wires `AppleNativeVoiceClient` into both DI graphs; until then App Store builds ship `NoOpVoiceClient` and the codec primitives are dead code.
 
 **DAVE strategy (decided 2026-05-29):** App Store builds (iOS + Mac App Store) ship without DAVE. Discord's voice protocol falls back to the standard xsalsa20_poly1305 RTP transport encryption (still secure on the wire, just no end-to-end key agreement). GPL desktop builds (Linux, macOS .dmg, Windows) keep libdave for full E2EE. Documented in `docs/03_infrastructure/architect-reports/2026-05-29-full-feature-parity.md` §3.
 

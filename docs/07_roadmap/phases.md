@@ -131,6 +131,24 @@ Desktop builds (GitHub Releases) keep full feature set.
 - [ ] Slice 8 — Internal-tester group invite (depends on 7)
 - [ ] Slice 9 — APN `.p8` auth key provisioning (push infra prep; no consumer yet)
 - [ ] Slice 10 — Firebase project + service-account JSON (Android push prep; no consumer yet)
+- [x] Slice 11 — iOS Broadcast Extension target (App Group IPC + RPSystemBroadcastPickerView) (`7a259c5`, FP-11, #51)
+- [x] Slice 12 — iOS ReplayKit screencast impl + Material3 confirm dialog (`cbd80f7`, FP-12, #52)
+- [-] Slice 13 — macOS Kotlin/Native target (`:macos:app`) — **BLOCKED, redirected.** CMP 1.8 ships no native macOS Compose UI runtime. Mac App Store ship pivoted to the JVM Compose Desktop path delivered by Slice 14. Original plan in `2026-05-29-full-feature-parity.md` §3.6 (SUPERSEDED).
+- [x] Slice 14 — Mac App Store target via JVM Compose Desktop (hardened runtime + sandbox + entitlements + jpackage `--type pkg --mac-app-store`):
+  - [x] FP-14a — Architect verification + library survey + jpackage probe (`9d183f1`, #54)
+  - [x] FP-14b — Red-phase failing tests (`f1651a0`, #55)
+  - [x] FP-14c — VideoToolbox + libopus + Network.framework JNA wrappers (`4d3eb38`, #56)
+  - [x] FP-14d — Gradle `macAppStore` source set + `packageMacAppStore` + entitlements (`1d5a53b`, #57)
+  - [x] FP-14e — fastlane `mac_app_store` lane + `.github/workflows/mac-app-store.yml` (`01a0e30`, #58)
+  - [x] FP-14f — Critic findings (`334d26a`, #59) + fixes for F-1, F-3..F-6, F-14, F-15, F-22..F-24 (`73a8922`, #60)
+  - [x] FP-14g — Docs closure (this commit, #61)
+  - [ ] FP-14h — Voice wiring + critic follow-up (see below)
+- [ ] Slice 15 (FP-14h) — Wire `AppleNativeVoiceClient` into Mac App Store + iOS dependency graphs, then resolve the FP-14f deferred findings:
+      voice wiring (F-2), `JnaNwConnectionUdpTransport` lifetime (F-7..F-9), VideoToolbox refcount + JMM (F-10, F-11),
+      libopus close-race (F-12), split `:shared:voice-codec` into api + libav (F-13), HARD RULE #2 cleanup of `MacAppStoreMain.kt`
+      "voice not wired in v1" note (F-16), and JNA / Dispatch / Info.plist / dock-icon NITs (F-17..F-21).
+      **Blocking gate:** FP-14h MUST land before any Mac App Store TestFlight submission — until then both iOS and the
+      Mac App Store target ship `NoOpVoiceClient` and the FP-1..FP-12 native codec primitives are dead code.
 
 ## Phase 5 — Optimisation
 
