@@ -55,7 +55,9 @@ If you THINK you need temporary code, you're missing a step in the pipeline — 
 
 ## What Puklic IS
 
-A lightweight native desktop chat client for Discord, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, **Linux desktop only** (Wayland-first), long-term stability. KMP scaffolding (Android, iOS modules) is kept for a future mobile roadmap phase but is not a current shipping target.
+A lightweight native Discord client, built on Kotlin Multiplatform + Compose Multiplatform. Goal: an alternative to the Electron client focused on low RAM usage, native UX, long-term stability, **and full feature parity (voice, screen sharing, DAVE where licence allows) across every shipping platform — Linux, macOS, Windows desktop and iOS / iPadOS / Mac App Store**.
+
+The "lightweight chat with voice + screencast" identity is non-negotiable. Any per-platform feature reduction is a defect, not a scope decision.
 
 ## What Puklic IS NOT
 
@@ -84,23 +86,26 @@ These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to
 
 ## Platforms
 
-**Officially shipped:**
-- Linux x86_64 desktop (.deb + .AppImage via Compose Desktop; .pkg.tar.zst via AUR)
-- macOS arm64 desktop (.dmg via Compose Desktop, attached to GitHub Releases)
+**Officially shipped, all with full feature set (voice + screen sharing; DAVE where licence allows):**
+
+| Channel | Target | Distribution | Voice | Screencast | DAVE |
+|---|---|---|---|---|---|
+| Linux x86_64 | Compose Desktop | .deb + .AppImage (GitHub Releases) + .pkg.tar.zst (AUR) | ✅ PipeWire + libopus | ✅ xdg-desktop-portal + PipeWire + libx264/libvpx (GPL) | ✅ libdave (GPL) |
+| macOS arm64 desktop | Compose Desktop | .dmg signed Developer ID (GitHub Releases) | ✅ AVAudioEngine + libopus | ✅ ScreenCaptureKit + libx264 (GPL) | ✅ libdave (GPL) |
+| macOS arm64 Mac App Store | Compose iOS via Designed for Mac OR macOS Kotlin/Native | Mac App Store | ✅ AVAudioEngine + libopus | ✅ ScreenCaptureKit + **VideoToolbox** (no GPL) | ❌ ship without DAVE (Discord fallback to non-E2EE) |
+| Windows x86_64 desktop | Compose Desktop | .exe / .msi (GitHub Releases) | ✅ WASAPI + libopus | ✅ Desktop Duplication + libx264 (GPL) | ✅ libdave (GPL) |
+| iOS / iPadOS arm64 | Compose iOS via KMP framework | App Store (also runs on Apple Silicon Mac via Designed for iPad) | ✅ AVAudioEngine + libopus + **Network.framework UDP** | ✅ ReplayKit Broadcast Extension + **VideoToolbox** | ❌ ship without DAVE (Discord fallback) |
 
 **Out of scope:**
-- Windows desktop (any arch)
-- macOS x86_64 (Intel Mac)
-- Browser / web
+- macOS x86_64 (Intel Mac) — Apple-Silicon-only Mac shipping; Intel users use the Compose Desktop .dmg if needed.
+- Browser / web.
+- Android — separate roadmap phase after iOS slices stabilise.
 
-Mobile (Android/iOS) — separate roadmap phase, KMP scaffolding ready.
+**App Store distribution rule:** any module reachable from `:ios:app` or `:macos:app` MUST be Apache-2.0 / MIT (enforced by `verifyIosNoGplDeps` / `verifyMacosNoGplDeps`). GPL deps (libx264, libdave, FFmpeg) live in `:shared:voice` JVM-only impl; App Store builds use Apple-native equivalents (VideoToolbox, AudioToolbox, Network.framework, CryptoKit) via `expect`/`actual` in `:shared:voice-codec`.
 
-Scope set 2026-05-25 (issue #22) and revised same day per user
-"všechny platformy stejně" — macOS arm64 promoted from developer-side
-to officially shipped, with the same version string as Linux (single
-source of truth in `gradle.properties` → `puklic.version`). Re-adding
-Windows or macOS x86_64 requires updating this section and
-`docs/07_roadmap/phases.md` before any CI / Gradle change.
+**DAVE strategy (decided 2026-05-29):** App Store builds (iOS + Mac App Store) ship without DAVE. Discord's voice protocol falls back to the standard xsalsa20_poly1305 RTP transport encryption (still secure on the wire, just no end-to-end key agreement). GPL desktop builds (Linux, macOS .dmg, Windows) keep libdave for full E2EE. Documented in `docs/03_infrastructure/architect-reports/2026-05-29-full-feature-parity.md` §3.
+
+Re-adding macOS x86_64 / Android / Web requires updating this section and `docs/07_roadmap/phases.md` before any CI / Gradle change.
 
 ---
 
