@@ -40,6 +40,14 @@ kotlin {
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
         }
+        // iOS source set — needed for FP-12 to reach :shared:screencast iosMain
+        // (IosScreenSourceEnumerator) from the iOS VoiceDock actual + the iOS
+        // BroadcastPickerHost / IosShareScreenConfirmDialog Compose components.
+        // Android target stays untouched — :shared:screencast has no Android sourceset
+        // by design (CLAUDE.md: Android screen capture is non-shipping scaffolding).
+        iosMain.dependencies {
+            implementation(projects.shared.screencast)
+        }
     }
 }
 

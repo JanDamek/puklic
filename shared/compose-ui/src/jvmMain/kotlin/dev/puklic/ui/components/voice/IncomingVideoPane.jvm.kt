@@ -18,9 +18,8 @@ import dev.puklic.voice.IncomingVideoFrame
 import java.awt.image.BufferedImage
 
 /**
- * Renders the latest decoded frame per remote screenshare SSRC. Hidden when [frames] is
- * empty. Phase 4.2 — v1 keeps the UI minimal (stacked Image elements). A grid + speaker
- * focus is left for a later UX pass.
+ * JVM `actual` for [IncomingVideoPane] — converts RGBA bytes to a `BufferedImage` and on to
+ * a Compose [ImageBitmap]. Phase 4.2 — v1 keeps the UI minimal (stacked Image elements).
  *
  * Performance note: a 1080p frame is ~8 MB and we recompose on every [IncomingVideoFrame]
  * value change. [remember] keyed on width/height/content hash keeps the bitmap stable when
@@ -28,7 +27,7 @@ import java.awt.image.BufferedImage
  * for 30 fps screenshare this is the bottleneck and may need a Skia direct path later.
  */
 @Composable
-internal fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {
+internal actual fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {
     if (frames.isEmpty()) return
     Column(
         modifier = Modifier
