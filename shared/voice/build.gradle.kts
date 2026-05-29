@@ -21,6 +21,15 @@ kotlin {
 
     jvmToolchain(21)
 
+    // FP-14h-2a opt-in: the legacy UdpRtpTransport interface + expect newUdpRtpTransport()
+    // (commonMain/transport/UdpRtpTransport.kt) and the JitterBuffer used by PlaybackPipeline
+    // are marked @PuklicVoiceCodec (defined in :shared:voice-codec). Module-level opt-in
+    // avoids per-callsite @OptIn annotations across DefaultVoiceClient et al. Per architect
+    // report 2026-05-29-fp14h-1-v2-voice-gateway-redesign.md §2.5.
+    sourceSets.all {
+        languageSettings.optIn("dev.puklic.voice.codec.PuklicVoiceCodec")
+    }
+
     sourceSets {
         commonMain.dependencies {
             // Re-export the Apache-2.0 public types so existing JVM consumers

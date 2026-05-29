@@ -15,7 +15,7 @@ import java.net.InetSocketAddress
  */
 private const val RECEIVE_BUFFER_BYTES: Int = 2048
 
-internal actual fun newUdpRtpTransport(): UdpRtpTransport = JvmUdpRtpTransport()
+public actual fun newUdpRtpTransport(): UdpRtpTransport = JvmUdpRtpTransport()
 
 private class JvmUdpRtpTransport : UdpRtpTransport {
     private var socket: DatagramSocket? = null

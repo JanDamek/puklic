@@ -1,6 +1,6 @@
 package dev.puklic.voice.transport
 
-import kotlinx.coroutines.withTimeout
+import dev.puklic.voice.codec.PuklicVoiceCodec
 
 /**
  * Discord voice IP discovery handshake.
@@ -16,8 +16,14 @@ import kotlinx.coroutines.withTimeout
  * 8       64    address (zero-padded ASCII)
  * 72      2     port
  * ```
+ *
+ * Moved here from `:shared:voice/commonMain` 2026-05-29 (FP-14h-2a) per architect report
+ * `2026-05-29-fp14h-1-v2-voice-gateway-redesign.md` §9.2 row 6. The legacy
+ * `UdpRtpTransport` interface + `expect newUdpRtpTransport()` + `discoverIp` extension stay
+ * in `:shared:voice/commonMain/UdpRtpTransport.kt` until FP-14h-2b deletes them.
  */
-internal object IpDiscovery {
+@PuklicVoiceCodec
+public object IpDiscovery {
 
     private const val PACKET_SIZE: Int = 74
     private const val PAYLOAD_LENGTH: Int = 70
@@ -27,9 +33,9 @@ internal object IpDiscovery {
     private const val TYPE_REQUEST: Int = 0x0001
     private const val TYPE_RESPONSE: Int = 0x0002
 
-    internal data class Result(val address: String, val port: Int)
+    public data class Result(val address: String, val port: Int)
 
-    fun buildRequest(ssrc: Int): ByteArray {
+    public fun buildRequest(ssrc: Int): ByteArray {
         val pkt = ByteArray(PACKET_SIZE)
         writeU16BE(pkt, 0, TYPE_REQUEST)
         writeU16BE(pkt, 2, PAYLOAD_LENGTH)
@@ -38,13 +44,13 @@ internal object IpDiscovery {
         return pkt
     }
 
-    fun parseResponse(bytes: ByteArray): Result {
+    public fun parseResponse(bytes: ByteArray): Result {
         require(bytes.size == PACKET_SIZE) {
             "ip discovery response must be $PACKET_SIZE bytes, got ${bytes.size}"
         }
         val type = readU16BE(bytes, 0)
         require(type == TYPE_RESPONSE) {
-            "ip discovery response type must be 0x%04x, got 0x%04x".format(TYPE_RESPONSE, type)
+            "ip discovery response type must be 0x${TYPE_RESPONSE.toHex4()}, got 0x${type.toHex4()}"
         }
         val end = (ADDRESS_OFFSET until ADDRESS_OFFSET + ADDRESS_SIZE)
             .firstOrNull { bytes[it] == 0.toByte() } ?: (ADDRESS_OFFSET + ADDRESS_SIZE)
@@ -67,29 +73,6 @@ internal object IpDiscovery {
 
     private fun readU16BE(src: ByteArray, offset: Int): Int =
         ((src[offset].toInt() and 0xFF) shl 8) or (src[offset + 1].toInt() and 0xFF)
-}
 
-/**
- * UDP RTP transport abstraction. JVM `actual` uses `java.net.DatagramSocket`.
- *
- * Single-threaded blocking I/O per direction is fine for voice — 50 packets/sec.
- */
-internal interface UdpRtpTransport {
-    suspend fun bind(): Int
-    suspend fun connect(host: String, port: Int)
-    suspend fun send(packet: ByteArray)
-    suspend fun receive(): ByteArray
-    fun close()
-}
-
-internal expect fun newUdpRtpTransport(): UdpRtpTransport
-
-/**
- * Run the 74-byte IP discovery handshake against the connected voice server.
- * Sends a request and awaits the response, returning the discovered external (address, port).
- */
-internal suspend fun UdpRtpTransport.discoverIp(ssrc: Int, timeoutMs: Long = 5_000): IpDiscovery.Result {
-    send(IpDiscovery.buildRequest(ssrc))
-    val response = withTimeout(timeoutMs) { receive() }
-    return IpDiscovery.parseResponse(response)
+    private fun Int.toHex4(): String = (this and 0xFFFF).toString(16).padStart(4, '0')
 }

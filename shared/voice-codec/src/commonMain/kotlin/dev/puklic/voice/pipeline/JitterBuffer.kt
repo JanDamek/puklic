@@ -1,5 +1,7 @@
 package dev.puklic.voice.pipeline
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 /**
  * Tiny reorder + gap-detection ring buffer for one SSRC's Opus packets.
  *
@@ -15,7 +17,8 @@ package dev.puklic.voice.pipeline
  * Sequence numbers are 16-bit RTP sequence numbers (wrap around 65536). Comparison
  * uses serial-number arithmetic (RFC 1982) within a ± 0x8000 window.
  */
-internal class JitterBuffer(
+@PuklicVoiceCodec
+public class JitterBuffer(
     private val targetMs: Int = 40,
     private val maxSlots: Int = 8,
 ) {

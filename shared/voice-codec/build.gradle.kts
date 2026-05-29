@@ -62,6 +62,14 @@ kotlin {
 
     jvmToolchain(21)
 
+    // FP-14h-2a opt-in: types marked @PuklicVoiceCodec inside this module (IpDiscovery,
+    // JitterBuffer in commonMain) are referenced by sibling commonMain/jvmMain files
+    // without requiring per-callsite @OptIn. Per architect report
+    // 2026-05-29-fp14h-1-v2-voice-gateway-redesign.md §2.5.
+    sourceSets.all {
+        languageSettings.optIn("dev.puklic.voice.codec.PuklicVoiceCodec")
+    }
+
     sourceSets {
         commonMain.dependencies {
             // FP-3 VoiceUdpTransport surface uses kotlinx.coroutines Flow in commonMain.
