@@ -93,3 +93,12 @@ jobs:
           KEYCHAIN_PASSWORD: ${{ secrets.MAC_KEYCHAIN_PASSWORD }}
         run: |
           security delete-keychain build.keychain || true
+
+      # FP-14f-fix (F-14): explicit secret hygiene — wipe the materialised ASC
+      # API key and the imported provisioning profile so a re-used runner
+      # (self-hosted) does not leak credentials into a subsequent job.
+      - name: Cleanup ASC key + provisioning profile
+        if: always()
+        run: |
+          rm -f "$ASC_KEY_PATH"
+          rm -f "$HOME/Library/MobileDevice/Provisioning Profiles/Puklic_Mac_App_Store.provisionprofile"

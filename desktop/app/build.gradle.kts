@@ -425,61 +425,47 @@ val macAppStoreMainSourceSet = sourceSets.create("macAppStore") {
     java.srcDir("src/macAppStore/kotlin")
     // Compile against main outputs + main compileClasspath so MacAppStoreMain
     // can reference Compose Desktop + Coil + Decompose + the shared-module
-    // types pulled in by main. The runtime classpath below is the GPL-clean
-    // curated one — the macAppStore source code MUST NOT reference any
-    // symbol from `:shared:voice` (that module is excluded from the runtime
-    // configuration and would NoClassDefFoundError at launch).
+    // types pulled in by main. The runtime classpath below extends the main
+    // `implementation` with project-level excludes for `:shared:voice` and
+    // every forbidden GPL coordinate — the macAppStore source code MUST NOT
+    // reference any symbol from `:shared:voice` (it would
+    // NoClassDefFoundError at launch).
     compileClasspath += sourceSets["main"].output + configurations["compileClasspath"]
-    runtimeClasspath = output + configurations["macAppStoreRuntimeClasspath"]
+    runtimeClasspath = output +
+        sourceSets["main"].output +
+        configurations["macAppStoreRuntimeClasspath"]
 }
 
-// `macAppStoreImplementation` is a HAND-CURATED configuration — it does NOT
-// extend from the main `implementation` configuration. This is the
-// mechanically-enforced GPL boundary: every dep on the macAppStore runtime
-// classpath is explicitly listed below, so `:shared:voice` cannot leak in
-// via inheritance.
-dependencies {
-    "macAppStoreImplementation"(projects.shared.composeUi)
-    "macAppStoreImplementation"(projects.shared.session)
-    "macAppStoreImplementation"(projects.shared.voiceApi)
-    "macAppStoreImplementation"(projects.shared.platformApi)
-    "macAppStoreImplementation"(projects.shared.domain)
-    "macAppStoreImplementation"(projects.shared.ids)
-    "macAppStoreImplementation"(projects.shared.repositories)
-    "macAppStoreImplementation"(projects.shared.persistenceApi)
-    "macAppStoreImplementation"(projects.shared.persistenceSqldelight)
-    "macAppStoreImplementation"(projects.shared.protocolDiscord)
-    "macAppStoreImplementation"(projects.desktop.platformMacos)
-    "macAppStoreImplementation"(projects.desktop.platformMacosAppstore) {
-        // :shared:voice-codec JVM artifact transitively pulls FFmpeg-GPL +
-        // JavaCPP for the Linux/Windows desktop ship that uses libavcodec to
-        // encode Opus. The Mac App Store ship uses the Apple-native libopus
-        // JNA wrapper from FP-14c — it never references the FFmpeg classes.
-        // Exclude the GPL bundle at the consumer (macAppStore source set)
-        // boundary so the GPL boundary is mechanical.
-        exclude(group = "org.bytedeco")
+// FP-14f-fix (F-1): `macAppStoreImplementation` extends `implementation` so
+// the resolved runtime classpath inherits Compose Desktop's full closure
+// (skiko-awt-runtime-macos-arm64, compose-jb-runtime-desktop, material3-desktop,
+// etc.) — those are NOT direct coordinates but transitives of
+// `compose.desktop.currentOs` brought in via the Compose plugin's resolution
+// rules applied to the main source set. The GPL boundary is preserved by:
+//   1. `resolutionStrategy.dependencySubstitution` replacing `:shared:voice`
+//      with `:shared:voice-api` (the GPL-free interface module) on this
+//      configuration — Gradle's idiomatic way to swap a project dep on a
+//      single consumer edge.
+//   2. Explicit `exclude(group, module)` for every entry of
+//      `FORBIDDEN_MAC_APP_STORE_ARTIFACTS` so transitives (FFmpeg / x264 /
+//      wire core-crypto) cannot leak in.
+configurations["macAppStoreImplementation"].extendsFrom(configurations["implementation"])
+
+configurations["macAppStoreRuntimeClasspath"].apply {
+    resolutionStrategy.dependencySubstitution {
+        substitute(project(":shared:voice")).using(project(":shared:voice-api"))
+            .because("Mac App Store ship swaps GPL :shared:voice for the API-only module (FP-14f-fix F-1)")
     }
-    "macAppStoreImplementation"(libs.koin.core)
-    "macAppStoreImplementation"(libs.decompose)
-    "macAppStoreImplementation"(libs.essenty.lifecycle.coroutines)
-    "macAppStoreImplementation"(libs.kotlinx.coroutines.core)
-    "macAppStoreImplementation"(libs.kotlinx.coroutines.swing)
-    "macAppStoreImplementation"(libs.kotlinx.datetime)
-    "macAppStoreImplementation"(libs.kotlinx.serialization.json)
-    "macAppStoreImplementation"(libs.ktor.client.core)
-    "macAppStoreImplementation"(libs.ktor.client.cio)
-    "macAppStoreImplementation"(libs.ktor.client.websockets)
-    "macAppStoreImplementation"(libs.ktor.client.content.negotiation)
-    "macAppStoreImplementation"(libs.ktor.serialization.kotlinx.json)
-    "macAppStoreImplementation"(compose.desktop.currentOs)
-    "macAppStoreImplementation"(compose.material3)
-    "macAppStoreImplementation"(compose.materialIconsExtended)
-    "macAppStoreImplementation"(libs.coil)
-    "macAppStoreImplementation"(libs.coil.core)
-    "macAppStoreImplementation"(libs.coil.network.ktor3)
-    "macAppStoreImplementation"(libs.kermit)
-    "macAppStoreImplementation"(libs.slf4j.api)
-    "macAppStoreImplementation"(libs.logback.classic)
+    exclude(group = "org.bytedeco")
+    exclude(group = "com.wire", module = "core-crypto")
+    exclude(group = "org.libx264")
+}
+
+dependencies {
+    // Anchor the FP-14c JNA bridges (libopus / VideoToolbox / Network.framework)
+    // so they are on the runtime classpath even though they are not pulled by
+    // `implementation`.
+    "macAppStoreImplementation"(projects.desktop.platformMacosAppstore)
 }
 
 // ── verifyMacAppStoreNoGplDeps ──────────────────────────────────────────
@@ -539,7 +525,15 @@ val packageMacAppStoreOutput = layout.buildDirectory.dir("macAppStore/pkg")
 val stageMacAppStoreInput = tasks.register<Sync>("stageMacAppStoreInput") {
     description = "Stages the macAppStore runtime classpath JARs + main JAR for jpackage --input."
     group = "compose desktop"
+    // FP-14f-fix (F-1): include the main `jar` task output so the main source
+    // set's processed resources (`src/main/resources` — icons referenced by
+    // `painterResource` in MacAppStoreMain) end up on the launcher classpath.
+    // The Kotlin Jvm plugin's `jar` task packs `processResources` output by
+    // default; depending on it here is the conceptually-correct way to make
+    // resources reachable inside the `--input` directory.
+    dependsOn(tasks.named("jar"))
     from(macAppStoreMainSourceSet.runtimeClasspath.filter { it.isFile })
+    from(tasks.named("jar").map { it.outputs.files.singleFile })
     into(packageMacAppStoreInput)
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 }
@@ -639,13 +633,19 @@ val packageMacAppStore = tasks.register<Exec>("packageMacAppStore") {
         "--main-jar", mainJarName,
         "--main-class", "dev.puklic.desktop.macappstore.MacAppStoreMainKt",
         "--mac-package-identifier", "cz.damek.puklic.app",
-        "--mac-package-name", "Puklic",
         "--mac-sign",
         "--mac-app-image-sign-identity", signAppIdentity,
         "--mac-installer-sign-identity", signInstallerIdentity,
         "--mac-entitlements", entitlements.absolutePath,
         "--resource-dir", resourceDir.absolutePath,
         "--app-content", packageMacAppStoreAppContent.get().asFile.absolutePath,
+        // jpackage substitutes `${'$'}APPDIR` at launcher-cfg write time (JDK 21
+        // `jdk.jpackage.internal.AppImageBundler`). `${'$'}APPDIR` resolves to
+        // `Contents/app/` at runtime, so `${'$'}APPDIR/../Resources` points to
+        // `Contents/Resources/` where `--app-content Resources/` populated
+        // libopus.dylib. The literal must NOT be shell-expanded by Gradle's
+        // `Exec.commandLine` — it is passed verbatim to jpackage which does
+        // the substitution itself.
         "--java-options", "-Djna.library.path=\$APPDIR/../Resources",
         "--java-options", "-Dpuklic.flavor=macAppStore",
     )

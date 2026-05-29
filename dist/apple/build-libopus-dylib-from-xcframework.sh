@@ -32,7 +32,9 @@ mkdir -p "$(dirname "$OUT")"
 # JNA Native.load() call hits every entry point lazily, so all must be present).
 # -install_name uses @rpath so the same binary can live at any path inside the
 # .app bundle as long as an rpath entry points at its directory.
-clang -dynamiclib -arch arm64 -arch x86_64 \
+# arm64-only — Mac App Store ship targets arm64 Macs per CLAUDE.md `## Platforms`.
+# Intel Macs are out of scope; bundling an x86_64 slice would only waste space.
+clang -dynamiclib -arch arm64 \
     -install_name @rpath/libopus.dylib \
     -Wl,-force_load,"$SLICE" \
     -o "$OUT"

@@ -22,14 +22,11 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
 import dev.puklic.db.PuklicDatabase
-import dev.puklic.persistence.sqldelight.AttachmentCacheIndexImpl
 import dev.puklic.persistence.sqldelight.ChannelRepositoryImpl
 import dev.puklic.persistence.sqldelight.GuildRepositoryImpl
 import dev.puklic.persistence.sqldelight.JvmDriverFactory
-import dev.puklic.persistence.sqldelight.LocalDraftRepositoryImpl
 import dev.puklic.persistence.sqldelight.MessageRepositoryImpl
 import dev.puklic.persistence.sqldelight.OutboundQueueImpl
-import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
 import dev.puklic.platform.NotificationService
@@ -204,7 +201,6 @@ public class MacAppStoreDependencyGraph private constructor(
     public val sessionManager: SessionManager,
     public val rootComponent: RootComponent,
     public val httpClient: HttpClient,
-    public val database: PuklicDatabase,
     public val mentionResolver: MentionResolver,
     public val emojiResolver: EmojiResolver,
 ) {
@@ -228,12 +224,6 @@ public class MacAppStoreDependencyGraph private constructor(
             val channelStore = ChannelRepositoryImpl(database, ioDispatcher, nowMs)
             val userStore = UserRepositoryImpl(database, ioDispatcher, nowMs)
             val outboundQueue = OutboundQueueImpl(database, ioDispatcher)
-            @Suppress("UNUSED_VARIABLE")
-            val localDrafts = LocalDraftRepositoryImpl(database, ioDispatcher)
-            @Suppress("UNUSED_VARIABLE")
-            val readState = ReadStateRepositoryImpl(database, ioDispatcher)
-            @Suppress("UNUSED_VARIABLE")
-            val attachmentCache = AttachmentCacheIndexImpl(database, ioDispatcher)
             val userPreferences = UserPreferencesRepositoryImpl(database, ioDispatcher)
 
             val httpClient = HttpClient(CIO) {
@@ -286,7 +276,6 @@ public class MacAppStoreDependencyGraph private constructor(
                 sessionManager = sessionManager,
                 rootComponent = root,
                 httpClient = httpClient,
-                database = database,
                 mentionResolver = RepositoryMentionResolver(userStore, channelStore, roleStore),
                 emojiResolver = CdnEmojiResolver,
             )
