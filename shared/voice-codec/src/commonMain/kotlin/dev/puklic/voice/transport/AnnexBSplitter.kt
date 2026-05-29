@@ -8,7 +8,7 @@ package dev.puklic.voice.transport
  * Returns NAL units **without** start code prefixes. The caller is responsible for
  * any subsequent RTP packetization (see [H264Fragmenter]).
  */
-internal object AnnexBSplitter {
+public object AnnexBSplitter {
 
     fun split(bytes: ByteArray): List<ByteArray> {
         if (bytes.isEmpty()) return emptyList()

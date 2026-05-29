@@ -74,7 +74,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * construction on the platform.
  */
 @Suppress("LongMethod", "CyclomaticComplexMethod")
-internal class PipeWireAudioReader(
+public class PipeWireAudioReader(
     private val nodeId: Int,
     private val fd: Int,
 ) {

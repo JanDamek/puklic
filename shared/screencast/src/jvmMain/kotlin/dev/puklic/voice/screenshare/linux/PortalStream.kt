@@ -27,18 +27,18 @@ import org.freedesktop.dbus.types.Variant
  * The detection heuristic (presence of `size`) keeps working across all variants: a node
  * without `size` is treated as audio regardless of which compositor emitted it.
  */
-internal data class PortalStream(
+public data class PortalStream(
     val nodeId: Int,
     val kind: PortalStreamKind,
     val properties: Map<String, Variant<*>>,
 )
 
-internal enum class PortalStreamKind { Video, Audio }
+public enum class PortalStreamKind { Video, Audio }
 
 /** Convenience: just the video PipeWire node ids in original order. */
-internal fun List<PortalStream>.videoNodes(): List<Int> =
+public fun List<PortalStream>.videoNodes(): List<Int> =
     filter { it.kind == PortalStreamKind.Video }.map { it.nodeId }
 
 /** Convenience: just the audio PipeWire node ids in original order. */
-internal fun List<PortalStream>.audioNodes(): List<Int> =
+public fun List<PortalStream>.audioNodes(): List<Int> =
     filter { it.kind == PortalStreamKind.Audio }.map { it.nodeId }

@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
  * (cancellation or `awaitClose`) terminates it. [stop] is provided for explicit shutdown
  * from outside the collector.
  */
-internal interface VideoEncoder {
+public interface VideoEncoder {
     /** Cold flow emitting one frame per H.264 NAL unit (Annex-B-stripped). */
     fun encode(): Flow<EncodedFrame>
 

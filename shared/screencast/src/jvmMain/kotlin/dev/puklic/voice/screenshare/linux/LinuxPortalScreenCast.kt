@@ -38,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap
  * See architect report `docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md`
  * §4 phase 3, and `docs/05_platforms/linux-wayland.md`.
  */
-internal class LinuxPortalScreenCast : AutoCloseable {
+public class LinuxPortalScreenCast : AutoCloseable {
 
     /** What sources the portal picker offers the user. Bit-mask per portal spec. */
     enum class CaptureMode(val mask: Int) {
@@ -244,9 +244,9 @@ internal class LinuxPortalScreenCast : AutoCloseable {
     }
 
     /** Per portal Request.Response spec: 0=ok, 1=user-cancelled, 2=other error. */
-    internal enum class ResponseCode { Ok, UserCancelled, Error }
+    public enum class ResponseCode { Ok, UserCancelled, Error }
 
-    internal companion object {
+    public companion object {
         const val PORTAL_BUS = "org.freedesktop.portal.Desktop"
         const val PORTAL_PATH = "/org/freedesktop/portal/desktop"
         const val REQUEST_IFACE = "org.freedesktop.portal.Request"
@@ -270,7 +270,7 @@ internal class LinuxPortalScreenCast : AutoCloseable {
 
         const val DEFAULT_TIMEOUT_MS = 60_000L
 
-        internal fun decodeResponseCode(code: Int): ResponseCode = when (code) {
+        public fun decodeResponseCode(code: Int): ResponseCode = when (code) {
             RESPONSE_CODE_OK -> ResponseCode.Ok
             RESPONSE_CODE_CANCELLED -> ResponseCode.UserCancelled
             else -> ResponseCode.Error
@@ -299,7 +299,7 @@ internal class LinuxPortalScreenCast : AutoCloseable {
          *  - a row whose first element is not a `UInt32` node id
          */
         @Suppress("UNCHECKED_CAST")
-        internal fun extractAllStreams(results: Map<String, Variant<*>>): List<PortalStream> {
+        public fun extractAllStreams(results: Map<String, Variant<*>>): List<PortalStream> {
             val streamsVariant = results["streams"]
                 ?: error("Start response missing 'streams'")
             val list = streamsVariant.value as? List<*>

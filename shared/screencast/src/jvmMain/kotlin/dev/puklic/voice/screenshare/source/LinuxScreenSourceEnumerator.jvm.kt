@@ -1,5 +1,6 @@
 package dev.puklic.voice.screenshare.source
 
+import dev.puklic.screencast.ScreenSourceEnumerator
 import dev.puklic.voice.screenshare.ScreenSource
 
 /**
@@ -15,7 +16,7 @@ import dev.puklic.voice.screenshare.ScreenSource
  * See `docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md` §4 phase 3
  * and `docs/05_platforms/linux-wayland.md`.
  */
-internal class LinuxScreenSourceEnumerator : ScreenSourceEnumerator {
+public class LinuxScreenSourceEnumerator : ScreenSourceEnumerator {
 
     override suspend fun list(): List<ScreenSource> = listOf(
         ScreenSource.Monitor(
@@ -26,7 +27,7 @@ internal class LinuxScreenSourceEnumerator : ScreenSourceEnumerator {
         ),
     )
 
-    internal companion object {
+    public companion object {
         /** Sentinel id recognised by [dev.puklic.voice.screenshare.DefaultScreenShareClient]. */
         const val PORTAL_PICKER_ID = "portal"
         private const val UNKNOWN_DIMENSION = 0

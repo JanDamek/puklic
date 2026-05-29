@@ -1,16 +1,19 @@
 package dev.puklic.voice.screenshare.source
 
-import dev.puklic.voice.screenshare.ScreenSource
-
 /**
- * Platform-specific enumerator for capturable [ScreenSource]s.
+ * Backwards-compatible alias for [dev.puklic.screencast.ScreenSourceEnumerator]
+ * — kept here so the JVM dispatcher (`screenSourceEnumerator()` actual in
+ * `MacScreenSourceEnumerator.jvm.kt`) and JVM tests that import
+ * `dev.puklic.voice.screenshare.source.ScreenSourceEnumerator` continue to
+ * compile after the FP-7 extraction.
  *
- * Per architect report `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md` §7
- * (Source picker), the JVM (macOS) implementation parses `ffmpeg -f avfoundation -list_devices
- * true` output. Linux (Phase 4.1) will obtain sources from the PipeWire screencast portal.
+ * The canonical declaration lives in `:shared:screencast` commonMain (FP-7,
+ * 2026-05-29 — see
+ * `docs/03_infrastructure/architect-reports/2026-05-29-fp7-screencast-extraction.md`).
+ * When FP-8 / FP-9 / FP-12 land and rewrite `DefaultScreenShareClient` onto
+ * `ScreenCaptureFactory`, this alias and the JVM `expect fun`
+ * [screenSourceEnumerator] both get deleted.
  */
-internal interface ScreenSourceEnumerator {
-    suspend fun list(): List<ScreenSource>
-}
+internal typealias ScreenSourceEnumerator = dev.puklic.screencast.ScreenSourceEnumerator
 
 internal expect fun screenSourceEnumerator(): ScreenSourceEnumerator

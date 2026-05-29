@@ -75,7 +75,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  * in reverse allocation order.
  */
 @Suppress("LongParameterList", "LongMethod", "CyclomaticComplexMethod")
-internal class LibavVideoEncoder(
+public class LibavVideoEncoder(
     private val source: ScreenSource,
     @Suppress("UnusedPrivateMember") private val shareAudio: Boolean,
     private val width: Int = DEFAULT_WIDTH,
@@ -348,7 +348,7 @@ internal class LibavVideoEncoder(
         return resolveInputForOs(System.getProperty("os.name").orEmpty(), source.id)
     }
 
-    internal companion object {
+    public companion object {
         const val DEFAULT_WIDTH = 1920
         const val DEFAULT_HEIGHT = 1080
         const val DEFAULT_FRAMERATE = 30
@@ -377,21 +377,21 @@ internal class LibavVideoEncoder(
  *
  * Windows and macOS-x86_64 are intentionally unsupported (see `CLAUDE.md §Platforms`).
  */
-internal fun resolveInputForOs(osName: String, sourceId: String): Pair<String, String> = when {
+public fun resolveInputForOs(osName: String, sourceId: String): Pair<String, String> = when {
     osName.startsWith("Mac") -> "avfoundation" to "$sourceId:none"
     osName.contains("Linux", ignoreCase = true) -> "pipewire" to sourceId
     else -> error("Screen capture on '$osName' is not supported by LibavVideoEncoder")
 }
 
 /** Convenience constructor — analogous to [ffmpegVideoEncoder]. */
-internal fun libavVideoEncoder(
+public fun libavVideoEncoder(
     source: ScreenSource,
     shareAudio: Boolean,
     codec: VideoCodec = VideoCodec.H264,
 ): VideoEncoder = LibavVideoEncoder(source = source, shareAudio = shareAudio, codec = codec)
 
 /** Linux-only convenience constructor that injects the portal-allocated PipeWire fd. */
-internal fun libavVideoEncoder(
+public fun libavVideoEncoder(
     source: ScreenSource,
     shareAudio: Boolean,
     pipewireFd: Int,

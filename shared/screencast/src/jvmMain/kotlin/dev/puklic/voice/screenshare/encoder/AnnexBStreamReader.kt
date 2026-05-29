@@ -21,7 +21,7 @@ import java.io.InputStream
  * The reader is suspending only by virtue of the `flow { }` builder; the underlying I/O
  * is blocking. Collect on `Dispatchers.IO` (or use [kotlinx.coroutines.flow.flowOn]).
  */
-internal class AnnexBStreamReader(private val input: InputStream) {
+public class AnnexBStreamReader(private val input: InputStream) {
 
     fun asFlow(): Flow<ByteArray> = flow {
         val reader = BufferedInputStream(input, BUFFER_BYTES)

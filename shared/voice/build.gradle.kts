@@ -28,6 +28,14 @@ kotlin {
             // transitively. See docs/03_infrastructure/architect-reports/2026-05-28-voice-api-split.md.
             api(projects.shared.voiceApi)
             api(projects.shared.voiceCodec)
+            // Re-export :shared:screencast (FP-7, 2026-05-29) so existing JVM consumers
+            // of dev.puklic.voice.screenshare.encoder.{VideoEncoder, VideoCodec, chooseCodec,
+            // LibavVideoEncoder, libavVideoEncoder, AnnexBStreamReader} and
+            // dev.puklic.voice.screenshare.{linux,source}.* keep resolving via transitive
+            // api. Package names preserved across the move; only the owning Gradle module
+            // changed. See architect report
+            // docs/03_infrastructure/architect-reports/2026-05-29-fp7-screencast-extraction.md.
+            api(projects.shared.screencast)
             implementation(projects.shared.ids)
             implementation(projects.shared.domain)
             implementation(projects.shared.platformApi)

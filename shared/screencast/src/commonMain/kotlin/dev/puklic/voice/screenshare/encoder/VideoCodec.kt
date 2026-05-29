@@ -16,7 +16,7 @@ import dev.puklic.voice.transport.RtpPacket
  * them would be dead code (HARD RULE #2). When Discord starts negotiating them, extend this
  * enum + add the encoder name mapping in `LibavVideoEncoder`.
  */
-internal enum class VideoCodec(val encoderName: String) {
+public enum class VideoCodec(val encoderName: String) {
     H264("libx264"),
     VP8("libvpx"),
     ;
@@ -43,7 +43,7 @@ internal enum class VideoCodec(val encoderName: String) {
  * @return the codec to use, or `null` if neither H.264 nor VP8 is offered. Callers MUST treat
  *         null as a hard failure (the call cannot proceed) — there is no third option.
  */
-internal fun chooseCodec(offered: List<String>): VideoCodec? {
+public fun chooseCodec(offered: List<String>): VideoCodec? {
     val normalised = offered.map { it.uppercase() }.toSet()
     return when {
         "H264" in normalised -> VideoCodec.H264
