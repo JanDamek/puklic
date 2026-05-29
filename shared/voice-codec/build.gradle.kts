@@ -13,6 +13,9 @@
 //   - EncodedFrame (Annex-B video payload + RTP timestamp + keyframe flag) — FP-2
 //   - H264Encoder / H264Decoder + factories (KMP video codec contract) — FP-2,
 //     platform impls land in FP-5 (iOS / macOS VideoToolbox)
+//   - VoiceUdpTransport / Endpoint / VoiceUdpTransportFactory (KMP UDP transport
+//     contract) — FP-3, JVM bridge in :shared:voice/jvmMain, iOS impl in FP-6
+//     (Network.framework)
 //
 // Does NOT contain a concrete AeadCipher impl. JVM impl lives in
 // :shared:voice/jvmMain (BouncyCastle); iOS impl will land in FP-4..6
@@ -28,6 +31,10 @@ plugins {
 
 kotlin {
     sourceSets {
+        commonMain.dependencies {
+            // FP-3 VoiceUdpTransport surface uses kotlinx.coroutines Flow in commonMain.
+            api(libs.kotlinx.coroutines.core)
+        }
         commonTest.dependencies {
             implementation(libs.kotest.assertions.core)
         }
