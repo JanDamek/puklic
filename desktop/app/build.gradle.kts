@@ -355,3 +355,41 @@ val generateVersionKt = tasks.register("generateVersionKt") {
 kotlin {
     sourceSets["main"].kotlin.srcDir(generateVersionKt.map { generatedVersionDir })
 }
+
+// ── macAppStoreTest source set ───────────────────────────────────────────
+// Test-only source set holding RED-phase contract tests for the future Mac
+// App Store variant of :desktop:app (FP-14b, Issue #55). The matching
+// `macAppStoreMain` source set + impl classes are FP-14d scope.
+//
+// These tests reference classes that DO NOT EXIST YET — running this task
+// surfaces ClassNotFoundException, which is the desired red phase per
+// HARD RULE #1 step 5.
+//
+// Intentionally NOT wired into the root `check` task in this slice — FP-14d
+// will land the impl + the `check` wiring together so CI does not turn red
+// in the meantime. To verify red phase on demand:
+//   ./gradlew :desktop:app:macAppStoreTest
+//
+// See: docs/03_infrastructure/architect-reports/2026-05-29-fp14b-test-first.md
+val macAppStoreTestSourceSet = sourceSets.create("macAppStoreTest") {
+    java.srcDir("src/macAppStoreTest/kotlin")
+    compileClasspath += sourceSets["main"].output + configurations["testRuntimeClasspath"]
+    runtimeClasspath += output + compileClasspath
+}
+
+configurations["macAppStoreTestImplementation"].extendsFrom(
+    configurations["testImplementation"],
+)
+configurations["macAppStoreTestRuntimeOnly"].extendsFrom(
+    configurations["testRuntimeOnly"],
+)
+
+val macAppStoreTest by tasks.registering(Test::class) {
+    description =
+        "Run RED-phase Mac App Store variant contract tests (FP-14b, Issue #55). " +
+            "Expected to fail with ClassNotFoundException until FP-14d lands the impl."
+    group = "verification"
+    testClassesDirs = macAppStoreTestSourceSet.output.classesDirs
+    classpath = macAppStoreTestSourceSet.runtimeClasspath
+    useJUnitPlatform()
+}
