@@ -1,0 +1,43 @@
+# cinterop descriptor for libopus 1.5.2 (BSD-3-Clause), bundled as
+# Opus.xcframework at shared/voice-codec/libs/. Per-target libraryPath is
+# injected from build.gradle.kts so the same .def serves all three iOS
+# Kotlin/Native targets (iosArm64, iosSimulatorArm64, iosX64).
+#
+# opus_multistream.h is included so future surround channel work has the
+# symbol surface ready — adding headers to a klib is free.
+#
+# The C shim below wraps libopus's variadic CTL macros into typed setters /
+# getters. cinterop does not bind the variadic `opus_encoder_ctl` directly,
+# so all configuration goes through `puklic_opus_*_set` / `_get`.
+language = C
+package = dev.puklic.voice.codec.libopus
+headers = opus.h opus_defines.h opus_types.h opus_multistream.h
+staticLibraries = libopus.a
+
+---
+
+#include <opus.h>
+
+static inline int puklic_opus_encoder_set_bitrate(OpusEncoder *st, int bitrate) {
+    return opus_encoder_ctl(st, OPUS_SET_BITRATE(bitrate));
+}
+
+static inline int puklic_opus_encoder_set_complexity(OpusEncoder *st, int complexity) {
+    return opus_encoder_ctl(st, OPUS_SET_COMPLEXITY(complexity));
+}
+
+static inline int puklic_opus_encoder_set_inband_fec(OpusEncoder *st, int on) {
+    return opus_encoder_ctl(st, OPUS_SET_INBAND_FEC(on));
+}
+
+static inline int puklic_opus_encoder_set_packet_loss_perc(OpusEncoder *st, int perc) {
+    return opus_encoder_ctl(st, OPUS_SET_PACKET_LOSS_PERC(perc));
+}
+
+static inline int puklic_opus_encoder_set_dtx(OpusEncoder *st, int on) {
+    return opus_encoder_ctl(st, OPUS_SET_DTX(on));
+}
+
+static inline int puklic_opus_encoder_set_signal(OpusEncoder *st, int signal) {
+    return opus_encoder_ctl(st, OPUS_SET_SIGNAL(signal));
+}
