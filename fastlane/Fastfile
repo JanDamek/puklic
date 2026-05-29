@@ -83,3 +83,55 @@ platform :ios do
     UI.message("Verify with: ~/.appstoreconnect/asc_api.sh apps")
   end
 end
+
+# ── Mac App Store ────────────────────────────────────────────────────────────
+# JVM Compose Desktop variant packaged as a sandboxed + notarised .pkg, signed
+# with Mac App Distribution + Mac Installer Distribution certs, uploaded to
+# App Store Connect app 6774288340 macOS platform via altool / notarytool.
+#
+# Required env vars (in addition to the ones already required by :ios beta):
+#
+#   MAC_APP_DIST_P12_BASE64      Mac App Distribution cert + private key bundle
+#   MAC_APP_DIST_P12_PASSWORD    Password chosen during .p12 export
+#   MAC_INSTALLER_DIST_P12_BASE64    Mac Installer Distribution cert bundle
+#   MAC_INSTALLER_DIST_P12_PASSWORD  Password
+#   MAC_APP_PROVISIONING_PROFILE_BASE64  App Store provisioning profile
+#   MAC_KEYCHAIN_PASSWORD        Throwaway temp keychain password (CI side)
+#
+# Architect reports:
+#   docs/03_infrastructure/architect-reports/2026-05-29-fp14a-mac-app-store-architect.md
+#   docs/03_infrastructure/architect-reports/2026-05-29-fp14d-gradle-packaging.md
+
+platform :mac do
+  desc "Build, sign, package, and upload Puklic to Mac App Store."
+  lane :mac_app_store do
+    setup_ci if ENV["CI"]
+
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_filepath: ENV["ASC_KEY_PATH"],
+      duration: 1200,
+      in_house: false
+    )
+
+    # Verify no GPL transitives in the macAppStore source set before packaging.
+    sh("cd .. && ./gradlew :desktop:app:verifyMacAppStoreNoGplDeps")
+    sh("cd .. && ./gradlew :desktop:app:packageMacAppStore")
+
+    # packageMacAppStore output lives under build/macAppStore/pkg/ per FP-14d.
+    macAppStorePkgDir = "../desktop/app/build/macAppStore/pkg"
+    pkg = Dir["#{macAppStorePkgDir}/Puklic-*.pkg"].first
+    UI.user_error!("No Mac App Store .pkg found in #{macAppStorePkgDir}/") if pkg.nil?
+
+    upload_to_app_store(
+      api_key: api_key,
+      pkg: pkg,
+      platform: "osx",
+      skip_metadata: true,
+      skip_screenshots: true,
+      submission_information: nil,
+      precheck_include_in_app_purchases: false
+    )
+  end
+end
