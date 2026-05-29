@@ -7,22 +7,70 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0263562F501A29CF99858F54 /* SharedRingBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D5AA2C200FDE2FDA587A64D2 /* SharedRingBuffer.swift */; };
+		916AE9D4DA032CC2E3A3B704 /* ReplayKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6978030DAA0499C2657D6C39 /* ReplayKit.framework */; };
 		A773CF94E73F5D106DFF5E86 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = D85B6F2EB4481E08FD4E0120 /* AppDelegate.swift */; };
+		CB0186AB2A9C6889823A897B /* SampleHandler.swift in Sources */ = {isa = PBXBuildFile; fileRef = A418E382B6435C261B2A0941 /* SampleHandler.swift */; };
+		D21F3FAA4180881FB189C921 /* BroadcastPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB643165D4BA6796292C6884 /* BroadcastPickerView.swift */; };
+		D3FA2105C0465DFA78D4822B /* PuklicBroadcastUpload.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 7858868CE325EFD17AD0E13C /* PuklicBroadcastUpload.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		FCF20EF36D1E6D419FBFF9E6 /* Resources in Resources */ = {isa = PBXBuildFile; fileRef = BCA61F5458EBAF8041462DC8 /* Resources */; };
 /* End PBXBuildFile section */
 
+/* Begin PBXContainerItemProxy section */
+		16E20D2A4D8173CB2D4680B3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 242FB5348943441C388468CE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D563D4C8D7E27352738F1218;
+			remoteInfo = PuklicBroadcastUpload;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		E99160E501832DB2CECE6CFF /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				D3FA2105C0465DFA78D4822B /* PuklicBroadcastUpload.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		5D2E7D300D4EDEE838EF8068 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		6978030DAA0499C2657D6C39 /* ReplayKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ReplayKit.framework; path = System/Library/Frameworks/ReplayKit.framework; sourceTree = SDKROOT; };
+		7858868CE325EFD17AD0E13C /* PuklicBroadcastUpload.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = PuklicBroadcastUpload.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		86038AE1032E284E79B32AD6 /* iosApp.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = iosApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A418E382B6435C261B2A0941 /* SampleHandler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleHandler.swift; sourceTree = "<group>"; };
 		BCA61F5458EBAF8041462DC8 /* Resources */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Resources; path = iosApp/Resources; sourceTree = SOURCE_ROOT; };
+		BF762E901A0DF156CEB0833E /* PuklicBroadcastUpload.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PuklicBroadcastUpload.entitlements; sourceTree = "<group>"; };
+		D5AA2C200FDE2FDA587A64D2 /* SharedRingBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharedRingBuffer.swift; sourceTree = "<group>"; };
 		D85B6F2EB4481E08FD4E0120 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		DB643165D4BA6796292C6884 /* BroadcastPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BroadcastPickerView.swift; sourceTree = "<group>"; };
 		DE9FD3C735E4184B78E88A46 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8D862B5C0FE4B84CED5CA4C6 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				916AE9D4DA032CC2E3A3B704 /* ReplayKit.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0024B320F7215C16C4D54699 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
 				D85B6F2EB4481E08FD4E0120 /* AppDelegate.swift */,
+				DB643165D4BA6796292C6884 /* BroadcastPickerView.swift */,
 				DE9FD3C735E4184B78E88A46 /* Info.plist */,
 			);
 			path = Sources;
@@ -37,18 +85,40 @@
 			path = iosApp;
 			sourceTree = "<group>";
 		};
+		3666012298E772D226418813 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				6978030DAA0499C2657D6C39 /* ReplayKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
 		38B69C3F79CD97858CF7B609 = {
 			isa = PBXGroup;
 			children = (
+				79C42D85B56D489689BF9890 /* Broadcast */,
 				1DB4B685CAEE8BEFEBBAEF94 /* iosApp */,
+				3666012298E772D226418813 /* Frameworks */,
 				94C98B8B3A2BFC1966447269 /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		79C42D85B56D489689BF9890 /* Broadcast */ = {
+			isa = PBXGroup;
+			children = (
+				5D2E7D300D4EDEE838EF8068 /* Info.plist */,
+				BF762E901A0DF156CEB0833E /* PuklicBroadcastUpload.entitlements */,
+				A418E382B6435C261B2A0941 /* SampleHandler.swift */,
+				D5AA2C200FDE2FDA587A64D2 /* SharedRingBuffer.swift */,
+			);
+			path = Broadcast;
 			sourceTree = "<group>";
 		};
 		94C98B8B3A2BFC1966447269 /* Products */ = {
 			isa = PBXGroup;
 			children = (
 				86038AE1032E284E79B32AD6 /* iosApp.app */,
+				7858868CE325EFD17AD0E13C /* PuklicBroadcastUpload.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -63,10 +133,12 @@
 				C263BE7E68B1B2B41CE2771C /* Build Kotlin framework */,
 				297B59D9CE634556D6007C40 /* Sources */,
 				1623B02D10928C8101C1F806 /* Resources */,
+				E99160E501832DB2CECE6CFF /* Embed Foundation Extensions */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				73490B9A641125B478BC2344 /* PBXTargetDependency */,
 			);
 			name = iosApp;
 			packageProductDependencies = (
@@ -74,6 +146,24 @@
 			productName = iosApp;
 			productReference = 86038AE1032E284E79B32AD6 /* iosApp.app */;
 			productType = "com.apple.product-type.application";
+		};
+		D563D4C8D7E27352738F1218 /* PuklicBroadcastUpload */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 6B7DEDEF0F31F59C2968974C /* Build configuration list for PBXNativeTarget "PuklicBroadcastUpload" */;
+			buildPhases = (
+				72210069572AFE1E56D442F6 /* Sources */,
+				8D862B5C0FE4B84CED5CA4C6 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = PuklicBroadcastUpload;
+			packageProductDependencies = (
+			);
+			productName = PuklicBroadcastUpload;
+			productReference = 7858868CE325EFD17AD0E13C /* PuklicBroadcastUpload.appex */;
+			productType = "com.apple.product-type.app-extension";
 		};
 /* End PBXNativeTarget section */
 
@@ -85,6 +175,9 @@
 				LastUpgradeCheck = 1430;
 				TargetAttributes = {
 					78B53CC79860CBFC2F5543C6 = {
+						DevelopmentTeam = GR74KSG8M9;
+					};
+					D563D4C8D7E27352738F1218 = {
 						DevelopmentTeam = GR74KSG8M9;
 					};
 				};
@@ -103,6 +196,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
+				D563D4C8D7E27352738F1218 /* PuklicBroadcastUpload */,
 				78B53CC79860CBFC2F5543C6 /* iosApp */,
 			);
 		};
@@ -147,10 +241,28 @@
 			buildActionMask = 2147483647;
 			files = (
 				A773CF94E73F5D106DFF5E86 /* AppDelegate.swift in Sources */,
+				D21F3FAA4180881FB189C921 /* BroadcastPickerView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		72210069572AFE1E56D442F6 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				CB0186AB2A9C6889823A897B /* SampleHandler.swift in Sources */,
+				0263562F501A29CF99858F54 /* SharedRingBuffer.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		73490B9A641125B478BC2344 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D563D4C8D7E27352738F1218 /* PuklicBroadcastUpload */;
+			targetProxy = 16E20D2A4D8173CB2D4680B3 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		11814011E7D6EC822BFBC66D /* Release */ = {
@@ -280,6 +392,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = GR74KSG8M9;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
@@ -299,10 +412,34 @@
 			};
 			name = Debug;
 		};
+		A7B51850C6DDFA1409733766 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Broadcast/PuklicBroadcastUpload.entitlements;
+				DEVELOPMENT_TEAM = GR74KSG8M9;
+				INFOPLIST_FILE = Broadcast/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = cz.damek.puklic.app.broadcast;
+				PRODUCT_NAME = PuklicBroadcastUpload;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		AF835BFF1220CA5AB5B867E4 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_TEAM = GR74KSG8M9;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
@@ -321,6 +458,28 @@
 			};
 			name = Release;
 		};
+		E95FDBA0EF45F6FA9C48833E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = Broadcast/PuklicBroadcastUpload.entitlements;
+				DEVELOPMENT_TEAM = GR74KSG8M9;
+				INFOPLIST_FILE = Broadcast/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = cz.damek.puklic.app.broadcast;
+				PRODUCT_NAME = PuklicBroadcastUpload;
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -329,6 +488,15 @@
 			buildConfigurations = (
 				9221A1FDC06803E8A2FC6E61 /* Debug */,
 				AF835BFF1220CA5AB5B867E4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		6B7DEDEF0F31F59C2968974C /* Build configuration list for PBXNativeTarget "PuklicBroadcastUpload" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A7B51850C6DDFA1409733766 /* Debug */,
+				E95FDBA0EF45F6FA9C48833E /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

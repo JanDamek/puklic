@@ -58,6 +58,16 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: iosApp/iosApp.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.cz.damek.puklic.app
+    dependencies:
+      # Embed the broadcast extension into the app bundle. Required by Apple
+      # for any ReplayKit Broadcast Upload Extension shipped with an app.
+      - target: PuklicBroadcastUpload
+        embed: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.damek.puklic.app
@@ -65,6 +75,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
         # Embed the Compose iOS framework produced by Gradle.
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
         OTHER_LDFLAGS: "$(inherited) -framework PuklicShared"
@@ -80,3 +91,48 @@ targets:
           cd "$SRCROOT/.."
           ./gradlew :ios:app:embedAndSignAppleFrameworkForXcode
         basedOnDependencyAnalysis: false
+
+  # ReplayKit Broadcast Upload Extension — see
+  #   docs/03_infrastructure/architect-reports/2026-05-29-fp11-ios-broadcast-extension.md
+  # Lives in its own sandboxed process (≤ 50 MB RAM cap). Captures system-wide
+  # screen + app audio via ReplayKit and writes raw frames to the App Group
+  # ring buffer that `BroadcastExtensionBridge.kt` reads from the main app.
+  PuklicBroadcastUpload:
+    type: app-extension
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - path: Broadcast
+    info:
+      path: Broadcast/Info.plist
+      properties:
+        CFBundleDisplayName: Puklic Broadcast
+        CFBundleShortVersionString: "1.2.1"
+        CFBundleVersion: "1"
+        CFBundlePackageType: XPC!
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
+          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
+          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
+    entitlements:
+      path: Broadcast/PuklicBroadcastUpload.entitlements
+      properties:
+        com.apple.security.application-groups:
+          - group.cz.damek.puklic.app
+    dependencies:
+      - sdk: ReplayKit.framework
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: cz.damek.puklic.app.broadcast
+        PRODUCT_NAME: PuklicBroadcastUpload
+        DEVELOPMENT_TEAM: GR74KSG8M9
+        TARGETED_DEVICE_FAMILY: "1,2"
+        SUPPORTS_MACCATALYST: NO
+        SKIP_INSTALL: YES
+        CODE_SIGN_ENTITLEMENTS: Broadcast/PuklicBroadcastUpload.entitlements
+      configs:
+        Debug:
+          SWIFT_OPTIMIZATION_LEVEL: -Onone
+          ONLY_ACTIVE_ARCH: YES
+        Release:
+          SWIFT_OPTIMIZATION_LEVEL: -O
