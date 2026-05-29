@@ -22,7 +22,8 @@ iOS classpath would block App Store distribution.
 | Module | Linked into | Permitted licences | Notes |
 |---|---|---|---|
 | `:shared:voice-api` | desktop + iOS shared graph (`:shared:session`, `:shared:compose-ui`) | Apache-2.0 only | KMP-wide public voice/screenshare types (interfaces, sealed states, data classes, no-op clients, `DaveDowngradeDetector` policy). No native deps. Extraction rationale: `architect-reports/2026-05-28-voice-api-split.md`. |
-| `:shared:voice` | `:desktop:app` only (JVM impl) | Apache-2.0, MIT, BSD, GPL-3.0 | JVM-only impl: `DefaultVoiceClient`, gateway, transport, crypto, codec (Opus via FFmpeg-GPL), audio (JavaSound), screenshare encoders/sources, libdave bridge. Forbidden in `:ios:app` graph — already covered by `verifyIosNoGplDeps`. |
+| `:shared:voice-codec` | desktop today (via `:shared:voice` `api`); direct iOS / macOS consumers per FP-4..6 | Apache-2.0 only | KMP-wide pure-Kotlin Discord voice transport codec: `AeadCipher` interface, `NonceGenerator`, `RtpPacket`, `VoicePacketCodec`. No cipher impl, no native deps. Extraction rationale: `architect-reports/2026-05-29-fp1-voice-codec-extraction.md`. |
+| `:shared:voice` | `:desktop:app` only (JVM impl) | Apache-2.0, MIT, BSD, GPL-3.0 | JVM-only impl: `DefaultVoiceClient`, gateway, transport, crypto cipher (BouncyCastle XChaCha20-Poly1305), codec (Opus via FFmpeg-GPL), audio (JavaSound), screenshare encoders/sources, libdave bridge. Forbidden in `:ios:app` graph — already covered by `verifyIosNoGplDeps`. |
 | `:shared:voice-dave` | `:shared:voice` only (JVM impl) | GPL-3.0 (Wire core-crypto) | DAVE MLS bridge. JVM-only. |
 
 ## Forbidden artefacts in `:ios:app`

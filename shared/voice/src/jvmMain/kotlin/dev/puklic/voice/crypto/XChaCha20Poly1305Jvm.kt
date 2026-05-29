@@ -19,7 +19,7 @@ import org.bouncycastle.crypto.params.KeyParameter
  * `aead_xchacha20_poly1305_rtpsize` scheme used by Discord and is interoperable with
  * libsodium's `crypto_aead_xchacha20poly1305_ietf_*`.
  */
-internal actual fun xchacha20Poly1305(key: ByteArray): AeadCipher {
+internal fun xchacha20Poly1305(key: ByteArray): AeadCipher {
     require(key.size == 32) { "XChaCha20-Poly1305 key must be 32 bytes, got ${key.size}" }
     return BcXChaCha20Poly1305(key)
 }

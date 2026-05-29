@@ -8,13 +8,16 @@ package dev.puklic.voice.crypto
  *  - Nonce: 24 B (XChaCha20 extended nonce).
  *  - AAD: 12 B RTP header.
  *  - Tag: 16 B Poly1305, appended to ciphertext.
+ *
+ * Pure-Kotlin pluggable contract. Concrete implementations live in
+ * platform-specific modules: `:shared:voice` jvmMain (BouncyCastle for the
+ * desktop GPL build); CryptoKit-backed actuals will land per FP-4..6 for the
+ * App Store iOS / macOS builds.
  */
-internal interface AeadCipher {
+public interface AeadCipher {
     /** Returns ciphertext concatenated with 16-byte Poly1305 tag. */
-    fun encrypt(plaintext: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
+    public fun encrypt(plaintext: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
 
     /** Verifies the 16-byte tag and returns the plaintext, or throws on auth failure. */
-    fun decrypt(ciphertextWithTag: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
+    public fun decrypt(ciphertextWithTag: ByteArray, nonce: ByteArray, aad: ByteArray): ByteArray
 }
-
-internal expect fun xchacha20Poly1305(key: ByteArray): AeadCipher

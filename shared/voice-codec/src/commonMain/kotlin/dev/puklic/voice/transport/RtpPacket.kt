@@ -13,18 +13,18 @@ package dev.puklic.voice.transport
  * bytes 8-11: ssrc (u32 BE)
  * ```
  */
-internal object RtpPacket {
+public object RtpPacket {
 
-    const val HEADER_SIZE: Int = 12
-    const val VERSION_FLAGS: Byte = 0x80.toByte()
-    const val PAYLOAD_TYPE_OPUS: Byte = 0x78.toByte() // 120
-    const val PAYLOAD_TYPE_H264: Byte = 0x65.toByte() // 101
-    const val PAYLOAD_TYPE_VP8: Byte = 0x67.toByte()  // 103
+    public const val HEADER_SIZE: Int = 12
+    public const val VERSION_FLAGS: Byte = 0x80.toByte()
+    public const val PAYLOAD_TYPE_OPUS: Byte = 0x78.toByte() // 120
+    public const val PAYLOAD_TYPE_H264: Byte = 0x65.toByte() // 101
+    public const val PAYLOAD_TYPE_VP8: Byte = 0x67.toByte()  // 103
 
     private const val MARKER_BIT: Int = 0x80
     private const val PAYLOAD_TYPE_MASK: Int = 0x7F
 
-    fun writeHeader(
+    public fun writeHeader(
         sequence: Short,
         timestamp: Int,
         ssrc: Int,
@@ -49,7 +49,7 @@ internal object RtpPacket {
         return out
     }
 
-    fun readHeader(bytes: ByteArray): Header {
+    public fun readHeader(bytes: ByteArray): Header {
         require(bytes.size >= HEADER_SIZE) { "RTP header requires $HEADER_SIZE bytes, got ${bytes.size}" }
         require(bytes[0] == VERSION_FLAGS) { "Unsupported RTP version/flags byte: 0x${(bytes[0].toInt() and 0xFF).toString(16)}" }
         val b1 = bytes[1].toInt() and 0xFF
@@ -70,7 +70,7 @@ internal object RtpPacket {
         return Header(seq, ts, ssrc, payloadType, marker)
     }
 
-    data class Header(
+    public data class Header(
         val sequence: Short,
         val timestamp: Int,
         val ssrc: Int,
