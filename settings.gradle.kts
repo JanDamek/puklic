@@ -43,6 +43,7 @@ include(":shared:compose-ui")
 include(":desktop:app")
 include(":desktop:platform-linux")
 include(":desktop:platform-macos")
+include(":desktop:platform-windows")
 
 // ── Android modules ────────────────────────────────────────────────────────
 include(":android:app")

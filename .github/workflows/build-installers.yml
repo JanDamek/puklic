@@ -32,12 +32,11 @@ concurrency:
   # Tags get their own group (refs/tags/v*) so releases aren't cancelled by main pushes.
   cancel-in-progress: true
 
-# Scope (issue #22 superseded 2026-05-25 per user "všechny platformy stejně",
-# HARD RULE #2 — no half-shipping):
-#   - Linux x86_64 = canonical shipping target (.deb + .AppImage attached to releases).
+# Scope (FP-10 2026-05-29, issue #50, HARD RULE #2 — no half-shipping):
+#   - Linux x86_64 = officially shipped (.deb + .AppImage attached to releases).
 #   - macOS arm64  = officially shipped (.dmg attached to releases).
-#   - Windows + macOS x86_64 = officially out of scope. Not built. Do not re-add
-#     without a CLAUDE.md / docs/07_roadmap update first.
+#   - Windows x86_64 = officially shipped (.exe + .msi attached to releases).
+#   - macOS x86_64 = officially out of scope. Not built.
 jobs:
   build:
     strategy:
@@ -53,6 +52,11 @@ jobs:
             target: macos-arm64
             artifact-glob: |
               desktop/app/build/compose/binaries/main/dmg/*.dmg
+          - os: windows-2022
+            target: windows-x86_64
+            artifact-glob: |
+              desktop/app/build/compose/binaries/main/exe/*.exe
+              desktop/app/build/compose/binaries/main/msi/*.msi
     runs-on: ${{ matrix.os }}
     steps:
       - name: Checkout
@@ -161,6 +165,12 @@ jobs:
           name: puklic-macos-arm64
           path: dist
 
+      - name: Download Windows installer
+        uses: actions/download-artifact@v8
+        with:
+          name: puklic-windows-x86_64
+          path: dist
+
       - name: List downloaded artifacts
         run: ls -la dist || true
 
@@ -173,9 +183,9 @@ jobs:
           body: |
             Puklic installers built by GitHub Actions.
 
-            **Platforms shipped:** Linux x86_64 (.deb + .AppImage) and macOS
-            arm64 (.dmg). Windows and macOS x86_64 are out of scope — see
-            `CLAUDE.md` §Platforms.
+            **Platforms shipped:** Linux x86_64 (.deb + .AppImage), macOS
+            arm64 (.dmg), and Windows x86_64 (.exe + .msi). macOS x86_64
+            is out of scope — see `docs/07_roadmap/phases.md` §Platforms.
 
             **Distribution licensing**: these binaries bundle FFmpeg with libx264
             (GPL-2.0). Puklic source code remains Apache-2.0. The combined

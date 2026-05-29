@@ -27,6 +27,13 @@ import dev.puklic.platform.macos.MacOsNotificationService
 import dev.puklic.platform.macos.MacOsPlatformOpen
 import dev.puklic.platform.macos.MacOsPlatformPaths
 import dev.puklic.platform.macos.MacOsSecureStorage
+import dev.puklic.platform.windows.WindowsNotificationService
+import dev.puklic.platform.windows.WindowsPlatformOpen
+import dev.puklic.platform.windows.WindowsPlatformPaths
+import dev.puklic.platform.windows.WindowsSecureStorage
+import dev.puklic.screencast.ScreenCaptureFactory
+import dev.puklic.screencast.macos.MacScreenCaptureFactory
+import dev.puklic.screencast.windows.WindowsScreenCaptureFactory
 import dev.puklic.protocol.discord.DiscordGatewayBridge
 import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.protocol.discord.DiscordSessionBridge
@@ -105,16 +112,42 @@ public class DependencyGraph private constructor(
     public val mentionResolver: MentionResolver,
     public val emojiResolver: EmojiResolver,
     public val updateScheduler: UpdateCheckerScheduler,
+    public val screenCaptureFactory: ScreenCaptureFactory?,
 ) {
     public companion object {
         public fun create(): DependencyGraph {
             val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-            val isMac = detectMac()
-            val paths: PlatformPaths = if (isMac) MacOsPlatformPaths() else LinuxPlatformPaths()
-            val opener: PlatformOpen = if (isMac) MacOsPlatformOpen() else LinuxPlatformOpen()
-            val storage: SecureStorage = if (isMac) MacOsSecureStorage() else LinuxSecureStorage()
-            val notifications: NotificationService =
-                if (isMac) MacOsNotificationService() else LinuxNotificationService()
+            val os = detectOs()
+            val paths: PlatformPaths = when (os) {
+                DesktopOs.MacOs -> MacOsPlatformPaths()
+                DesktopOs.Windows -> WindowsPlatformPaths()
+                DesktopOs.Linux -> LinuxPlatformPaths()
+            }
+            val opener: PlatformOpen = when (os) {
+                DesktopOs.MacOs -> MacOsPlatformOpen()
+                DesktopOs.Windows -> WindowsPlatformOpen()
+                DesktopOs.Linux -> LinuxPlatformOpen()
+            }
+            val storage: SecureStorage = when (os) {
+                DesktopOs.MacOs -> MacOsSecureStorage()
+                DesktopOs.Windows -> WindowsSecureStorage()
+                DesktopOs.Linux -> LinuxSecureStorage()
+            }
+            val notifications: NotificationService = when (os) {
+                DesktopOs.MacOs -> MacOsNotificationService()
+                DesktopOs.Windows -> WindowsNotificationService()
+                DesktopOs.Linux -> LinuxNotificationService()
+            }
+            // Per-OS screencast factory. Linux is null because the Linux portal
+            // capture is still owned by `:shared:voice`'s `DefaultScreenShareClient`
+            // (extraction to `:shared:screencast` as a public factory is FP-7's
+            // remit, not FP-10's). macOS and Windows both expose Apache-2.0 +
+            // GPL-3.0-compatible factories from `:shared:screencast` jvmMain.
+            val screencastFactory: ScreenCaptureFactory? = when (os) {
+                DesktopOs.MacOs -> MacScreenCaptureFactory
+                DesktopOs.Windows -> WindowsScreenCaptureFactory
+                DesktopOs.Linux -> null
+            }
 
             val driverFactory = JvmDriverFactory(
                 JvmDriverFactory.DbPath.File(Paths.get(paths.databaseFile())),
@@ -215,6 +248,7 @@ public class DependencyGraph private constructor(
                 mentionResolver = RepositoryMentionResolver(userStore, channelStore, roleStore),
                 emojiResolver = CdnEmojiResolver,
                 updateScheduler = updateScheduler,
+                screenCaptureFactory = screencastFactory,
             )
         }
 
@@ -449,9 +483,16 @@ public class DependencyGraph private constructor(
             Logger.i(LOG_TAG) { "auto-test: COMPLETE all guilds tested" }
         }
 
-        private fun detectMac(): Boolean {
+        private fun detectOs(): DesktopOs {
             val osName = System.getProperty("os.name")?.lowercase().orEmpty()
-            return "mac" in osName || "darwin" in osName
+            return when {
+                "mac" in osName || "darwin" in osName -> DesktopOs.MacOs
+                "windows" in osName -> DesktopOs.Windows
+                else -> DesktopOs.Linux
+            }
         }
     }
+
+    /** Closed set of desktop hosts Puklic ships on. */
+    public enum class DesktopOs { Linux, MacOs, Windows }
 }

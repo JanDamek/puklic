@@ -32,6 +32,7 @@ dependencies {
     implementation(projects.shared.protocolDiscord)
     implementation(projects.desktop.platformLinux)
     implementation(projects.desktop.platformMacos)
+    implementation(projects.desktop.platformWindows)
     implementation(libs.koin.core)
     implementation(libs.decompose)
     implementation(libs.essenty.lifecycle.coroutines)
@@ -69,14 +70,16 @@ compose.desktop {
             // not supported; each runner emits formats native to its host. Compose
             // Desktop rejects formats that don't match the current OS, so we filter
             // by os.name here.
-            // Scope per issue #22 (CLAUDE.md §Platforms):
-            //   - Linux  = canonical shipping target (.deb + .AppImage)
-            //   - macOS  = developer-side only (.dmg for local validation)
-            //   - Windows = out of scope (no MSI target)
+            // Scope per docs/07_roadmap/phases.md §Platforms (updated 2026-05-29
+            // FP-10, issue #50):
+            //   - Linux   = officially shipped (.deb + .AppImage)
+            //   - macOS   = officially shipped (.dmg)
+            //   - Windows = officially shipped (.exe + .msi)
             val osName = System.getProperty("os.name").lowercase()
             val formats = when {
                 osName.contains("linux") -> arrayOf(TargetFormat.Deb, TargetFormat.AppImage)
                 osName.contains("mac") -> arrayOf(TargetFormat.Dmg)
+                osName.contains("windows") -> arrayOf(TargetFormat.Exe, TargetFormat.Msi)
                 else -> arrayOf<TargetFormat>()
             }
             targetFormats(*formats)
@@ -123,7 +126,28 @@ compose.desktop {
                 // specific (`appStore = false` here) and does not apply to
                 // standalone jpackage .dmg distribution.
             }
-            // No windows {} block — Windows is out of scope (issue #22).
+            windows {
+                // upgradeUuid is the MSI UpgradeCode — Windows uses this stable GUID
+                // to detect "this is an upgrade of an existing install of the same
+                // product" rather than a side-by-side parallel install. It MUST stay
+                // constant across every Puklic version released; bumping it would
+                // make every release install side-by-side instead of upgrading.
+                // Generated 2026-05-29 specifically for Puklic.
+                upgradeUuid = "b3c4a1d0-e7f5-4d8a-9c3e-6f2a1b8d5e4f"
+                menuGroup = "Puklic"
+                // perUserInstall = true sidesteps UAC elevation for the install —
+                // the .msi writes under %LOCALAPPDATA% rather than Program Files.
+                perUserInstall = true
+                shortcut = true
+                dirChooser = true
+                console = false
+                // No iconFile: jpackage requires .ico (not .png); we deliberately
+                // do not commit a binary .ico to the repo. jpackage falls back to
+                // its bundled default icon, which is acceptable for v1. A real
+                // branded .ico can be added later by checking in
+                // `icons/windows/puklic.ico` and setting iconFile here — no other
+                // packaging change needed.
+            }
         }
     }
 }

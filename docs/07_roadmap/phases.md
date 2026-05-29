@@ -163,7 +163,12 @@ user "všechny platformy stejně":
 
 - Linux desktop x86_64: **officially shipped** from phase 1 (.deb + .AppImage)
 - macOS arm64: **officially shipped** (.dmg, same version string as Linux)
-- Windows desktop (any arch): **out of scope**
+- Windows desktop x86_64: **officially shipped** (FP-10 2026-05-29, issue #50) —
+  .exe + .msi via Compose Desktop jpackage on `windows-2022` GitHub runners;
+  platform actuals in `:desktop:platform-windows` (Credential Manager via JNA
+  Advapi32, Shell32 ShellExecuteW, SystemTray balloon, %APPDATA%
+  / %LOCALAPPDATA% paths); FP-9 `WindowsScreenCaptureFactory` wired into
+  `DependencyGraph` for DXGI screen + WASAPI loopback capture.
 - macOS x86_64 (Intel): **out of scope**
 - Android: future mobile phase (KMP scaffolding ready, not actively shipping)
 - iOS (App Store, chat-only, Designed for iPad on Mac): **planned Phase 6** —
