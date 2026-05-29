@@ -87,6 +87,17 @@ kotlin {
             // :shared:voice uses for the rest of the portal flow.
             implementation(libs.dbus.java.core)
             implementation(libs.dbus.java.transport.jnr.unixsocket)
+            // JNA — used by the macOS ScreenCaptureKit bridge (FP-8) to call the
+            // Objective-C runtime + Foundation / CoreMedia / CoreVideo /
+            // ScreenCaptureKit Apple frameworks via libobjc.dylib selectors. Same
+            // version dimension as :shared:voice-dave's libdave bindings.
+            // Also used by the Windows DXGI Output Duplication + WASAPI loopback
+            // bridge (FP-9) to call COM vtables on Dxgi.dll / D3d11.dll /
+            // Ole32.dll. jna-platform provides Win32 type aliases (HRESULT, GUID,
+            // HMONITOR, HWND) plus the bundled User32 / Ole32 / Kernel32 wrappers
+            // the bridge reuses for monitor enumeration and COM init.
+            implementation(libs.jna)
+            implementation(libs.jna.platform)
             implementation(libs.kermit)
         }
         jvmTest.dependencies {
@@ -112,7 +123,11 @@ fun detectFfmpegClassifier(): String {
         osName.contains("linux") && osArch == "amd64" -> "linux-x86_64-gpl"
         osName.contains("linux") && osArch in setOf("aarch64", "arm64") -> "linux-arm64-gpl"
         osName.contains("mac") && osArch in setOf("aarch64", "arm64") -> "macosx-arm64-gpl"
-        // Windows and macOS x86_64 are out of scope (CLAUDE.md §Platforms).
+        // Windows x86_64 added 2026-05-29 (FP-9) for the .exe / .msi distribution
+        // channel — DXGI Output Duplication capture feeds frames into libx264
+        // via the same javacpp FFmpeg-GPL bundle Linux uses.
+        osName.contains("windows") && osArch == "amd64" -> "windows-x86_64-gpl"
+        // macOS x86_64 is out of scope (CLAUDE.md §Platforms).
         else -> error("Unsupported OS/arch for FFmpeg native classifier: $osName / $osArch")
     }
 }
