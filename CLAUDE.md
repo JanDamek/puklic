@@ -4,6 +4,51 @@ This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE 
 
 ---
 
+## HARD RULE #3 — UX/UI design needs explicit user approval BEFORE implementation (2026-05-29)
+
+User explicit 2026-05-29: **"UX návrhy a schválování implementace chci vidět. v pipeline pokud bude UX design, tak mě to předem zobraz pro schválení!"**
+
+Translation: UX designs and implementation approvals must be shown to the user. Any pipeline slice that contains a UX/UI design step MUST surface the design (mockup, wireframe, layout description, screen flow) to the user via `AskUserQuestion` (preferably with `preview:` ASCII mockups) **before** any implementation subagent is dispatched.
+
+### When this rule fires
+
+Any work that touches:
+- `:shared:compose-ui/**` (new screens, screen layout changes, navigation flow, new components surface)
+- New Composable functions that own a screen, section or modal
+- Theming / colour tokens / typography
+- Onboarding / login flow visual changes
+- Settings screen additions or restructuring
+- Any new dialog, sheet, popup, toast or banner
+- Component reuse decisions that affect the visible result (e.g. "use the existing MessageBubble vs build a new one")
+
+Does NOT fire for:
+- Pure data-layer / persistence / network / codec work (no visible UI change)
+- Bug fixes that restore intended behaviour without changing the visual contract
+- Refactors that produce identical output (rename, file move, expect/actual extraction)
+- Logging / observability changes
+- CI / build / packaging changes
+
+### How to apply
+
+The Step 2 architect report for any UI-touching slice MUST:
+1. Include an explicit **UX design section** before any code-design discussion. Use ASCII mockups, screen flow diagrams, or a clear textual description of the change (what the user sees, where, when, why).
+2. End with an `AskUserQuestion` call summarising the UX choice and offering 2-4 concrete options (recommended option first, marked "Recommended"). Use the `preview` field on options when comparing layouts.
+3. Wait for user approval before dispatching any code-writing subagent. Step 4 (user approval) blanket pre-approvals from prior macros do NOT cover UX decisions — they need fresh explicit approval each time.
+4. The architect report records the chosen option + reasoning. Implementation subagents read the architect report at Step 1 and treat the locked UX as a hard contract.
+
+### Forbidden
+
+- ❌ Dispatching an implementation subagent for UI work before the user has explicitly chosen the UX direction
+- ❌ "Let me just implement the obvious choice" — even when the choice seems obvious, ask first
+- ❌ Showing the user code instead of a mockup ("here's the Composable I plan to write" is not the same as "here's what the screen will look like")
+- ❌ Combining multiple UX decisions into a single yes/no question — always offer concrete alternatives
+
+### Why
+
+The user has aesthetic ownership of the product. Code review can fix a bug; aesthetic correction after impl is wasted code + visual debt.
+
+---
+
 ## HARD RULE #2 — NEVER TEMPORARY, ALWAYS CONCEPTUAL
 
 User explicit 2026-05-25 in capitals: **"NIKDY NIC DOČASNĚ, VŽDY VŠE KONVEPČNĚ PŘEDĚLAT, DEPRECATED A DOČASNÁ, HOST, QUICK FIX NESMÍ SE NIKDY PROVÁDĚT !!!"**
