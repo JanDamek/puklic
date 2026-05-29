@@ -118,14 +118,17 @@ iPhone, iPad, and Apple Silicon Macs). Chat-only build (no voice, no screenshare
 — GPL-3.0 deps (FFmpeg, libx264, libdave) excluded to satisfy App Store §3.
 Desktop builds (GitHub Releases) keep full feature set.
 
-- [x] Slice 1 — iOS dep boundary + `verifyIosNoGplDeps` Gradle task
-- [ ] Slice 2 — Shared modules enable iOS targets; iOS `actual` impls
-- [ ] Slice 3 — `:ios:app` Compose iOS framework export (`PuklicShared.framework`)
-- [ ] Slice 4 — `iosApp/iosApp.xcodeproj` (Swift host) + Info.plist + entitlements
-- [ ] Slice 5 — App ID + ASC record (manual user steps in Apple portals)
-- [ ] Slice 6 — fastlane Fastfile + ExportOptions + CI workflow `apple-testflight.yml`
-- [ ] Slice 7 — First TestFlight upload + Beta App Review submission
-- [ ] Slice 8 — Internal-tester group invite
+- [x] Slice 1 — iOS dep boundary + `verifyIosNoGplDeps` Gradle task (`e8f1594`)
+- [x] Slice 2a — extract `:shared:voice-api` (Apache-2.0 KMP types) from `:shared:voice` (`a3c274e`, #27)
+- [x] Slice 2b — iOS `actual` impls in `:ios:platform` (Keychain, FilePicker, Clipboard, NSFileManager, openURL) (`66db86b`, #28)
+- [x] Slice 2.5 — shared modules iOS-green sweep (`819a4eb`, #31)
+- [x] Slice 3 — `:ios:app` Compose iOS framework + `PuklicAppRootViewController` (`1628db1`, #30)
+- [x] Slice 3.5 — `IosDependencyGraph` (NativeSqliteDriver + Ktor Darwin + iOS session bootstrap) (`c0c3417`, #32)
+- [x] Slice 4 — `iosApp/iosApp.xcodeproj` (xcodegen-driven) + Swift `AppDelegate` entry (`adfaf2d`, #38)
+- [x] Slice 5 — App ID `cz.damek.puklic.app` + Push Notifications cap + Apple Distribution cert + App Store provisioning profile + ASC app record `6774288340` (#40)
+- [x] Slice 6 — fastlane Fastfile + Appfile + Gemfile + `.github/workflows/apple-testflight.yml` (`adfaf2d`, #39)
+- [ ] Slice 7 — First TestFlight upload + Beta App Review submission (blocked on user registering GH Secrets per #40)
+- [ ] Slice 8 — Internal-tester group invite (depends on 7)
 - [ ] Slice 9 — APN `.p8` auth key provisioning (push infra prep; no consumer yet)
 - [ ] Slice 10 — Firebase project + service-account JSON (Android push prep; no consumer yet)
 
