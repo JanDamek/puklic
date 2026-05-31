@@ -84,8 +84,69 @@ if [ "$DRY_RUN" -eq 1 ]; then
 fi
 
 cd "$REPO_ROOT"
+# Gradle's configuration-cache STORE step fails on packageMacAppStore (known
+# pre-existing issue per FP-14f-fix report), but the task itself runs to
+# completion and produces the .pkg. So we tolerate gradle's non-zero exit
+# code as long as the .pkg file exists afterwards.
+set +e
 "${CMD[@]}"
+GRADLE_EXIT=$?
+set -e
 
 PKG_FILE="$(ls -1 "${PKG_DIR}"/Puklic-*.pkg 2>/dev/null | head -1 || true)"
-[ -n "$PKG_FILE" ] || { echo "[build-pkg] FAILED: no .pkg produced in ${PKG_DIR}" >&2; exit 1; }
+if [ -z "$PKG_FILE" ]; then
+  echo "[build-pkg] FAILED: no .pkg produced in ${PKG_DIR} (gradle exit ${GRADLE_EXIT})" >&2
+  exit 1
+fi
+echo "[build-pkg] gradle output: ${PKG_FILE} (gradle exit ${GRADLE_EXIT}, tolerated)"
+
+# Post-process: jpackage's Info.plist override is silently ignored on some JDK
+# 21 builds → LSMinimumSystemVersion lands as 10.11, which Apple rejects for
+# arm64-only Mac App Store apps (must be 12.0+). Also embed the Mac App Store
+# provisioning profile into the .app bundle (TestFlight requires it). Re-sign
+# the .app + re-build the .pkg.
+PROFILE="${HOME}/Library/MobileDevice/Provisioning Profiles/Puklic_Mac_App_Store.provisionprofile"
+[ -f "$PROFILE" ] || { echo "[build-pkg] FAILED: missing provisioning profile at ${PROFILE}" >&2; exit 1; }
+
+echo "[build-pkg] post-process: expanding .pkg for Info.plist patch + profile embed"
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+pkgutil --expand-full "$PKG_FILE" "$WORK/expanded" >/dev/null
+
+APP_PATH="$(find "$WORK/expanded" -maxdepth 4 -name "Puklic.app" -type d | head -1)"
+[ -n "$APP_PATH" ] || { echo "[build-pkg] FAILED: Puklic.app not found inside expanded pkg" >&2; exit 1; }
+
+INFO_PLIST="${APP_PATH}/Contents/Info.plist"
+echo "[build-pkg] post-process: setting LSMinimumSystemVersion=13.0 in ${INFO_PLIST}"
+plutil -replace LSMinimumSystemVersion -string "13.0" "$INFO_PLIST"
+
+# Force CFBundleVersion to match CFBundleShortVersionString.
+# Apple's productbuild generates a pkg-ref Distribution.xml that uses
+# CFBundleShortVersionString as the request version. If CFBundleVersion
+# differs (e.g. monotonic timestamp), altool rejects the upload with error
+# 90345 ("Info.plist value mismatch"). To upload a new build, bump
+# puklic.version in gradle.properties (e.g. 1.2.2 → 1.2.3) and re-run.
+SHORT_VERSION="$(plutil -extract CFBundleShortVersionString raw "$INFO_PLIST")"
+echo "[build-pkg] post-process: aligning CFBundleVersion to ${SHORT_VERSION}"
+plutil -replace CFBundleVersion -string "$SHORT_VERSION" "$INFO_PLIST"
+
+echo "[build-pkg] post-process: embedding provisioning profile"
+cp "$PROFILE" "${APP_PATH}/Contents/embedded.provisionprofile"
+
+ENTITLEMENTS="${REPO_ROOT}/dist/apple/macappstore/Puklic.entitlements"
+echo "[build-pkg] post-process: re-signing .app with entitlements"
+codesign --force --options runtime --timestamp \
+  --sign "$MAC_APP_IDENTITY" \
+  --entitlements "$ENTITLEMENTS" \
+  --deep \
+  "$APP_PATH"
+
+echo "[build-pkg] post-process: building productbuild .pkg + signing"
+UNSIGNED_PKG="$WORK/Puklic-unsigned.pkg"
+SIGNED_PKG="$WORK/Puklic-signed.pkg"
+productbuild --component "$APP_PATH" /Applications "$UNSIGNED_PKG"
+productsign --sign "$MAC_INSTALLER_IDENTITY" "$UNSIGNED_PKG" "$SIGNED_PKG"
+
+echo "[build-pkg] post-process: replacing original .pkg"
+cp "$SIGNED_PKG" "$PKG_FILE"
 echo "[build-pkg] OK: ${PKG_FILE}"

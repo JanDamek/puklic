@@ -25,6 +25,15 @@
 -->
 <plist version="1.0">
 <dict>
+    <!-- application-identifier is required by App Store Connect (warning 90886):
+         the signature must declare the same TeamID.BundleID that the embedded
+         provisioning profile declares, otherwise TestFlight rejects the upload. -->
+    <key>com.apple.application-identifier</key>
+    <string>GR74KSG8M9.cz.damek.puklic.app</string>
+
+    <key>com.apple.developer.team-identifier</key>
+    <string>GR74KSG8M9</string>
+
     <key>com.apple.security.app-sandbox</key>
     <true/>
 

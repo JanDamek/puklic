@@ -32,9 +32,9 @@ EXTRA=()
 [ "$DRY_RUN" -eq 1 ] && EXTRA+=(--dry-run)
 
 echo "[release-ios] step 1/2: build-ipa.sh"
-"${SCRIPT_DIR}/build-ipa.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/build-ipa.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-ios] step 2/2: deploy-ipa.sh"
-"${SCRIPT_DIR}/deploy-ipa.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/deploy-ipa.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-ios] OK"

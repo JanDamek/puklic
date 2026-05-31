@@ -32,9 +32,9 @@ EXTRA=()
 [ "$DRY_RUN" -eq 1 ] && EXTRA+=(--dry-run)
 
 echo "[release-mac] step 1/2: build-pkg.sh"
-"${SCRIPT_DIR}/build-pkg.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/build-pkg.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-mac] step 2/2: deploy-pkg.sh"
-"${SCRIPT_DIR}/deploy-pkg.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/deploy-pkg.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-mac] OK"

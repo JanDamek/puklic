@@ -66,9 +66,9 @@ else
 fi
 
 echo "[release-all] step 3/4: iOS release"
-"${SCRIPT_DIR}/apple/release-ios.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/apple/release-ios.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-all] step 4/4: Mac App Store release"
-"${SCRIPT_DIR}/apple/macappstore/release-mac.sh" "${EXTRA[@]}"
+"${SCRIPT_DIR}/apple/macappstore/release-mac.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 
 echo "[release-all] OK"
