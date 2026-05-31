@@ -13,7 +13,9 @@
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.kotlin.serialization)
+    // FP-14h-2e (issue #69): kotlin-serialization plugin removed — no @Serializable
+    // declarations remain in :shared:voice after VoiceGatewayPayload moved to
+    // :shared:voice-codec.
 }
 
 kotlin {
@@ -49,9 +51,10 @@ kotlin {
             implementation(projects.shared.domain)
             implementation(projects.shared.platformApi)
             implementation(libs.kotlinx.coroutines.core)
-            implementation(libs.kotlinx.serialization.json)
-            implementation(libs.ktor.client.core)
-            implementation(libs.ktor.client.websockets)
+            // FP-14h-2e (issue #69): kotlinx.serialization.json + ktor.client.core +
+            // ktor.client.websockets removed — voice gateway types (VoiceGatewayPayload,
+            // VoiceGatewayConnection, KtorVoiceGatewayTransport) moved to
+            // :shared:voice-codec which now re-exports these libraries via `api`.
             implementation(libs.kermit)
         }
         commonTest.dependencies {

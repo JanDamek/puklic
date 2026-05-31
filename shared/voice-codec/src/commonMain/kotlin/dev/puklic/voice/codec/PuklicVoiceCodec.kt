@@ -24,5 +24,6 @@ package dev.puklic.voice.codec
     AnnotationTarget.FUNCTION,
     AnnotationTarget.PROPERTY,
     AnnotationTarget.TYPEALIAS,
+    AnnotationTarget.CONSTRUCTOR,
 )
 public annotation class PuklicVoiceCodec

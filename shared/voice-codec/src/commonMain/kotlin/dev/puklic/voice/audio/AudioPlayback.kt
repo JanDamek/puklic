@@ -1,6 +1,6 @@
 package dev.puklic.voice.audio
 
-import dev.puklic.voice.AudioDevice
+import dev.puklic.voice.codec.PuklicVoiceCodec
 
 /**
  * Speaker playback abstraction.
@@ -11,7 +11,8 @@ import dev.puklic.voice.AudioDevice
  *
  * Per architect report `2026-05-23-voice.md` §9 (Playback pipeline) + §10 (Device enumeration).
  */
-internal interface AudioPlayback : AutoCloseable {
+@PuklicVoiceCodec
+public interface AudioPlayback : AutoCloseable {
     /** Open the device. `deviceId == null` means system default. Idempotent on the same id. */
     fun start(deviceId: String?)
 
@@ -24,13 +25,6 @@ internal interface AudioPlayback : AutoCloseable {
     override fun close()
 }
 
-internal expect fun audioPlayback(): AudioPlayback
-
-/**
- * Enumerate audio playback devices. Capture devices are listed via
- * `dev.puklic.voice.audio.listAudioDevices(AudioDevice.Direction.Capture)`.
- *
- * Mirrors the capture-side helper but kept separate per slice-8 design so the
- * common surface stays minimal until both directions ship.
- */
-internal expect fun listPlaybackDevices(): List<AudioDevice>
+// FP-14h-2e (issue #69): `audioPlayback()` and `listPlaybackDevices()` top-level
+// functions live in JavaSoundPlayback.kt as plain JVM functions (not expect/actual)
+// until FP-14h-3 ships Apple audio actuals. Per architect plan §1.1 deferred items.

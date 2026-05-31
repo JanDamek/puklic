@@ -51,6 +51,9 @@
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    // FP-14h-2e (issue #69): kotlinx-serialization plugin needed by VoiceGatewayPayload
+    // (`@Serializable` data classes) moved from :shared:voice/commonMain.
+    alias(libs.plugins.kotlin.serialization)
     // FP-14h-2d (issue #68): atomicfu compiler plugin replaces j.u.c.atomic.* on JVM and
     // enables shared commonMain atomic primitives once future concurrency-heavy moves
     // (VideoRtpSender / PlaybackPipeline / IncomingVideoPipeline) land in this module.
@@ -83,6 +86,15 @@ kotlin {
             // so JVM consumers of :shared:voice can import `dev.puklic.voice.AudioConstants`
             // transitively (via :shared:voice → api(this) → api(voice-api)).
             api(projects.shared.voiceApi)
+            // FP-14h-2e (issue #69): voice gateway types (VoiceGatewayPayload `@Serializable`
+            // envelopes, VoiceGatewayConnection JSON encoding, KtorVoiceGatewayTransport)
+            // moved here from :shared:voice. JSON + Ktor WebSockets become api-exposed
+            // because `ktorVoiceGatewayTransportFactory(HttpClient)` accepts and returns
+            // types from these libraries.
+            api(libs.kotlinx.serialization.json)
+            api(libs.ktor.client.core)
+            api(libs.ktor.client.websockets)
+            api(libs.kermit)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))

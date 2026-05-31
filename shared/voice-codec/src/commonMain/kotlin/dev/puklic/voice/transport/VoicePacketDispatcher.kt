@@ -1,5 +1,7 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -21,7 +23,8 @@ import kotlinx.coroutines.launch
  * The dispatcher does NOT decrypt — it merely reads the unencrypted RTP header byte 1 and
  * routes by payload type. Each pipeline owns its own [VoicePacketCodec] for AEAD.
  */
-internal class VoicePacketDispatcher(
+@PuklicVoiceCodec
+public class VoicePacketDispatcher(
     private val transport: VoiceUdpTransport,
 ) {
     private val audioChannel: Channel<ByteArray> = Channel(capacity = AUDIO_CAPACITY)
@@ -33,7 +36,7 @@ internal class VoicePacketDispatcher(
 
     fun start(scope: CoroutineScope) {
         check(job == null) { "VoicePacketDispatcher already started" }
-        job = scope.launch(Dispatchers.IO) { runLoop() }
+        job = scope.launch(Dispatchers.Default) { runLoop() }
     }
 
     fun stop() {

@@ -1,5 +1,7 @@
 package dev.puklic.voice.audio
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.AudioConstants
 import dev.puklic.voice.AudioDevice
 import javax.sound.sampled.AudioFormat
@@ -19,9 +21,11 @@ private const val BITS_PER_SAMPLE: Int = 16
 private const val SIGNED: Boolean = true
 private const val BIG_ENDIAN: Boolean = false
 
-internal actual fun audioPlayback(): AudioPlayback = JavaSoundPlayback()
+@PuklicVoiceCodec
+public fun audioPlayback(): AudioPlayback = JavaSoundPlayback()
 
-internal actual fun listPlaybackDevices(): List<AudioDevice> =
+@PuklicVoiceCodec
+public fun listPlaybackDevices(): List<AudioDevice> =
     enumeratePlaybackMixers().map { (info, isDefault) ->
         AudioDevice(
             id = info.name,

@@ -1,5 +1,7 @@
 package dev.puklic.voice.gateway
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.websocket.DefaultClientWebSocketSession
 import io.ktor.client.plugins.websocket.webSocketSession
@@ -18,7 +20,8 @@ import kotlinx.coroutines.flow.channelFlow
  *
  * Voice gateway only speaks text JSON; binary frames are ignored.
  */
-internal class KtorVoiceGatewayTransport(
+@PuklicVoiceCodec
+public class KtorVoiceGatewayTransport internal constructor(
     private val session: DefaultClientWebSocketSession,
 ) : VoiceGatewayTransport {
 
@@ -76,9 +79,13 @@ public fun ktorVoiceGatewayTransportFactory(httpClient: HttpClient): VoiceWsTran
 }
 
 /**
- * Opaque wrapper around the internal [VoiceGatewayTransportFactory] so the wiring layer
- * can pass it into [dev.puklic.voice.DefaultVoiceClient] without seeing the internal types.
+ * Public-but-marker-gated wrapper around the gateway transport factory so the wiring layer
+ * (`:desktop:app`) and `DefaultVoiceClient` (`:shared:voice/jvmMain`) can cross-module
+ * compose without re-exporting raw `VoiceGatewayTransportFactory` to unrelated consumers.
+ *
+ * `delegate` is `@PuklicVoiceCodec` per FP-14h-1-v2 §7 — `DefaultVoiceClient` reads it
+ * cross-module to construct `DefaultVoiceGatewayConnection`.
  */
-public class VoiceWsTransportFactory internal constructor(
-    internal val delegate: VoiceGatewayTransportFactory,
+public class VoiceWsTransportFactory @PuklicVoiceCodec public constructor(
+    @PuklicVoiceCodec public val delegate: VoiceGatewayTransportFactory,
 )

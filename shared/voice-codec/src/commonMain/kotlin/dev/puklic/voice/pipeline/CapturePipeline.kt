@@ -1,5 +1,9 @@
 package dev.puklic.voice.pipeline
 
+import kotlin.concurrent.Volatile
+
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.audio.AudioCapture
 import dev.puklic.voice.codec.OpusEncoder
 import kotlinx.coroutines.CoroutineScope
@@ -22,7 +26,8 @@ import kotlinx.coroutines.launch
  * The wiring `opus -> packetCodec.encode(opus) -> transport.send(packet)` lives in the
  * caller (VoiceClient assembly point).
  */
-internal class CapturePipeline(
+@PuklicVoiceCodec
+public class CapturePipeline(
     private val capture: AudioCapture,
     private val encoder: OpusEncoder,
     private val encodeAndSend: suspend (opusFrame: ByteArray) -> Unit,
@@ -46,7 +51,7 @@ internal class CapturePipeline(
     fun start(scope: CoroutineScope, deviceId: String? = null) {
         check(job == null || job?.isActive != true) { "CapturePipeline already running" }
         capture.start(deviceId)
-        job = scope.launch(Dispatchers.IO) { runLoop() }
+        job = scope.launch(Dispatchers.Default) { runLoop() }
     }
 
     fun stop() {
@@ -139,7 +144,7 @@ internal class CapturePipeline(
         /** Opus "silence" frame magic per Discord voice docs. */
         val OPUS_SILENCE_FRAME: ByteArray = byteArrayOf(0xF8.toByte(), 0xFF.toByte(), 0xFE.toByte())
 
-        internal fun computeRms(pcm: ShortArray): Int {
+        public fun computeRms(pcm: ShortArray): Int {
             if (pcm.isEmpty()) return 0
             var sumSq = 0.0
             for (s in pcm) {

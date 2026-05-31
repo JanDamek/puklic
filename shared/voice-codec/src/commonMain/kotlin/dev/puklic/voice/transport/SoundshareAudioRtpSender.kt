@@ -1,5 +1,7 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.crypto.AeadCipher
 
@@ -29,7 +31,8 @@ import dev.puklic.voice.crypto.AeadCipher
  * ([dev.puklic.voice.screenshare.DefaultScreenShareClient]) constructs one instance per
  * share-with-audio session and discards it on stop.
  */
-internal class SoundshareAudioRtpSender(
+@PuklicVoiceCodec
+public class SoundshareAudioRtpSender(
     private val udp: VoiceUdpTransport,
     aead: AeadCipher,
     ssrc: Int,

@@ -1,5 +1,7 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 /**
  * Inverse of [H264Fragmenter]. Reassembles incoming RTP H.264 payloads (RFC 6184) back into
  * Annex-B framed access units.
@@ -18,7 +20,8 @@ package dev.puklic.voice.transport
  *
  * Caller is expected to feed packets per remote SSRC (one depacketizer per SSRC).
  */
-internal class H264Depacketizer {
+@PuklicVoiceCodec
+public class H264Depacketizer {
 
     private val pendingNals: MutableList<ByteArray> = mutableListOf()
     private var fuBuffer: ByteArray = ByteArray(0)
@@ -111,10 +114,10 @@ internal class H264Depacketizer {
     }
 
     companion object {
-        internal const val STAP_A: Int = 24
-        internal const val FU_A: Int = 28
-        internal const val FU_A_HEADER_SIZE: Int = 2 // indicator + FU header
-        internal const val STAP_A_SIZE_PREFIX: Int = 2
-        internal val START_CODE: ByteArray = byteArrayOf(0, 0, 0, 1)
+        public const val STAP_A: Int = 24
+        public const val FU_A: Int = 28
+        public const val FU_A_HEADER_SIZE: Int = 2 // indicator + FU header
+        public const val STAP_A_SIZE_PREFIX: Int = 2
+        public val START_CODE: ByteArray = byteArrayOf(0, 0, 0, 1)
     }
 }

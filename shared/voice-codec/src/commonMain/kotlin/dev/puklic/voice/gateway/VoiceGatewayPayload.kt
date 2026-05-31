@@ -1,5 +1,7 @@
 package dev.puklic.voice.gateway
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
@@ -9,7 +11,8 @@ import kotlinx.serialization.json.JsonElement
  * See `docs/03_infrastructure/architect-reports/2026-05-23-voice.md` §5.
  */
 @Serializable
-internal data class VoiceFrame(
+@PuklicVoiceCodec
+public data class VoiceFrame(
     val op: Int,
     val d: JsonElement? = null,
     val s: Int? = null,
@@ -17,12 +20,14 @@ internal data class VoiceFrame(
 )
 
 @Serializable
-internal data class VoiceHello(
+@PuklicVoiceCodec
+public data class VoiceHello(
     @SerialName("heartbeat_interval") val heartbeatInterval: Double,
 )
 
 @Serializable
-internal data class VoiceIdentify(
+@PuklicVoiceCodec
+public data class VoiceIdentify(
     @SerialName("server_id") val serverId: String,
     @SerialName("user_id") val userId: String,
     @SerialName("session_id") val sessionId: String,
@@ -31,7 +36,8 @@ internal data class VoiceIdentify(
 )
 
 @Serializable
-internal data class VoiceReady(
+@PuklicVoiceCodec
+public data class VoiceReady(
     val ssrc: Int,
     @SerialName("video_ssrc") val videoSsrc: Int = 0,
     val ip: String,
@@ -40,17 +46,20 @@ internal data class VoiceReady(
 )
 
 @Serializable
-internal data class VoiceHeartbeat(
+@PuklicVoiceCodec
+public data class VoiceHeartbeat(
     val t: Long,
 )
 
 @Serializable
-internal data class VoiceHeartbeatAck(
+@PuklicVoiceCodec
+public data class VoiceHeartbeatAck(
     val t: Long,
 )
 
 @Serializable
-internal data class VoiceCodecEntry(
+@PuklicVoiceCodec
+public data class VoiceCodecEntry(
     val name: String,
     val type: String,
     @SerialName("payload_type") val payloadType: Int,
@@ -61,7 +70,8 @@ internal data class VoiceCodecEntry(
 )
 
 @Serializable
-internal data class VoiceSelectProtocolData(
+@PuklicVoiceCodec
+public data class VoiceSelectProtocolData(
     val address: String,
     val port: Int,
     val mode: String,
@@ -69,7 +79,8 @@ internal data class VoiceSelectProtocolData(
 )
 
 @Serializable
-internal data class VoiceSelectProtocol(
+@PuklicVoiceCodec
+public data class VoiceSelectProtocol(
     val protocol: String,
     val data: VoiceSelectProtocolData,
 )
@@ -79,14 +90,15 @@ internal data class VoiceSelectProtocol(
  * video + RTX, plus simulcast stream descriptors. See architect report §4.
  */
 @Serializable
-internal data class Op12VideoStream(
+@PuklicVoiceCodec
+public data class Op12VideoStream(
     @SerialName("audio_ssrc") val audioSsrc: Int,
     @SerialName("video_ssrc") val videoSsrc: Int,
     @SerialName("rtx_ssrc") val rtxSsrc: Int = 0,
     val streams: List<StreamSpec>,
 ) {
     @Serializable
-    internal data class StreamSpec(
+    public data class StreamSpec(
         val type: String = "video",
         val rid: String = "100",
         val quality: Int = 100,
@@ -98,7 +110,8 @@ internal data class Op12VideoStream(
 }
 
 @Serializable
-internal data class VoiceSessionDescription(
+@PuklicVoiceCodec
+public data class VoiceSessionDescription(
     val mode: String,
     @SerialName("secret_key") val secretKey: List<Int>,
     @SerialName("dave_protocol_version") val daveProtocolVersion: Int? = null,
@@ -106,7 +119,8 @@ internal data class VoiceSessionDescription(
 )
 
 @Serializable
-internal data class VoiceSpeaking(
+@PuklicVoiceCodec
+public data class VoiceSpeaking(
     val speaking: Int,
     val delay: Int = 0,
     val ssrc: Int,
@@ -114,16 +128,19 @@ internal data class VoiceSpeaking(
 )
 
 @Serializable
-internal data class VoiceResume(
+@PuklicVoiceCodec
+public data class VoiceResume(
     @SerialName("server_id") val serverId: String,
     @SerialName("session_id") val sessionId: String,
     val token: String,
 )
 
 @Serializable
-internal data class VoiceResumed(val ok: Boolean = true)
+@PuklicVoiceCodec
+public data class VoiceResumed(val ok: Boolean = true)
 
 @Serializable
-internal data class VoiceClientDisconnect(
+@PuklicVoiceCodec
+public data class VoiceClientDisconnect(
     @SerialName("user_id") val userId: String,
 )

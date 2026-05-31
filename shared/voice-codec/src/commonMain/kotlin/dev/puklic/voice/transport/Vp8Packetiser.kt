@@ -1,5 +1,7 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 /**
  * VP8 RTP packetisation per RFC 7741 §4 — single-octet payload descriptor profile.
  *
@@ -24,12 +26,13 @@ package dev.puklic.voice.transport
  * bytes; each chunk gets its own 1-byte descriptor prepended. The marker bit (RFC 3550) is set
  * by [VideoRtpSender] based on the last [Fragment]'s `end = true` flag.
  */
-internal object Vp8Packetiser : VideoFrameFragmenter {
+@PuklicVoiceCodec
+public object Vp8Packetiser : VideoFrameFragmenter {
 
     /** Safe UDP MTU after RTP header (12), AEAD tag (16), and nonce counter (4). */
     private const val MTU: Int = 1200
     private const val RTP_OVERHEAD: Int = 12 + 16 + 4
-    internal const val MAX_PAYLOAD: Int = MTU - RTP_OVERHEAD
+    public const val MAX_PAYLOAD: Int = MTU - RTP_OVERHEAD
 
     private const val DESCRIPTOR_BYTES: Int = 1
 

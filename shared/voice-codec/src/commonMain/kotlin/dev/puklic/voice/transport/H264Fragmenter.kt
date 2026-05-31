@@ -1,5 +1,7 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 /**
  * H.264 RTP packetization per RFC 6184 §5.8 (FU-A fragmentation).
  *
@@ -10,12 +12,13 @@ package dev.puklic.voice.transport
  *
  * Single small NAL units fit in one packet and are emitted as the raw NAL.
  */
-internal object H264Fragmenter {
+@PuklicVoiceCodec
+public object H264Fragmenter {
 
     /** Safe UDP MTU after RTP header (12), AEAD tag (16), and nonce counter (4). */
     private const val MTU: Int = 1200
     private const val RTP_OVERHEAD: Int = 12 + 16 + 4
-    internal const val MAX_PAYLOAD: Int = MTU - RTP_OVERHEAD
+    public const val MAX_PAYLOAD: Int = MTU - RTP_OVERHEAD
 
     private const val FU_A_TYPE: Int = 28
     private const val NRI_MASK: Int = 0x60

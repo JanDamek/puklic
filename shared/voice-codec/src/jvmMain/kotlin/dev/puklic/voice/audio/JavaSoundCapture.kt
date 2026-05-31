@@ -1,5 +1,7 @@
 package dev.puklic.voice.audio
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.AudioConstants
 import javax.sound.sampled.AudioFormat
 import javax.sound.sampled.AudioSystem
@@ -12,7 +14,8 @@ import javax.sound.sampled.TargetDataLine
  * Per architect report 2026-05-23-voice.md §8: 48 kHz / 16-bit / mono / signed / little-endian,
  * blocking read of 1920 bytes = 960 samples = 20 ms per frame.
  */
-internal actual fun audioCapture(): AudioCapture = JavaSoundCapture()
+@PuklicVoiceCodec
+public fun audioCapture(): AudioCapture = JavaSoundCapture()
 
 private class JavaSoundCapture : AudioCapture {
 

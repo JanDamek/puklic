@@ -1,5 +1,9 @@
 package dev.puklic.voice.gateway
 
+import kotlin.concurrent.Volatile
+
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -32,7 +36,8 @@ import kotlinx.serialization.json.put
  * slices 4..6. This slice only opens the socket, exchanges Hello/Identify/Ready, runs the
  * heartbeat loop, and exposes events.
  */
-internal sealed interface VoiceGatewayState {
+@PuklicVoiceCodec
+public sealed interface VoiceGatewayState {
     data object Idle : VoiceGatewayState
     data class ConnectingWs(val attempt: Int) : VoiceGatewayState
     data object AwaitingHello : VoiceGatewayState
@@ -43,7 +48,8 @@ internal sealed interface VoiceGatewayState {
     data class Failed(val reason: String) : VoiceGatewayState
 }
 
-internal sealed interface VoiceGatewayEvent {
+@PuklicVoiceCodec
+public sealed interface VoiceGatewayEvent {
     data class Ready(
         val ssrc: Int,
         val ip: String,
@@ -79,7 +85,8 @@ internal sealed interface VoiceGatewayEvent {
     data class ClientDisconnect(val userId: String) : VoiceGatewayEvent
 }
 
-internal interface VoiceGatewayConnection {
+@PuklicVoiceCodec
+public interface VoiceGatewayConnection {
     val state: StateFlow<VoiceGatewayState>
     val events: SharedFlow<VoiceGatewayEvent>
     suspend fun connect(endpoint: String, token: String, sessionId: String, serverId: String, userId: String)
@@ -104,7 +111,8 @@ internal interface VoiceGatewayConnection {
  * @param maxMissedAcks two missed heartbeat acks → reconnect, per architect report §5.
  * @param maxReconnectAttempts exponential backoff caps at 5 (1/2/4/8/16 s) per §5.
  */
-internal class DefaultVoiceGatewayConnection(
+@PuklicVoiceCodec
+public class DefaultVoiceGatewayConnection(
     private val scope: CoroutineScope,
     private val transportFactory: VoiceGatewayTransportFactory,
     private val sleep: suspend (Long) -> Unit = { delay(it) },

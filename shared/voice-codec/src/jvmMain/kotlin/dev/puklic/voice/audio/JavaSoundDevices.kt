@@ -1,5 +1,7 @@
 package dev.puklic.voice.audio
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
+
 import dev.puklic.voice.AudioDevice
 import javax.sound.sampled.AudioSystem
 import javax.sound.sampled.SourceDataLine
@@ -14,7 +16,8 @@ import javax.sound.sampled.TargetDataLine
  * `isDefault` is set on the first mixer reported by `AudioSystem` that supports the
  * requested line — this matches the OS default mixer convention on macOS/Linux.
  */
-internal actual fun listAudioDevices(direction: AudioDevice.Direction): List<AudioDevice> {
+@PuklicVoiceCodec
+public fun listAudioDevices(direction: AudioDevice.Direction): List<AudioDevice> {
     val lineClass = when (direction) {
         AudioDevice.Direction.Capture -> TargetDataLine::class.java
         AudioDevice.Direction.Playback -> SourceDataLine::class.java
