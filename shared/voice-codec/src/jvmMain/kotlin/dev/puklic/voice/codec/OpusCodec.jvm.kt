@@ -32,8 +32,8 @@ import org.bytedeco.ffmpeg.global.avutil.av_frame_get_buffer
 import org.bytedeco.ffmpeg.global.avutil.av_frame_make_writable
 import org.bytedeco.ffmpeg.global.avutil.av_opt_set
 import org.bytedeco.ffmpeg.global.avutil.av_opt_set_int
+import kotlinx.atomicfu.atomic
 import org.bytedeco.javacpp.ShortPointer
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * JVM actual for [OpusCodecFactory]. Uses libavcodec (FFmpeg GPL build, JavaCPP-bundled).
@@ -66,7 +66,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
     private val ctx: AVCodecContext
     private val frame: AVFrame
     private val packet: AVPacket
-    private val closed = AtomicBoolean(false)
+    private val closed = atomic(false)
 
     init {
         // Prefer the libopus wrapper (accepts S16 PCM directly). Fall back to the native FFmpeg
@@ -133,7 +133,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
     }
 
     override fun encode(pcm: ShortArray): ByteArray {
-        check(!closed.get()) { "OpusEncoder is closed" }
+        check(!closed.value) { "OpusEncoder is closed" }
         require(pcm.size == expectedPcmSize) {
             "Frame must be $expectedPcmSize samples " +
                 "(${AudioConstants.SAMPLES_PER_FRAME} per channel * $channels channels), got ${pcm.size}"
@@ -167,7 +167,7 @@ private class LibavOpusEncoder(config: OpusEncoderConfig) : OpusEncoder {
     }
 
     override fun close() {
-        if (closed.compareAndSet(false, true)) {
+        if (closed.compareAndSet(expect = false, update = true)) {
             av_packet_free(packet)
             av_frame_free(frame)
             avcodec_free_context(ctx)
@@ -189,7 +189,7 @@ private class LibavOpusDecoder(override val channels: Int) : OpusDecoder {
     private val ctx: AVCodecContext
     private val frame: AVFrame
     private val packet: AVPacket
-    private val closed = AtomicBoolean(false)
+    private val closed = atomic(false)
 
     init {
         require(channels == AudioConstants.CHANNELS_MONO || channels == AudioConstants.CHANNELS_STEREO) {
@@ -237,7 +237,7 @@ private class LibavOpusDecoder(override val channels: Int) : OpusDecoder {
     }
 
     override fun decode(opus: ByteArray?, fec: Boolean): ShortArray {
-        check(!closed.get()) { "OpusDecoder is closed" }
+        check(!closed.value) { "OpusDecoder is closed" }
         if (opus == null) {
             // libavcodec does not expose an explicit PLC entry point. Send an empty packet
             // (data=null, size=0) — the decoder treats it as a missed frame and runs PLC.
@@ -297,7 +297,7 @@ private class LibavOpusDecoder(override val channels: Int) : OpusDecoder {
     }
 
     override fun close() {
-        if (closed.compareAndSet(false, true)) {
+        if (closed.compareAndSet(expect = false, update = true)) {
             av_packet_free(packet)
             av_frame_free(frame)
             avcodec_free_context(ctx)

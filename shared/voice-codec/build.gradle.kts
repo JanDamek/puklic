@@ -51,6 +51,11 @@
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
+    // FP-14h-2d (issue #68): atomicfu compiler plugin replaces j.u.c.atomic.* on JVM and
+    // enables shared commonMain atomic primitives once future concurrency-heavy moves
+    // (VideoRtpSender / PlaybackPipeline / IncomingVideoPipeline) land in this module.
+    // See docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2d-implementation.md.
+    alias(libs.plugins.kotlinx.atomicfu)
     id("org.jetbrains.kotlinx.kover")
 }
 
@@ -99,6 +104,11 @@ kotlin {
             // Moved from :shared:voice/jvmMain alongside XChaCha20Poly1305.jvm.kt. See
             // docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md §2.
             implementation(libs.bouncycastle.bcprov)
+            // FP-14h-2d (issue #68): atomicfu factory functions (`atomic(...)`) used by
+            // OpusCodec.jvm.kt to replace `java.util.concurrent.atomic.AtomicBoolean`.
+            // The atomicfu compiler plugin lowers these to volatile fields + AtomicFieldUpdater
+            // at compile time; semantics are byte-identical to j.u.c.atomic on JVM.
+            implementation(libs.kotlinx.atomicfu)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
