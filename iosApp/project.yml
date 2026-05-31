@@ -58,16 +58,10 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
-    entitlements:
-      path: iosApp/iosApp.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - group.cz.damek.puklic.app
-    dependencies:
-      # Embed the broadcast extension into the app bundle. Required by Apple
-      # for any ReplayKit Broadcast Upload Extension shipped with an app.
-      - target: PuklicBroadcastUpload
-        embed: true
+    # No App Groups entitlement and no PuklicBroadcastUpload extension —
+    # iOS screen sharing is OUT of scope per user decision 2026-05-31 (#71).
+    # The Apple-native voice call path (FP-14h) does not require an extension
+    # or App Group; mic capture happens in-process via AVAudioEngine.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: cz.damek.puklic.app
@@ -75,7 +69,18 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         SUPPORTS_MACCATALYST: NO
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        # Entitlements claim aps-environment + keychain-access-groups matching
+        # the Puklic App Store provisioning profile (#73). Push is required for
+        # Discord call/mention signaling, Keychain Sharing for the iOS token
+        # storage path (FP-2 Keychain bridge in :ios:platform).
         CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
+        # Manual code signing for local TestFlight builds (HARD RULE #4 LOCAL ONLY).
+        CODE_SIGN_STYLE: Manual
+        # Explicit SHA-1 of the only Apple Distribution cert (Jan Damek /
+        # GR74KSG8M9) installed in the keychain — avoids ambiguity if a
+        # second cert with the same display name is ever re-imported.
+        CODE_SIGN_IDENTITY: "87C2C002603CAACDC619BA32762945AB03C0BCA0"
+        PROVISIONING_PROFILE_SPECIFIER: "Puklic App Store"
         # Embed the Compose iOS framework produced by Gradle.
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
         OTHER_LDFLAGS: "$(inherited) -framework PuklicShared"
@@ -92,47 +97,8 @@ targets:
           ./gradlew :ios:app:embedAndSignAppleFrameworkForXcode
         basedOnDependencyAnalysis: false
 
-  # ReplayKit Broadcast Upload Extension — see
-  #   docs/03_infrastructure/architect-reports/2026-05-29-fp11-ios-broadcast-extension.md
-  # Lives in its own sandboxed process (≤ 50 MB RAM cap). Captures system-wide
-  # screen + app audio via ReplayKit and writes raw frames to the App Group
-  # ring buffer that `BroadcastExtensionBridge.kt` reads from the main app.
-  PuklicBroadcastUpload:
-    type: app-extension
-    platform: iOS
-    deploymentTarget: "15.0"
-    sources:
-      - path: Broadcast
-    info:
-      path: Broadcast/Info.plist
-      properties:
-        CFBundleDisplayName: Puklic Broadcast
-        CFBundleShortVersionString: "1.2.1"
-        CFBundleVersion: "1"
-        CFBundlePackageType: XPC!
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.broadcast-services-upload
-          NSExtensionPrincipalClass: $(PRODUCT_MODULE_NAME).SampleHandler
-          RPBroadcastProcessMode: RPBroadcastProcessModeSampleBuffer
-    entitlements:
-      path: Broadcast/PuklicBroadcastUpload.entitlements
-      properties:
-        com.apple.security.application-groups:
-          - group.cz.damek.puklic.app
-    dependencies:
-      - sdk: ReplayKit.framework
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: cz.damek.puklic.app.broadcast
-        PRODUCT_NAME: PuklicBroadcastUpload
-        DEVELOPMENT_TEAM: GR74KSG8M9
-        TARGETED_DEVICE_FAMILY: "1,2"
-        SUPPORTS_MACCATALYST: NO
-        SKIP_INSTALL: YES
-        CODE_SIGN_ENTITLEMENTS: Broadcast/PuklicBroadcastUpload.entitlements
-      configs:
-        Debug:
-          SWIFT_OPTIMIZATION_LEVEL: -Onone
-          ONLY_ACTIVE_ARCH: YES
-        Release:
-          SWIFT_OPTIMIZATION_LEVEL: -O
+# PuklicBroadcastUpload (ReplayKit Broadcast Extension) was removed
+# 2026-05-31 per user decision (#71) — iOS screen sharing is out of scope.
+# The Broadcast/ directory files (SampleHandler.swift etc.) are kept on disk
+# for the time a future iOS screencast slice may need them, but the target is
+# no longer built or signed.
