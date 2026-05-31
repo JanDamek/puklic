@@ -32,8 +32,7 @@ targets:
     deploymentTarget: "15.0"
     sources:
       - path: iosApp/Sources
-      - path: iosApp/Resources
-        type: folder
+      - path: iosApp/Resources/Assets.xcassets
     info:
       path: iosApp/Sources/Info.plist
       properties:
@@ -43,7 +42,8 @@ targets:
         UILaunchScreen:
           UIColorName: ""
         UIRequiredDeviceCapabilities:
-          - armv7
+          - arm64
+        CFBundleIconName: AppIcon
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
@@ -76,10 +76,7 @@ targets:
         CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
         # Manual code signing for local TestFlight builds (HARD RULE #4 LOCAL ONLY).
         CODE_SIGN_STYLE: Manual
-        # Explicit SHA-1 of the only Apple Distribution cert (Jan Damek /
-        # GR74KSG8M9) installed in the keychain — avoids ambiguity if a
-        # second cert with the same display name is ever re-imported.
-        CODE_SIGN_IDENTITY: "87C2C002603CAACDC619BA32762945AB03C0BCA0"
+        CODE_SIGN_IDENTITY: "Apple Distribution"
         PROVISIONING_PROFILE_SPECIFIER: "Puklic App Store"
         # Embed the Compose iOS framework produced by Gradle.
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"
