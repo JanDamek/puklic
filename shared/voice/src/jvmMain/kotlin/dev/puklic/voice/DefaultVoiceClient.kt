@@ -28,11 +28,12 @@ import dev.puklic.voice.gateway.VoiceWsTransportFactory
 import dev.puklic.voice.pipeline.CapturePipeline
 import dev.puklic.voice.pipeline.IncomingVideoPipeline
 import dev.puklic.voice.pipeline.PlaybackPipeline
-import dev.puklic.voice.transport.UdpRtpTransport
+import dev.puklic.voice.codec.transport.Endpoint
+import dev.puklic.voice.codec.transport.JvmVoiceUdpTransportFactory
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.VoicePacketCodec
 import dev.puklic.voice.transport.VoicePacketDispatcher
 import dev.puklic.voice.transport.discoverIp
-import dev.puklic.voice.transport.newUdpRtpTransport
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -177,7 +178,7 @@ public class DefaultVoiceClient(
     private var sessionJob: Job? = null
     private var sessionScope: CoroutineScope? = null
     private var voiceGateway: VoiceGatewayConnection? = null
-    private var udp: UdpRtpTransport? = null
+    private var udp: VoiceUdpTransport? = null
     private var capture: CapturePipeline? = null
     private var playback: PlaybackPipeline? = null
     private var incomingVideoPipeline: IncomingVideoPipeline? = null
@@ -392,10 +393,8 @@ public class DefaultVoiceClient(
         ssrc: Int,
         @Suppress("UNUSED_PARAMETER") endpointHost: String,
     ) {
-        val t = newUdpRtpTransport()
+        val t = JvmVoiceUdpTransportFactory.create(Endpoint(host = host, port = port), localBind = null)
         udp = t
-        t.bind()
-        t.connect(host, port)
         val result = t.discoverIp(ssrc)
         gw.sendSelectProtocol(result.address, result.port, mode = AEAD_MODE)
     }

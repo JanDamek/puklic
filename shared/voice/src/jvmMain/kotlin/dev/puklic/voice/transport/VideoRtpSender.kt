@@ -1,5 +1,6 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.crypto.AeadCipher
 import dev.puklic.voice.crypto.NonceGenerator
 import java.util.concurrent.atomic.AtomicInteger
@@ -18,7 +19,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Per architect report `docs/03_infrastructure/architect-reports/2026-05-23-screenshare.md` §5.
  */
 internal class VideoRtpSender(
-    private val udp: UdpRtpTransport,
+    private val udp: VoiceUdpTransport,
     private val encryptor: AeadCipher,
     private val nonceGen: NonceGenerator,
     private val videoSsrc: Int,

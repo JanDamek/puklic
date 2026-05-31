@@ -4,8 +4,11 @@ import dev.puklic.voice.AudioConstants
 import dev.puklic.voice.audio.AudioPlayback
 import dev.puklic.voice.codec.OpusDecoder
 import dev.puklic.voice.crypto.xchacha20Poly1305
-import dev.puklic.voice.transport.UdpRtpTransport
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.VoicePacketCodec
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.receiveAsFlow
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -14,7 +17,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -116,21 +118,12 @@ class PlaybackPipelineTest {
     }
 
     @Suppress("RedundantSuppression")
-    private class FakeTransport : UdpRtpTransport {
-        private val queue = ConcurrentLinkedQueue<ByteArray>()
-        fun offer(b: ByteArray) { queue.add(b) }
-        override suspend fun bind(): Int = 0
-        override suspend fun connect(host: String, port: Int) {}
+    private class FakeTransport : VoiceUdpTransport {
+        private val channel: Channel<ByteArray> = Channel(capacity = Channel.UNLIMITED)
+        fun offer(b: ByteArray) { channel.trySend(b) }
         override suspend fun send(packet: ByteArray) {}
-        override suspend fun receive(): ByteArray {
-            while (true) {
-                val b = queue.poll()
-                if (b != null) return b
-                delay(5)
-            }
-            @Suppress("UNREACHABLE_CODE") return ByteArray(0)
-        }
-        override fun close() {}
+        override val incoming: Flow<ByteArray> = channel.receiveAsFlow()
+        override fun close() { channel.close() }
     }
 
     private class FakePlayback : AudioPlayback {

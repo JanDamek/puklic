@@ -1,5 +1,6 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.crypto.AeadCipher
 
 /**
@@ -29,7 +30,7 @@ import dev.puklic.voice.crypto.AeadCipher
  * share-with-audio session and discards it on stop.
  */
 internal class SoundshareAudioRtpSender(
-    private val udp: UdpRtpTransport,
+    private val udp: VoiceUdpTransport,
     aead: AeadCipher,
     ssrc: Int,
 ) {

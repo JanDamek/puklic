@@ -11,8 +11,8 @@ import kotlin.test.Test
  * [VoiceUdpTransportFactory] have the agreed shape, and that a minimal fake factory
  * compiles against the interfaces.
  *
- * No real socket is opened; that is exercised by `UdpRtpTransportTest` (JVM) and by the
- * iOS Network.framework actual tests landing in FP-6.
+ * No real socket is opened; real-socket loopback coverage for the JVM `actual` will be
+ * added alongside FP-6's iOS Network.framework actual tests.
  */
 class VoiceUdpTransportContractTest {
 

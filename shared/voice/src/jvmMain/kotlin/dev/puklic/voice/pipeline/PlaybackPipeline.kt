@@ -3,8 +3,8 @@ package dev.puklic.voice.pipeline
 import dev.puklic.voice.AudioConstants
 import dev.puklic.voice.audio.AudioPlayback
 import dev.puklic.voice.codec.OpusDecoder
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.RtpPacket
-import dev.puklic.voice.transport.UdpRtpTransport
 import dev.puklic.voice.transport.VoicePacketCodec
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,7 +27,7 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * SSRC streams are GC'd after [SSRC_IDLE_TIMEOUT_NS] of silence.
  */
 internal class PlaybackPipeline(
-    private val transport: UdpRtpTransport,
+    private val transport: VoiceUdpTransport,
     private val packetCodec: VoicePacketCodec,
     private val decoderFactory: () -> OpusDecoder,
     private val playback: AudioPlayback,
@@ -70,44 +70,51 @@ internal class PlaybackPipeline(
     }
 
     private suspend fun receiveLoop() {
-        val source: suspend () -> ByteArray = packetSource ?: { transport.receive() }
-        while (isActive()) {
-            val packet = try {
-                source()
-            } catch (_: Exception) {
-                // Socket closed or interrupted — exit cleanly; mixer loop will catch up & exit.
-                return
-            }
-            val decoded = try {
-                packetCodec.decode(packet)
-            } catch (_: IllegalArgumentException) {
-                continue
-            } catch (_: Exception) {
-                // AEAD failure on a non-Opus payload (video uses a separate counter sequence)
-                // — drop and continue.
-                continue
-            }
-            if (decoded.header.payloadType != RtpPacket.PAYLOAD_TYPE_OPUS) continue
-            val ssrc = decoded.header.ssrc
-            val stream = streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
-            stream.lastPacketNs = System.nanoTime()
-            // DAVE: strip the per-frame ciphertext layer (if any) BEFORE we hand
-            // bytes to the jitter buffer + Opus decoder. Pass-through on null hook;
-            // drop the frame on integrity failure (null return) when a hook is set.
-            val opusPlain: ByteArray = if (daveDecrypt != null) {
-                daveDecrypt.invoke(ssrc, decoded.opus) ?: continue
-            } else {
-                decoded.opus
-            }
-            val ready = stream.buffer.push(decoded.header.sequence, opusPlain)
-            for (opus in ready) {
-                val pcm = try {
-                    stream.decoder.decode(opus, fec = false)
-                } catch (_: Exception) {
-                    continue
+        val explicitSource = packetSource
+        try {
+            if (explicitSource != null) {
+                while (isActive()) {
+                    handlePacket(explicitSource())
                 }
-                stream.pendingFrames.add(pcm)
+            } else {
+                transport.incoming.collect { packet -> handlePacket(packet) }
             }
+        } catch (_: Exception) {
+            // Socket closed, coroutine cancelled, or upstream Flow terminated — exit cleanly;
+            // mixer loop will catch up & exit.
+        }
+    }
+
+    private suspend fun handlePacket(packet: ByteArray) {
+        val decoded = try {
+            packetCodec.decode(packet)
+        } catch (_: IllegalArgumentException) {
+            return
+        } catch (_: Exception) {
+            // AEAD failure on a non-Opus payload (video uses a separate counter sequence)
+            // — drop and continue.
+            return
+        }
+        if (decoded.header.payloadType != RtpPacket.PAYLOAD_TYPE_OPUS) return
+        val ssrc = decoded.header.ssrc
+        val stream = streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
+        stream.lastPacketNs = System.nanoTime()
+        // DAVE: strip the per-frame ciphertext layer (if any) BEFORE we hand
+        // bytes to the jitter buffer + Opus decoder. Pass-through on null hook;
+        // drop the frame on integrity failure (null return) when a hook is set.
+        val opusPlain: ByteArray = if (daveDecrypt != null) {
+            daveDecrypt.invoke(ssrc, decoded.opus) ?: return
+        } else {
+            decoded.opus
+        }
+        val ready = stream.buffer.push(decoded.header.sequence, opusPlain)
+        for (opus in ready) {
+            val pcm = try {
+                stream.decoder.decode(opus, fec = false)
+            } catch (_: Exception) {
+                continue
+            }
+            stream.pendingFrames.add(pcm)
         }
     }
 

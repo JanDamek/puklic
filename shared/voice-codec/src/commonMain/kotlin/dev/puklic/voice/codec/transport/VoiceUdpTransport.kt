@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.Flow
  *
  * Platform implementations:
  *
- * - **JVM desktop** — adapter over the existing `dev.puklic.voice.transport.UdpRtpTransport`
- *   backed by `java.net.DatagramSocket`, see `JvmVoiceUdpTransportFactory`.
+ * - **JVM desktop** — `java.net.DatagramSocket`-backed implementation owned in-line by
+ *   `JvmVoiceUdpTransportFactory` (the legacy `UdpRtpTransport` interface it used to bridge
+ *   was deleted in FP-14h-2b, issue #66).
  * - **iOS / macOS App Store** (FP-6) — `NWConnection` from `Network.framework`.
  *
  * Lifecycle: implementations own a single underlying socket. Call [close] to release it.

@@ -1,8 +1,11 @@
 package dev.puklic.voice.transport
 
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.crypto.xchacha20Poly1305
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
@@ -65,12 +68,10 @@ class VideoRtpSenderTest {
         }
     }
 
-    private class CapturingTransport : UdpRtpTransport {
+    private class CapturingTransport : VoiceUdpTransport {
         val sent: MutableList<ByteArray> = CopyOnWriteArrayList()
-        override suspend fun bind(): Int = 0
-        override suspend fun connect(host: String, port: Int) {}
         override suspend fun send(packet: ByteArray) { sent += packet.copyOf() }
-        override suspend fun receive(): ByteArray = ByteArray(0)
+        override val incoming: Flow<ByteArray> = emptyFlow()
         override fun close() {}
     }
 }

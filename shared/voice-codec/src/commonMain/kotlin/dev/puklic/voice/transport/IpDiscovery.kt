@@ -19,8 +19,9 @@ import dev.puklic.voice.codec.PuklicVoiceCodec
  *
  * Moved here from `:shared:voice/commonMain` 2026-05-29 (FP-14h-2a) per architect report
  * `2026-05-29-fp14h-1-v2-voice-gateway-redesign.md` §9.2 row 6. The legacy
- * `UdpRtpTransport` interface + `expect newUdpRtpTransport()` + `discoverIp` extension stay
- * in `:shared:voice/commonMain/UdpRtpTransport.kt` until FP-14h-2b deletes them.
+ * `UdpRtpTransport` interface + `expect newUdpRtpTransport()` + the `discoverIp` extension
+ * on it were deleted in FP-14h-2b (issue #66); the FP-3 [VoiceUdpTransport]-typed
+ * `discoverIp` lives in `IpDiscoveryRunner.kt`.
  */
 @PuklicVoiceCodec
 public object IpDiscovery {

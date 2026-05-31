@@ -17,9 +17,9 @@ import dev.puklic.voice.screenshare.linux.LinuxPortalScreenCast
 import dev.puklic.voice.screenshare.linux.PipeWireAudioReader
 import dev.puklic.voice.screenshare.source.LinuxScreenSourceEnumerator
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.H264FrameFragmenter
 import dev.puklic.voice.transport.SoundshareAudioRtpSender
-import dev.puklic.voice.transport.UdpRtpTransport
 import dev.puklic.voice.transport.VideoFrameFragmenter
 import dev.puklic.voice.transport.VideoRtpSender
 import dev.puklic.voice.transport.Vp8Packetiser
@@ -49,7 +49,7 @@ internal class DefaultScreenShareClient(
     private val voiceGateway: VoiceGatewayConnection,
     private val packetEncryptor: AeadCipher,
     private val nonceGen: NonceGenerator,
-    private val udpTransport: UdpRtpTransport,
+    private val udpTransport: VoiceUdpTransport,
     private val getAudioSsrc: () -> Int,
     private val getVideoSsrc: () -> Int,
     private val enumerator: ScreenSourceEnumerator,

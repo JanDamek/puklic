@@ -8,7 +8,7 @@ import dev.puklic.voice.gateway.VoiceGatewayState
 import dev.puklic.voice.screenshare.encoder.VideoEncoder
 import dev.puklic.voice.screenshare.source.ScreenSourceEnumerator
 import dev.puklic.voice.transport.EncodedFrame
-import dev.puklic.voice.transport.UdpRtpTransport
+import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
@@ -243,7 +243,7 @@ class DefaultScreenShareClientTest {
     private fun newClient(
         scope: CoroutineScope,
         gw: FakeVoiceGateway,
-        udp: UdpRtpTransport = CapturingTransport(),
+        udp: VoiceUdpTransport = CapturingTransport(),
         audioSsrc: Int = 0,
         videoSsrc: Int = 0,
         encoderFactory: (ScreenSource, Boolean, dev.puklic.voice.screenshare.encoder.VideoCodec) -> VideoEncoder =
@@ -279,12 +279,10 @@ class DefaultScreenShareClientTest {
         private companion object { const val TAG_BYTES = 16 }
     }
 
-    private class CapturingTransport : UdpRtpTransport {
+    private class CapturingTransport : VoiceUdpTransport {
         val sent: MutableList<ByteArray> = CopyOnWriteArrayList()
-        override suspend fun bind(): Int = 0
-        override suspend fun connect(host: String, port: Int) {}
         override suspend fun send(packet: ByteArray) { sent += packet.copyOf() }
-        override suspend fun receive(): ByteArray = ByteArray(0)
+        override val incoming: kotlinx.coroutines.flow.Flow<ByteArray> = kotlinx.coroutines.flow.emptyFlow()
         override fun close() {}
     }
 
