@@ -94,6 +94,11 @@ kotlin {
             // Per-OS classifier only — keeps installer size small. Umbrella
             // `ffmpeg-platform-gpl` is used in tests only (cross-host CI convenience).
             runtimeOnly("org.bytedeco:ffmpeg:${libs.versions.ffmpeg.get()}:${detectFfmpegClassifier()}")
+            // XChaCha20-Poly1305 JVM actual backend (FP-14h-2c, issue #67, 2026-05-31).
+            // BouncyCastle 1.78 is MIT-licensed — `verifyMacAppStoreNoGplDeps` accepts it.
+            // Moved from :shared:voice/jvmMain alongside XChaCha20Poly1305.jvm.kt. See
+            // docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md §2.
+            implementation(libs.bouncycastle.bcprov)
         }
         jvmTest.dependencies {
             implementation(libs.kotest.runner.junit5)
@@ -118,19 +123,117 @@ kotlin {
         extraOpts("-libraryPath", sliceDir.asFile.absolutePath)
     }
 
+    // PuklicCryptoBridge static library — wraps Apple CryptoKit ChaChaPoly AEAD for
+    // XChaCha20-Poly1305 (FP-14h-2c, issue #67). Compiled per iOS slice from
+    // src/iosMain/native/PuklicCryptoBridge/Bridge.swift by the swiftCompile* tasks
+    // below; consumed via cinterop using puklic_crypto.def.
+    val cryptoBridgeRoot = layout.projectDirectory.dir("src/iosMain/native/PuklicCryptoBridge")
+    val cryptoBridgeDef = cryptoBridgeRoot.file("puklic_crypto.def")
+    val cryptoBridgeHeaderDir = cryptoBridgeRoot
+    val cryptoBridgeSwift = cryptoBridgeRoot.file("Bridge.swift")
+    val cryptoBridgeOutRoot = layout.buildDirectory.dir("swift-bridge").get()
+
+    data class IosSliceSpec(
+        val taskName: String,
+        val outDirName: String,
+        val swiftTarget: String,
+        val sdk: String,
+    )
+
+    val cryptoBridgeSlices = listOf(
+        IosSliceSpec("CryptoBridgeIosArm64", "ios-arm64", "arm64-apple-ios14.0", "iphoneos"),
+        IosSliceSpec(
+            "CryptoBridgeIosSimulatorArm64",
+            "ios-arm64-simulator",
+            "arm64-apple-ios14.0-simulator",
+            "iphonesimulator",
+        ),
+        IosSliceSpec(
+            "CryptoBridgeIosX64",
+            "ios-x86_64-simulator",
+            "x86_64-apple-ios14.0-simulator",
+            "iphonesimulator",
+        ),
+    )
+
+    val cryptoBridgeTasks = cryptoBridgeSlices.associate { slice ->
+        val outDir = cryptoBridgeOutRoot.dir(slice.outDirName)
+        val outLib = outDir.file("libpuklic_crypto.a")
+        val taskName = "swiftCompile${slice.taskName}"
+        val task = tasks.register<Exec>(taskName) {
+            group = "puklic"
+            description = "Compile PuklicCryptoBridge Swift static library for ${slice.outDirName}"
+            inputs.file(cryptoBridgeSwift)
+            inputs.file(cryptoBridgeRoot.file("puklic_crypto.h"))
+            // Track the Swift target triple so changes to it (or to runtime-compatibility flags)
+            // bust the task cache — Gradle otherwise considers the task UP-TO-DATE based solely
+            // on file inputs.
+            inputs.property("swiftTarget", slice.swiftTarget)
+            inputs.property("sdk", slice.sdk)
+            outputs.file(outLib)
+            doFirst { outDir.asFile.mkdirs() }
+            commandLine(
+                "xcrun",
+                "--sdk",
+                slice.sdk,
+                "swiftc",
+                "-emit-library",
+                "-static",
+                "-parse-as-library",
+                "-O",
+                "-module-name",
+                "PuklicCryptoBridge",
+                "-target",
+                slice.swiftTarget,
+                // Skip Swift back-compat shim auto-linking — the iOS deployment baseline
+                // (14.0, see gradle/libs.versions.toml) ships the Swift runtime in the
+                // OS, so the swiftCompatibility5x stubs from older toolchains are not
+                // needed and otherwise produce undefined-symbol errors when statically
+                // linked into the Kotlin/Native binary.
+                "-runtime-compatibility-version",
+                "none",
+                "-o",
+                outLib.asFile.absolutePath,
+                cryptoBridgeSwift.asFile.absolutePath,
+            )
+        }
+        slice.outDirName to (task to outDir)
+    }
+
+    fun org.jetbrains.kotlin.gradle.plugin.mpp.DefaultCInteropSettings.configureCryptoBridge(
+        sliceDir: org.gradle.api.file.Directory,
+    ) {
+        defFile(cryptoBridgeDef)
+        packageName("dev.puklic.voice.crypto.cryptokit")
+        compilerOpts("-I", cryptoBridgeHeaderDir.asFile.absolutePath)
+        extraOpts("-libraryPath", sliceDir.asFile.absolutePath)
+    }
+
     iosArm64 {
         compilations.getByName("main").cinterops {
             create("libopus") { configureLibopus(xcfRoot.dir("ios-arm64")) }
+            val (compileTask, outDir) = cryptoBridgeTasks.getValue("ios-arm64")
+            create("puklic_crypto") {
+                configureCryptoBridge(outDir)
+            }.also { tasks.named(it.interopProcessingTaskName).configure { dependsOn(compileTask) } }
         }
     }
     iosSimulatorArm64 {
         compilations.getByName("main").cinterops {
             create("libopus") { configureLibopus(xcfRoot.dir("ios-arm64_x86_64-simulator")) }
+            val (compileTask, outDir) = cryptoBridgeTasks.getValue("ios-arm64-simulator")
+            create("puklic_crypto") {
+                configureCryptoBridge(outDir)
+            }.also { tasks.named(it.interopProcessingTaskName).configure { dependsOn(compileTask) } }
         }
     }
     iosX64 {
         compilations.getByName("main").cinterops {
             create("libopus") { configureLibopus(xcfRoot.dir("ios-arm64_x86_64-simulator")) }
+            val (compileTask, outDir) = cryptoBridgeTasks.getValue("ios-x86_64-simulator")
+            create("puklic_crypto") {
+                configureCryptoBridge(outDir)
+            }.also { tasks.named(it.interopProcessingTaskName).configure { dependsOn(compileTask) } }
         }
     }
 }

@@ -1,0 +1,16 @@
+# cinterop descriptor for the PuklicCryptoBridge static library, which wraps Apple
+# CryptoKit's ChaChaPoly AEAD into C-callable symbols (see Bridge.swift +
+# puklic_crypto.h). Built per iOS slice by `swiftCompilePuklicCryptoBridge*` Gradle
+# tasks in shared/voice-codec/build.gradle.kts; linkerOpts inject the Apple frameworks
+# linked into the Kotlin/Native binary at final link time.
+#
+# Per-target libraryPath / compilerOpts are injected from build.gradle.kts so the same
+# .def serves all three iOS Kotlin/Native targets (iosArm64, iosSimulatorArm64, iosX64).
+#
+# See architect report
+#   docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md §3.
+language = C
+package = dev.puklic.voice.crypto.cryptokit
+headers = puklic_crypto.h
+staticLibraries = libpuklic_crypto.a
+linkerOpts = -framework CryptoKit -framework Foundation

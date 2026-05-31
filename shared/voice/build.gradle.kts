@@ -75,7 +75,9 @@ kotlin {
             // The umbrella `ffmpeg-platform-gpl` artifact (all classifiers) is used only
             // in tests via testRuntimeOnly below for cross-host CI convenience.
             runtimeOnly("org.bytedeco:ffmpeg:${libs.versions.ffmpeg.get()}:${detectFfmpegClassifier()}")
-            implementation(libs.bouncycastle.bcprov)
+            // BouncyCastle dependency moved to :shared:voice-codec/jvmMain alongside the
+            // XChaCha20Poly1305 JVM actual (FP-14h-2c, issue #67, 2026-05-31). See
+            // docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md §2.
             // Linux xdg-desktop-portal ScreenCast over session D-Bus.
             // Both artifacts published to Maven Central. See architect report
             // docs/03_infrastructure/architect-reports/2026-05-23-self-contained-linux.md §4

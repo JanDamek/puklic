@@ -1,13 +1,16 @@
 package dev.puklic.voice.crypto
 
+import dev.puklic.voice.codec.PuklicVoiceCodec
 import org.bouncycastle.crypto.modes.ChaCha20Poly1305
 import org.bouncycastle.crypto.params.AEADParameters
 import org.bouncycastle.crypto.params.KeyParameter
 
 /**
+ * JVM `actual` for [xchacha20Poly1305] backed by BouncyCastle 1.78.
+ *
  * BouncyCastle 1.78 has [ChaCha20Poly1305] (RFC 7539, 12-byte nonce) but no dedicated
- * `XChaCha20Poly1305` class. We implement XChaCha20-Poly1305 (RFC 8439-inspired draft
- * `draft-irtf-cfrg-xchacha`) by:
+ * `XChaCha20Poly1305` class. XChaCha20-Poly1305 (`draft-irtf-cfrg-xchacha`) is built on
+ * top by:
  *
  *   1. Deriving a 32-byte subkey via HChaCha20(key, nonce[0..16]).
  *   2. Running ChaCha20-Poly1305 with the subkey and a 12-byte nonce composed of
@@ -18,10 +21,14 @@ import org.bouncycastle.crypto.params.KeyParameter
  * derived subkey through HChaCha20 of the 16-byte counter-prefix. This matches the
  * `aead_xchacha20_poly1305_rtpsize` scheme used by Discord and is interoperable with
  * libsodium's `crypto_aead_xchacha20poly1305_ietf_*`.
+ *
+ * Moved from `:shared:voice/jvmMain` 2026-05-31 per FP-14h-2c (issue #67) — see
+ * `docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md`.
  */
-internal fun xchacha20Poly1305(key: ByteArray): AeadCipher {
-    require(key.size == 32) { "XChaCha20-Poly1305 key must be 32 bytes, got ${key.size}" }
-    return BcXChaCha20Poly1305(key)
+@PuklicVoiceCodec
+public actual fun xchacha20Poly1305(key: ByteArray): AeadCipher {
+    require(key.size == KEY_SIZE) { "XChaCha20-Poly1305 key must be $KEY_SIZE bytes, got ${key.size}" }
+    return BcXChaCha20Poly1305(key.copyOf())
 }
 
 private const val KEY_SIZE = 32
