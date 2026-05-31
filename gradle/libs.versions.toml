@@ -19,7 +19,7 @@ kotlinx-datetime = "0.6.2"
 kotlinx-atomicfu = "0.27.0"
 
 # Networking
-ktor = "3.1.3"
+ktor = "3.5.0"
 
 # Persistence
 sqldelight = "2.1.0"
