@@ -330,7 +330,15 @@ end
 
 ## 7. CI workflow shape
 
-`.github/workflows/mac-app-store.yml` (DESIGN — implemented in FP-14e):
+> **SUPERSEDED 2026-05-31 (#70):** the `.github/workflows/mac-app-store.yml`
+> workflow described below was deleted per HARD RULE #4 (Apple LOCAL ONLY).
+> The fastlane `:mac mac_app_store` lane is kept and is now invoked
+> exclusively from `dist/apple/macappstore/release-mac.sh` on a developer
+> Mac. See
+> `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`
+> and `docs/06_ops/apple-release.md`.
+
+`.github/workflows/mac-app-store.yml` (HISTORICAL — implemented in FP-14e, deleted #70):
 
 ```yaml
 name: Mac App Store

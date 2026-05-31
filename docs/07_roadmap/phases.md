@@ -126,8 +126,8 @@ Desktop builds (GitHub Releases) keep full feature set.
 - [x] Slice 3.5 — `IosDependencyGraph` (NativeSqliteDriver + Ktor Darwin + iOS session bootstrap) (`c0c3417`, #32)
 - [x] Slice 4 — `iosApp/iosApp.xcodeproj` (xcodegen-driven) + Swift `AppDelegate` entry (`adfaf2d`, #38)
 - [x] Slice 5 — App ID `cz.damek.puklic.app` + Push Notifications cap + Apple Distribution cert + App Store provisioning profile + ASC app record `6774288340` (#40)
-- [x] Slice 6 — fastlane Fastfile + Appfile + Gemfile + `.github/workflows/apple-testflight.yml` (`adfaf2d`, #39)
-- [ ] Slice 7 — First TestFlight upload + Beta App Review submission (blocked on user registering GH Secrets per #40)
+- [x] Slice 6 — fastlane Fastfile + Appfile + Gemfile (`adfaf2d`, #39). **REVISED 2026-05-31 (#70):** the `apple-testflight.yml` GitHub workflow originally landed alongside the fastlane lanes was deleted per HARD RULE #4 (Apple LOCAL ONLY). Build + upload now runs from `dist/apple/*.sh` invoked on a developer Mac. Architect: `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`; runbook: `docs/06_ops/apple-release.md`.
+- [ ] Slice 7 — First TestFlight upload + Beta App Review submission. **REVISED 2026-05-31 (#70):** no longer blocked on GitHub Secrets — runs locally via `dist/apple/release-ios.sh`.
 - [ ] Slice 8 — Internal-tester group invite (depends on 7)
 - [ ] Slice 9 — APN `.p8` auth key provisioning (push infra prep; no consumer yet)
 - [ ] Slice 10 — Firebase project + service-account JSON (Android push prep; no consumer yet)
@@ -139,7 +139,7 @@ Desktop builds (GitHub Releases) keep full feature set.
   - [x] FP-14b — Red-phase failing tests (`f1651a0`, #55)
   - [x] FP-14c — VideoToolbox + libopus + Network.framework JNA wrappers (`4d3eb38`, #56)
   - [x] FP-14d — Gradle `macAppStore` source set + `packageMacAppStore` + entitlements (`1d5a53b`, #57)
-  - [x] FP-14e — fastlane `mac_app_store` lane + `.github/workflows/mac-app-store.yml` (`01a0e30`, #58)
+  - [x] FP-14e — fastlane `mac_app_store` lane (`01a0e30`, #58). **REVISED 2026-05-31 (#70):** `mac-app-store.yml` GitHub workflow deleted per HARD RULE #4; Mac App Store build + upload now runs locally via `dist/apple/macappstore/release-mac.sh`. Architect: `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`.
   - [x] FP-14f — Critic findings (`334d26a`, #59) + fixes for F-1, F-3..F-6, F-14, F-15, F-22..F-24 (`73a8922`, #60)
   - [x] FP-14g — Docs closure (this commit, #61)
   - [ ] FP-14h — Voice wiring + critic follow-up (see below)

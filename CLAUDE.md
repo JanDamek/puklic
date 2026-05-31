@@ -49,6 +49,35 @@ The user has aesthetic ownership of the product. Code review can fix a bug; aest
 
 ---
 
+## HARD RULE #4 — Apple distribution is LOCAL ONLY (2026-05-31)
+
+User explicit 2026-05-31: **"Na Apple store nebude nikdy workflow, buildime vždy lokálně a nasazujeme jen z tohoto macu nebo z jiného, ale jen my. Nikdy GitHub !!!. Nic z tohoo se tam ukládáat nebude."**
+
+No GitHub Actions workflow may build or upload to App Store Connect, ever. No Apple credential (.p8, .p12, .mobileprovision, .provisionprofile) may be added as a GitHub Secret. Apple builds + uploads happen exclusively on the developer's Mac via the `dist/apple/*.sh` scripts.
+
+AUR distribution may stay on GitHub Actions because the AUR pipeline carries no Apple credentials.
+
+### Forbidden
+
+- ❌ `.github/workflows/apple-*.yml`
+- ❌ `.github/workflows/mac-app-store.yml`
+- ❌ GitHub Secrets matching `ASC_KEY_*`, `APPLE_DIST_*`, `MAC_APP_DIST_*`, `MAC_INSTALLER_DIST_*`, `MAC_PROVISIONING_*`, `APPLE_PROVISIONING_*`
+- ❌ Any fastlane lane that uploads from a non-local context
+
+### Allowed
+
+- ✅ `dist/apple/*.sh` scripts invoked from a developer Mac with keychain identities `Apple Distribution: Jan Damek (GR74KSG8M9)`, `3rd Party Mac Developer Application: Jan Damek (GR74KSG8M9)`, `3rd Party Mac Developer Installer: Jan Damek (GR74KSG8M9)` installed
+- ✅ ASC API key file at `~/.appstoreconnect/private_keys/AuthKey_<KID>.p8`
+- ✅ Provisioning profiles in `~/Library/MobileDevice/Provisioning Profiles/`
+- ✅ `.github/workflows/aur-publish.yml` (no Apple credentials)
+
+### Reference
+
+`docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`
+`docs/06_ops/apple-release.md` — runbook
+
+---
+
 ## HARD RULE #2 — NEVER TEMPORARY, ALWAYS CONCEPTUAL
 
 User explicit 2026-05-25 in capitals: **"NIKDY NIC DOČASNĚ, VŽDY VŠE KONVEPČNĚ PŘEDĚLAT, DEPRECATED A DOČASNÁ, HOST, QUICK FIX NESMÍ SE NIKDY PROVÁDĚT !!!"**

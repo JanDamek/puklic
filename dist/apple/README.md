@@ -1,99 +1,90 @@
-# `dist/apple/` — Apple distribution templates
+# `dist/apple/` — Apple distribution scripts (LOCAL ONLY)
 
-This directory holds **templates** for the Apple distribution pipeline (TestFlight,
-App Store). No credentials, no live config, no `.p8` keys here.
+> **HARD RULE #4 (CLAUDE.md, 2026-05-31):** Apple distribution is LOCAL ONLY.
+> No GitHub Actions workflow may build or upload to App Store Connect. No
+> Apple credential (.p8, .p12, .mobileprovision, .provisionprofile) may
+> be added as a GitHub Secret. All TestFlight + Mac App Store uploads run
+> from a developer Mac.
 
-See the full design:
-[`docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md`](../../docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md).
+Architect report:
+[`docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`](../../docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md).
 
-## Files
+Runbook: [`docs/06_ops/apple-release.md`](../../docs/06_ops/apple-release.md).
+
+## Scripts
+
+| Script | What |
+|---|---|
+| `build-ipa.sh` | Archives iOS app → `build/ios-archive/Puklic.ipa` (wraps fastlane `:ios build_only`). |
+| `deploy-ipa.sh` | Uploads existing `Puklic.ipa` to TestFlight internal (wraps fastlane `:ios upload_only`). |
+| `release-ios.sh` | `build-ipa.sh` then `deploy-ipa.sh`. |
+| `macappstore/build-pkg.sh` | Builds signed Mac App Store `.pkg` via `:desktop:app:packageMacAppStore`. |
+| `macappstore/deploy-pkg.sh` | Uploads `.pkg` to ASC app `6774288340` (macOS platform) via `xcrun altool`. |
+| `macappstore/release-mac.sh` | `build-pkg.sh` then `deploy-pkg.sh`. |
+
+Every script supports `--help` and `--dry-run`. Dry-run runs the pre-flight
+checks (cheap, read-only) and prints the underlying command without
+building or uploading.
+
+The full per-release fan-out lives at `../release-all.sh` (Linux + AUR +
+iOS + Mac App Store from one invocation).
+
+## Template files (kept for first-time setup)
 
 | File | Purpose |
 |---|---|
-| `ExportOptions-AppStore.plist` | Template for `xcodebuild -exportArchive` when uploading to App Store / TestFlight. Contains placeholders. |
-| `Fastfile.template` | Template fastlane configuration with the `beta` lane (build + archive + upload to TestFlight internal). Reads credentials from environment, never inline. |
+| `ExportOptions-AppStore.plist` | Template for `xcodebuild -exportArchive` placeholders. Copy to `ExportOptions-AppStore.filled.plist` (gitignored). |
+| `Fastfile.template` | Historical template; the live `fastlane/Fastfile` is the canonical source. |
 
-Neither file is consumed directly. You **must** fill the placeholders into
-`.filled.plist` / `fastlane/Fastfile` copies that are **gitignored**.
+## One-time local setup
 
-## Fill-in procedure (one-time)
-
-1. **Confirm Apple Team ID**: currently `GR74KSG8M9` (from `~/.appstoreconnect/asc_api.sh`).
-
-2. **Decide bundle ID**: suggested `cz.damek.puklic.app`. Whatever value chosen MUST
-   match the App ID registered in Apple Developer portal.
-
-3. **Register App ID** (manual, in Apple Developer portal):
-   - Certificates, Identifiers & Profiles → Identifiers → ➕ → App IDs → App
-   - Bundle ID = explicit, e.g. `cz.damek.puklic.app`
-   - Capabilities: ✅ Push Notifications. Nothing else.
-   - Register.
-
-4. **Create App Store Connect record** (manual):
-   - App Store Connect → My Apps → ➕ → New App
-   - Platform = iOS
-   - Bundle ID = the one registered in #3
-   - SKU = `puklic-ios`
-   - User Access = Limited Access initially
-   - **Check "Make this app available on Apple Silicon Macs"** (= Designed for iPad on Mac)
-
-5. **Create distribution certificate + provisioning profile** (manual or via
-   fastlane `match`):
-   - For first manual run: Xcode → Settings → Accounts → Team → Manage
-     Certificates → ➕ → Apple Distribution.
-   - Provisioning profile: Apple Developer portal → Profiles → ➕ → App Store →
-     select the App ID from #3 → certificate from above → name e.g. "Puklic iOS
-     App Store" → download and double-click to install.
-
-6. **Fill `ExportOptions-AppStore.plist`**:
-   ```
-   cp dist/apple/ExportOptions-AppStore.plist dist/apple/ExportOptions-AppStore.filled.plist
-   # edit the .filled.plist — replace TEAM_ID_PLACEHOLDER, BUNDLE_ID_PLACEHOLDER,
-   # PROVISIONING_PROFILE_NAME_PLACEHOLDER
-   # add dist/apple/ExportOptions-AppStore.filled.plist to .gitignore (already covered
-   # by *.filled.plist pattern — verify)
+1. Install Xcode command line tools (`xcode-select --install`).
+2. Drop ASC API key at `~/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8`.
+3. Install Apple Distribution cert + iOS provisioning profile via Xcode
+   (Settings → Accounts).
+4. Install Mac App Distribution + Mac Installer Distribution certs (Apple
+   Developer portal → Certificates → download → double-click).
+5. Install `Puklic_Mac_App_Store.provisionprofile` (double-click).
+6. `bundle install` in repo root.
+7. Fill the export options plist:
+   ```bash
+   sed -e 's/TEAM_ID_PLACEHOLDER/GR74KSG8M9/g' \
+       -e 's/BUNDLE_ID_PLACEHOLDER/cz.damek.puklic.app/g' \
+       -e 's/PROVISIONING_PROFILE_NAME_PLACEHOLDER/<your profile name>/g' \
+       dist/apple/ExportOptions-AppStore.plist \
+       > dist/apple/ExportOptions-AppStore.filled.plist
    ```
 
-7. **Set up fastlane**:
-   ```
-   gem install fastlane
-   mkdir -p fastlane
-   cp dist/apple/Fastfile.template fastlane/Fastfile
-   # fastlane/ added to .gitignore (Fastfile contains no secrets but pattern keeps
-   # it consistent with build artifacts)
-   ```
+## Troubleshooting
 
-8. **Export environment variables** (or put in CI secrets):
-   ```sh
-   export ASC_KEY_ID=6C6D4D726S
-   export ASC_ISSUER_ID=69a6de7f-7dab-47e3-e053-5b8c7c11a4d1
-   export ASC_KEY_PATH="$HOME/.appstoreconnect/private_keys/AuthKey_6C6D4D726S.p8"
-   export TEAM_ID=GR74KSG8M9
-   export BUNDLE_ID=cz.damek.puklic.app
-   ```
+- **`productbuild` prompts for keychain password.** macOS prompts when an
+  identity ACL doesn't pre-trust `productbuild`. After the first run, tick
+  "Always allow" or add `productbuild` to the cert ACL via Keychain Access
+  → cert → Get Info → Access Control → Always allow. CI workarounds used
+  `security set-key-partition-list`; locally just click through once.
+- **Apple Distribution cert expired.** Apple Distribution certs are valid
+  for 1 year. Renewal: Xcode → Settings → Accounts → Team → Manage
+  Certificates → ➕ Apple Distribution. Existing TestFlight builds keep
+  working; only future archives need the new cert.
+- **`xcrun altool` rejects the .pkg.** Common causes:
+  - Bundle version did not increment vs the last upload — bump
+    `puklic.version` in `gradle.properties`.
+  - Signing identity mismatch — ensure both 3rd-Party Mac Developer
+    Application + Installer certs are present.
+  - Provisioning profile expired — re-download from Apple Developer portal.
+- **Provisioning profile not found in pre-flight.** Profiles live in
+  `~/Library/MobileDevice/Provisioning Profiles/`. Double-click the
+  `.mobileprovision` / `.provisionprofile` to install.
 
-9. **Smoke-test ASC connectivity**:
-   ```
-   bundle exec fastlane asc_ping
-   ```
+## What is NOT here
 
-10. **Upload first build to TestFlight**:
-    ```
-    bundle exec fastlane beta
-    ```
-
-## Manual Apple steps that this tooling does NOT do
-
-- App ID registration (#3 above)
-- App Store Connect record creation (#4)
-- Distribution certificate creation (#5)
-- Beta App Review submission (one-time when uploading the first build for any new
-  app — Apple does this automatically when you assign an internal-tester group)
-- Internal-tester group creation + Apple ID invitations (App Store Connect →
-  TestFlight → Internal Testing)
+- ❌ `.github/workflows/apple-testflight.yml` (deleted 2026-05-31, issue #70)
+- ❌ `.github/workflows/mac-app-store.yml` (deleted 2026-05-31, issue #70)
+- ❌ Any GitHub Secret name matching `ASC_*`, `APPLE_DIST_*`, `MAC_APP_DIST_*`,
+  `MAC_INSTALLER_DIST_*`, `MAC_PROVISIONING_*`, `APPLE_PROVISIONING_*`
 
 ## Push (APN) infra
 
 Push key provisioning is documented in [`../push/README.md`](../push/README.md).
 Push prep is **independent** from TestFlight upload — TestFlight works without
-a configured APN key, push delivery comes later.
+a configured APN key.

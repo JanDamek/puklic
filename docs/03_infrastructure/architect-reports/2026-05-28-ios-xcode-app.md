@@ -78,6 +78,13 @@ pressing ▶ now reproduces the CI flow end-to-end.
 
 ## Slice 6 — fastlane CI
 
+> **SUPERSEDED 2026-05-31 (#70):** the GitHub workflow described in this
+> section was deleted per HARD RULE #4 (Apple LOCAL ONLY). The fastlane
+> `:ios beta` lane is kept and is now invoked exclusively from local
+> scripts under `dist/apple/*.sh`. See
+> `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`
+> and `docs/06_ops/apple-release.md`.
+
 ### Files
 
 ```
