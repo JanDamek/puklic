@@ -19,7 +19,9 @@ import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 import platform.darwin.NSObject
 
-private const val CAPTCHA_HEIGHT_DP = 420
+// hCaptcha drag-puzzle challenges (Discord's most common type) need ~520-560 dp for the
+// challenge image plus the controls / Skip button row. 600 dp covers every variant.
+private const val CAPTCHA_HEIGHT_DP = 600
 private const val BRIDGE_NAME = "captcha"
 
 @Composable

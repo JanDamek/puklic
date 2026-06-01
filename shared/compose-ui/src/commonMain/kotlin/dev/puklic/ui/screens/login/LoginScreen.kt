@@ -52,16 +52,22 @@ public fun LoginScreen(viewModel: LoginViewModel) {
     // `imePadding()` shifts the entire login surface above the system keyboard so
     // the Sign-In button remains tappable on small screens; `verticalScroll` lets
     // the user scroll the card content if the keyboard still overlaps once the
-    // form grows (MFA step, error supporting text). Belt-and-suspenders with
-    // `OnFocusBehavior.FocusableAboveKeyboard` configured on the iOS view
-    // controller — together they cover both Compose iOS's automatic focus shift
-    // and any layout that needs scrolling.
+    // form grows. Belt-and-suspenders with `OnFocusBehavior.FocusableAboveKeyboard`
+    // configured on the iOS view controller.
+    //
+    // BOTH modifiers are intentionally disabled while the captcha widget is on
+    // screen: a Compose-side `verticalScroll` intercepts the drag gestures the
+    // hCaptcha puzzle relies on, and the keyboard is not used during the
+    // challenge so `imePadding` adds no value. Without this branch the captcha
+    // renders but is uninteractive.
+    val scrollEnabled = !state.captchaPending
+    val outerModifier = Modifier
+        .fillMaxSize()
+        .let { base -> if (scrollEnabled) base.imePadding() else base }
+        .let { base -> if (scrollEnabled) base.verticalScroll(rememberScrollState()) else base }
+        .padding(spacing.space5)
     Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .imePadding()
-            .verticalScroll(rememberScrollState())
-            .padding(spacing.space5),
+        modifier = outerModifier,
         contentAlignment = Alignment.Center,
     ) {
         Card(modifier = Modifier.widthIn(max = 480.dp).padding(spacing.space5)) {
@@ -243,11 +249,14 @@ private fun CaptchaSection(state: LoginState, viewModel: LoginViewModel) {
             "Puklic will retry sign-in automatically.",
         style = MaterialTheme.typography.bodyMedium,
     )
+    // fillMaxWidth (not widthIn) so the WebView gets the full Card width — hCaptcha
+    // drag puzzles render unusably small inside the default `widthIn(min = 320 dp)`
+    // when the device is wide.
     CaptchaWebView(
         sitekey = sitekey,
         service = service,
         onSolved = viewModel::onCaptchaSolved,
-        modifier = Modifier.widthIn(min = 320.dp),
+        modifier = Modifier.fillMaxWidth(),
     )
     state.error?.let { msg ->
         Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
