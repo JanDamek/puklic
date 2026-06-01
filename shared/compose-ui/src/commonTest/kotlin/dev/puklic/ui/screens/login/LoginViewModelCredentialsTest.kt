@@ -48,15 +48,58 @@ class LoginViewModelCredentialsTest {
     }
 
     @Test
-    fun `captcha required surfaces switch-to-token guidance`() = runTest {
-        val vm = newViewModel(this, CredentialsLoginResult.CaptchaRequired)
+    fun `captcha required opens inline captcha widget without surfacing error`() = runTest {
+        val vm = newViewModel(this, CredentialsLoginResult.CaptchaRequired(sitekey = "sk-1", service = "hcaptcha"))
         vm.selectMode(LoginMode.CREDENTIALS)
         vm.onLoginFieldChange("user")
         vm.onPasswordChange("pw")
         vm.submit()
         advanceUntilIdle()
         vm.state.value.submitting shouldBe false
-        vm.state.value.error!!.lowercase().contains("token tab") shouldBe true
+        vm.state.value.captchaPending shouldBe true
+        vm.state.value.captchaSitekey shouldBe "sk-1"
+        vm.state.value.captchaService shouldBe "hcaptcha"
+        vm.state.value.error shouldBe null
+    }
+
+    @Test
+    fun `captcha solved re-submits credentials with captchaKey and advances to MFA`() = runTest {
+        // Second-stage result is MfaRequired so finalizeToken (which routes through the
+        // session transport's token validation) is not exercised; we only verify the
+        // captcha state clears and the captchaKey is forwarded.
+        val fake = FakeLogin(
+            CredentialsLoginResult.CaptchaRequired(sitekey = "sk-2", service = "hcaptcha"),
+            captchaRetryResult = CredentialsLoginResult.MfaRequired("tkt-after-captcha"),
+        )
+        val vm = newViewModelWithFake(this, fake)
+        vm.selectMode(LoginMode.CREDENTIALS)
+        vm.onLoginFieldChange("user")
+        vm.onPasswordChange("pw")
+        vm.submit()
+        advanceUntilIdle()
+        vm.state.value.captchaPending shouldBe true
+
+        vm.onCaptchaSolved("h-captcha-token")
+        advanceUntilIdle()
+        vm.state.value.captchaPending shouldBe false
+        vm.state.value.mfaTicket shouldBe "tkt-after-captcha"
+        vm.state.value.error shouldBe null
+        fake.lastCaptchaKey shouldBe "h-captcha-token"
+    }
+
+    @Test
+    fun `cancelCaptcha drops captcha state and returns to credentials form`() = runTest {
+        val vm = newViewModel(this, CredentialsLoginResult.CaptchaRequired(sitekey = "sk-3", service = "hcaptcha"))
+        vm.selectMode(LoginMode.CREDENTIALS)
+        vm.onLoginFieldChange("user")
+        vm.onPasswordChange("pw")
+        vm.submit()
+        advanceUntilIdle()
+        vm.state.value.captchaPending shouldBe true
+
+        vm.cancelCaptcha()
+        vm.state.value.captchaPending shouldBe false
+        vm.state.value.captchaSitekey shouldBe null
     }
 
     @Test
@@ -75,7 +118,9 @@ class LoginViewModelCredentialsTest {
     private fun newViewModel(
         scope: TestScope,
         loginResult: CredentialsLoginResult,
-    ): LoginViewModel {
+    ): LoginViewModel = newViewModelWithFake(scope, FakeLogin(loginResult))
+
+    private fun newViewModelWithFake(scope: TestScope, fake: FakeLogin): LoginViewModel {
         val storage = CredsInMemoryStorage()
         val transport = CredsFakeTransport()
         val coroutineScope = CoroutineScope(StandardTestDispatcher(scope.testScheduler))
@@ -83,7 +128,7 @@ class LoginViewModelCredentialsTest {
             applicationScope = coroutineScope,
             secureStorage = storage,
             sessionFactory = { token -> DiscordSession(coroutineScope, token, transport) },
-            credentialsLogin = FakeLogin(loginResult),
+            credentialsLogin = fake,
         )
         val lifecycle = LifecycleRegistry()
         val ctx = DefaultComponentContext(lifecycle = lifecycle)
@@ -108,7 +153,21 @@ private class CredsFakeTransport : SessionTransport {
     override suspend fun disconnectGateway() {}
 }
 
-private class FakeLogin(private val result: CredentialsLoginResult) : CredentialsLogin {
-    override suspend fun login(loginIdentifier: String, password: String): CredentialsLoginResult = result
+private class FakeLogin(
+    private val result: CredentialsLoginResult,
+    private val captchaRetryResult: CredentialsLoginResult? = null,
+) : CredentialsLogin {
+    var lastCaptchaKey: String? = null
+        private set
+
+    override suspend fun login(
+        loginIdentifier: String,
+        password: String,
+        captchaKey: String?,
+    ): CredentialsLoginResult {
+        lastCaptchaKey = captchaKey
+        return if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else result
+    }
+
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult = result
 }

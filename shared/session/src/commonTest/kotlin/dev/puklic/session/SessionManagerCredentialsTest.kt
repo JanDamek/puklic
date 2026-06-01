@@ -37,7 +37,9 @@ class SessionManagerCredentialsTest {
         val parent = Job()
         val storage = FakeSecureStorage()
         val transport = FakeSessionTransport()
-        val login = FakeCredentialsLogin(firstResult = CredentialsLoginResult.CaptchaRequired)
+        val login = FakeCredentialsLogin(
+            firstResult = CredentialsLoginResult.CaptchaRequired(sitekey = "site-x", service = "hcaptcha"),
+        )
         val mgr = SessionManager(
             CoroutineScope(coroutineContext + parent),
             storage,
@@ -46,7 +48,7 @@ class SessionManagerCredentialsTest {
         )
 
         val result = mgr.startSessionWithCredentials("user", "pw")
-        result.getOrThrow() shouldBe LoginOutcome.CaptchaRequired
+        result.getOrThrow() shouldBe LoginOutcome.CaptchaRequired(sitekey = "site-x", service = "hcaptcha")
         storage.get(SessionManager.TOKEN_KEY) shouldBe null
         mgr.activeSession.value shouldBe null
         parent.cancel()
@@ -105,7 +107,14 @@ class SessionManagerCredentialsTest {
 private class FakeCredentialsLogin(
     private val firstResult: CredentialsLoginResult,
     private val mfaResult: CredentialsLoginResult = CredentialsLoginResult.Error("no mfa configured"),
+    private val captchaRetryResult: CredentialsLoginResult? = null,
 ) : CredentialsLogin {
-    override suspend fun login(loginIdentifier: String, password: String): CredentialsLoginResult = firstResult
+    override suspend fun login(
+        loginIdentifier: String,
+        password: String,
+        captchaKey: String?,
+    ): CredentialsLoginResult =
+        if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else firstResult
+
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult = mfaResult
 }

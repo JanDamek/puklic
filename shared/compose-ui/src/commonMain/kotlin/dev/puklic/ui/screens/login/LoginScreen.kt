@@ -93,7 +93,9 @@ public fun LoginScreen(viewModel: LoginViewModel) {
 
                 Spacer(Modifier.height(spacing.space2))
 
-                when (state.mode) {
+                if (state.captchaPending) {
+                    CaptchaSection(state = state, viewModel = viewModel)
+                } else when (state.mode) {
                     LoginMode.TOKEN -> TokenForm(state = state, viewModel = viewModel)
                     LoginMode.CREDENTIALS -> CredentialsForm(state = state, viewModel = viewModel)
                 }
@@ -229,6 +231,32 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
             enabled = state.canSubmitMfa,
             onClick = viewModel::submitMfa,
         )
+    }
+}
+
+@Composable
+private fun CaptchaSection(state: LoginState, viewModel: LoginViewModel) {
+    val sitekey = state.captchaSitekey ?: return
+    val service = state.captchaService.orEmpty()
+    Text(
+        "Discord asked for a security check. Solve the puzzle below — " +
+            "Puklic will retry sign-in automatically.",
+        style = MaterialTheme.typography.bodyMedium,
+    )
+    CaptchaWebView(
+        sitekey = sitekey,
+        service = service,
+        onSolved = viewModel::onCaptchaSolved,
+        modifier = Modifier.widthIn(min = 320.dp),
+    )
+    state.error?.let { msg ->
+        Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+    }
+    Button(
+        onClick = viewModel::cancelCaptcha,
+        enabled = !state.submitting,
+    ) {
+        Text("Cancel")
     }
 }
 

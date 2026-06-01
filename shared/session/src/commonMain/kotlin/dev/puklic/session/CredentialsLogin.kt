@@ -7,7 +7,12 @@ package dev.puklic.session
 public sealed interface LoginOutcome {
     public data object Success : LoginOutcome
     public data class MfaRequired(val ticket: String) : LoginOutcome
-    public data object CaptchaRequired : LoginOutcome
+    /**
+     * Discord challenged the sign-in with a captcha. [sitekey] is the hCaptcha (or other
+     * provider) site key required to render the widget; [service] identifies the provider
+     * ("hcaptcha" / "arkose_labs" / …) so the UI can pick the right embed.
+     */
+    public data class CaptchaRequired(val sitekey: String, val service: String) : LoginOutcome
 }
 
 /**
@@ -17,7 +22,7 @@ public sealed interface LoginOutcome {
 public sealed interface CredentialsLoginResult {
     public data class Success(val token: String) : CredentialsLoginResult
     public data class MfaRequired(val ticket: String) : CredentialsLoginResult
-    public data object CaptchaRequired : CredentialsLoginResult
+    public data class CaptchaRequired(val sitekey: String, val service: String) : CredentialsLoginResult
     public data class Error(val message: String) : CredentialsLoginResult
     public data class Transport(val message: String) : CredentialsLoginResult
 }
@@ -25,11 +30,18 @@ public sealed interface CredentialsLoginResult {
 /**
  * Collaborator that performs the actual HTTP calls to Discord's auth endpoints.
  *
- * Two stages:
- *  - [login] — email/username + password.
+ * Stages:
+ *  - [login] — email/username + password. Pass [captchaKey] when re-submitting after the
+ *    user has solved a captcha challenge (Discord returns [CredentialsLoginResult.CaptchaRequired]
+ *    on the first attempt with `captchaKey == null`).
  *  - [completeMfa] — second-factor (TOTP) code with the ticket from a prior `MfaRequired`.
  */
 public interface CredentialsLogin {
-    public suspend fun login(loginIdentifier: String, password: String): CredentialsLoginResult
+    public suspend fun login(
+        loginIdentifier: String,
+        password: String,
+        captchaKey: String? = null,
+    ): CredentialsLoginResult
+
     public suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult
 }

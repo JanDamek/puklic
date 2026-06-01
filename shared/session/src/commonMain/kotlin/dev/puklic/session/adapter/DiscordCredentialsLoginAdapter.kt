@@ -14,8 +14,12 @@ public class DiscordCredentialsLoginAdapter(
     private val client: DiscordLoginClient,
 ) : CredentialsLogin {
 
-    override suspend fun login(loginIdentifier: String, password: String): CredentialsLoginResult =
-        client.loginWithCredentials(loginIdentifier, password).toResult()
+    override suspend fun login(
+        loginIdentifier: String,
+        password: String,
+        captchaKey: String?,
+    ): CredentialsLoginResult =
+        client.loginWithCredentials(loginIdentifier, password, captchaKey).toResult()
 
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult =
         client.loginWithMfa(ticket, code).toResult()
@@ -25,7 +29,8 @@ public class DiscordCredentialsLoginAdapter(
             when (response) {
                 is LoginResponse.Success -> CredentialsLoginResult.Success(response.token)
                 is LoginResponse.MfaRequired -> CredentialsLoginResult.MfaRequired(response.ticket)
-                is LoginResponse.CaptchaRequired -> CredentialsLoginResult.CaptchaRequired
+                is LoginResponse.CaptchaRequired ->
+                    CredentialsLoginResult.CaptchaRequired(sitekey = response.sitekey, service = response.service)
                 is LoginResponse.Error -> CredentialsLoginResult.Error(response.message)
             }
         },

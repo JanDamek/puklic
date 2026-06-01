@@ -76,13 +76,15 @@ public class SessionManager(
     public suspend fun startSessionWithCredentials(
         login: String,
         password: String,
+        captchaKey: String? = null,
     ): Result<LoginOutcome> {
         val collaborator = credentialsLogin
             ?: return Result.failure(IllegalStateException("Credentials login not configured"))
-        return when (val outcome = collaborator.login(login, password)) {
+        return when (val outcome = collaborator.login(login, password, captchaKey)) {
             is CredentialsLoginResult.Success -> finalizeToken(outcome.token).map { LoginOutcome.Success }
             is CredentialsLoginResult.MfaRequired -> Result.success(LoginOutcome.MfaRequired(outcome.ticket))
-            is CredentialsLoginResult.CaptchaRequired -> Result.success(LoginOutcome.CaptchaRequired)
+            is CredentialsLoginResult.CaptchaRequired ->
+                Result.success(LoginOutcome.CaptchaRequired(sitekey = outcome.sitekey, service = outcome.service))
             is CredentialsLoginResult.Error -> Result.failure(IllegalArgumentException(outcome.message))
             is CredentialsLoginResult.Transport -> Result.failure(IllegalStateException(outcome.message))
         }

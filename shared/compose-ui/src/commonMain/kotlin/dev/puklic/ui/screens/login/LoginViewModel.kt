@@ -35,6 +35,13 @@ public data class LoginState(
     val submitting: Boolean = false,
     val mfaTicket: String? = null,
     val mfaCode: String = "",
+    /**
+     * Site-key for the captcha widget Discord asked us to solve before retrying
+     * `/auth/login`. Non-null = the captcha screen is active. Paired with
+     * [captchaService] which identifies the provider ("hcaptcha", "arkose_labs", …).
+     */
+    val captchaSitekey: String? = null,
+    val captchaService: String? = null,
     val error: String? = null,
 ) {
     public val canSubmitToken: Boolean get() = token.isNotBlank() && !submitting
@@ -46,9 +53,11 @@ public data class LoginState(
             LoginMode.CREDENTIALS -> if (mfaTicket == null) canSubmitCredentials else canSubmitMfa
         }
     public val canSubmitCredentials: Boolean
-        get() = loginField.isNotBlank() && password.isNotBlank() && !submitting && mfaTicket == null
+        get() = loginField.isNotBlank() && password.isNotBlank() && !submitting && mfaTicket == null && captchaSitekey == null
     public val canSubmitMfa: Boolean
         get() = mfaTicket != null && mfaCode.isNotBlank() && !submitting
+    /** Captcha widget is being shown; UI hides credentials / MFA fields while this is true. */
+    public val captchaPending: Boolean get() = captchaSitekey != null
 }
 
 /**
@@ -70,7 +79,24 @@ public class LoginViewModel(
     public val state: StateFlow<LoginState> = _state.asStateFlow()
 
     public fun selectMode(mode: LoginMode) {
-        _state.update { it.copy(mode = mode, error = null, mfaTicket = null, mfaCode = "") }
+        _state.update {
+            it.copy(
+                mode = mode,
+                error = null,
+                mfaTicket = null,
+                mfaCode = "",
+                captchaSitekey = null,
+                captchaService = null,
+            )
+        }
+    }
+
+    /**
+     * Cancel an active captcha challenge — drops the sitekey/service so the credentials form
+     * re-appears. The user may then retry submit or switch to the Token tab.
+     */
+    public fun cancelCaptcha() {
+        _state.update { it.copy(captchaSitekey = null, captchaService = null, error = null) }
     }
 
     public fun onTokenChange(token: String) {
@@ -113,10 +139,37 @@ public class LoginViewModel(
 
     private fun submitCredentials(current: LoginState) {
         if (!current.canSubmitCredentials) return
+        runCredentials(current.loginField, current.password, captchaKey = null)
+    }
+
+    /**
+     * Re-submit `/auth/login` after the user solved a captcha. The credentials are still in
+     * [LoginState.loginField] / [LoginState.password]; we forward [captchaToken] to Discord
+     * as the `captcha_key` parameter. Called by the captcha web view JS bridge.
+     */
+    public fun onCaptchaSolved(captchaToken: String) {
+        val current = _state.value
+        if (current.loginField.isBlank() || current.password.isBlank()) {
+            // Defensive — shouldn't happen because credentials are kept around for the
+            // captcha screen; clear the captcha state and surface a recoverable error.
+            _state.update {
+                it.copy(
+                    captchaSitekey = null,
+                    captchaService = null,
+                    error = "Captcha resolved without an active login attempt.",
+                )
+            }
+            return
+        }
+        _state.update { it.copy(captchaSitekey = null, captchaService = null) }
+        runCredentials(current.loginField, current.password, captchaKey = captchaToken)
+    }
+
+    private fun runCredentials(login: String, password: String, captchaKey: String?) {
         _state.update { it.copy(submitting = true, error = null) }
         scope.launch {
             val result = runCatching {
-                sessionManager.startSessionWithCredentials(current.loginField, current.password)
+                sessionManager.startSessionWithCredentials(login, password, captchaKey)
             }.getOrElse { Result.failure(it) }
             result.fold(
                 onSuccess = { outcome ->
@@ -134,7 +187,12 @@ public class LoginViewModel(
                             }
                         is LoginOutcome.CaptchaRequired ->
                             _state.update {
-                                it.copy(submitting = false, error = ERROR_CAPTCHA)
+                                it.copy(
+                                    submitting = false,
+                                    captchaSitekey = outcome.sitekey,
+                                    captchaService = outcome.service,
+                                    error = null,
+                                )
                             }
                     }
                 },
@@ -191,9 +249,4 @@ public class LoginViewModel(
 
     private fun looksLikeNetwork(msg: String): Boolean =
         "network" in msg || "connect" in msg || "timeout" in msg || "host" in msg || "unreachable" in msg
-
-    private companion object {
-        const val ERROR_CAPTCHA =
-            "Captcha required. Switch to the Token tab and paste a token from your browser."
-    }
 }
