@@ -5,71 +5,22 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for reporting a bug.
+        Stručně popiš co se stalo. Detaily (verze, platforma, kroky) doplníme později — neboj se odeslat i krátký report.
 
-        **Important:** never include your Discord account credentials in this report.
-  - type: input
-    id: version
-    attributes:
-      label: Puklic version
-      placeholder: "0.1.0 or commit SHA"
-    validations:
-      required: true
-  - type: dropdown
-    id: platform
-    attributes:
-      label: Platform
-      options:
-        - Linux (Wayland)
-        - Linux (X11)
-        - macOS
-        - Windows
-        - Android
-        - iOS
-    validations:
-      required: true
-  - type: input
-    id: os_version
-    attributes:
-      label: OS / distribution / version
-      placeholder: "Fedora 40, GNOME 46, Wayland"
-    validations:
-      required: true
+        **Nikdy nesdílej token / heslo / Discord credentials.**
   - type: textarea
     id: description
     attributes:
-      label: What happened
-      description: Describe the actual behavior you observed.
+      label: Popis chyby
+      description: Co se stalo, kde, jak často. Anglicky nebo česky — jedno.
+      placeholder: "Po startu na iOS Sign in failed, viz screenshot…"
     validations:
       required: true
-  - type: textarea
-    id: expected
+  - type: input
+    id: version
     attributes:
-      label: What you expected
+      label: Verze Puklic
+      description: Necháváme předvyplněné na aktuální release. Pokud testuješ jinou, přepiš.
+      value: "1.2.3"
     validations:
-      required: true
-  - type: textarea
-    id: steps
-    attributes:
-      label: Steps to reproduce
-      placeholder: |
-        1. Open Puklic
-        2. ...
-        3. ...
-    validations:
-      required: true
-  - type: textarea
-    id: logs
-    attributes:
-      label: Logs / screenshots
-      description: Relevant logs from `~/.local/share/puklic/logs/` (Linux) or equivalent. Redact any tokens or personal data.
-      render: shell
-  - type: checkboxes
-    id: confirm
-    attributes:
-      label: Checks
-      options:
-        - label: I searched existing issues and didn't find a duplicate
-          required: true
-        - label: I did not include any account credentials in this report
-          required: true
+      required: false

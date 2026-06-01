@@ -70,6 +70,28 @@ VERSION="$(awk -F= '/^puklic\.version=/ {print $2; exit}' "${REPO_ROOT}/gradle.p
 TAG="v${VERSION}"
 echo "[release-all] release version = ${VERSION} (tag ${TAG})"
 
+# --- Step 0: bump bug_report.yml default version --------------------------
+# Keep `.github/ISSUE_TEMPLATE/bug_report.yml` `value:` in lockstep with the
+# release we're shipping. Without this the issue form pre-fills a stale version
+# and every freshly-reported bug arrives tagged with an older release.
+BUG_FORM="${REPO_ROOT}/.github/ISSUE_TEMPLATE/bug_report.yml"
+if [ -f "$BUG_FORM" ]; then
+  echo "[release-all] step 0/6: sync bug_report.yml default version → ${VERSION}"
+  if [ "$DRY_RUN" -eq 1 ]; then
+    echo "  DRY-RUN: would patch ${BUG_FORM} value: \"${VERSION}\""
+  else
+    # Match only the line under `id: version` block ($value:" pattern after the
+    # version input — there is no other `value:` key in the file).
+    sed -i.bak -E "s/^([[:space:]]+value:[[:space:]]*)\"[^\"]+\"/\\1\"${VERSION}\"/" "$BUG_FORM"
+    rm -f "${BUG_FORM}.bak"
+    if ! git -C "$REPO_ROOT" diff --quiet -- "$BUG_FORM"; then
+      git -C "$REPO_ROOT" add "$BUG_FORM"
+      git -C "$REPO_ROOT" commit -m "chore(release): bump bug_report default version to ${VERSION}"
+      git -C "$REPO_ROOT" push origin "$(git -C "$REPO_ROOT" rev-parse --abbrev-ref HEAD)"
+    fi
+  fi
+fi
+
 # --- Step 1: tag + push ---------------------------------------------------
 echo "[release-all] step 1/6: git tag ${TAG}"
 if git -C "$REPO_ROOT" rev-parse "$TAG" >/dev/null 2>&1; then

@@ -4,6 +4,40 @@ This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE 
 
 ---
 
+## HARD RULE — Bug triage: low-friction reporting, request details via comments (2026-06-01)
+
+User explicit 2026-06-01: **"Github formulář pro hlášení chyb optimalizuj na mnohem jednoduchší verzi. povinný jen title a description. verze defaul last předvplň. pak to teprve doplníme, takto to potřebujeme co nejjedoduchší pro zadavání chyb."** + *"pokud pak nebudeš vědět doplníš koment, request o informace."*
+
+### Princip
+
+Bariéra pro hlášení bugu = minimum. Detailní info dotahujeme až když je potřeba, formou žádosti v komentech.
+
+### Required v `bug_report.yml`
+
+- **Title** (GitHub default)
+- **Popis chyby** (textarea)
+- **Verze** (pre-filled na aktuální release, optional)
+
+To je vše. Žádný platform dropdown, žádné Steps to reproduce, žádné Logs jako required field — vše doplníme reaktivně.
+
+### Workflow když přijde issue s minimum info
+
+Když dostanu issue jen s popisem + bez detailů potřebných pro fix:
+1. **Nezavírej "needs more info" a neignoruj** — popis je z definice dostatečný k otevření issue
+2. **Komentem si vyžádej konkrétní detaily** které pro fix opravdu potřebuju. Příklady:
+   - "Pošli prosím verzi a platformu (iOS / macOS / Linux)."
+   - "Můžeš poslat screenshot / stack trace z TestFlight crashů?"
+   - "Jak často to padá? Při startu, při kliknutí na X?"
+   - "Token přes paste tlačítko, nebo přes systémové menu?"
+3. **Label `needs-info`** přidat dokud user nedoplní
+4. Po doplnění continue s pipeline (Step 1 architectural analysis...)
+
+### Default version sync
+
+`release-all.sh` po každém pushnutí tagu **automaticky updatne `value: "X.Y.Z"`** v `.github/ISSUE_TEMPLATE/bug_report.yml` aby pre-fill seděl s aktuální release. Manuální sync je drift waiting to happen.
+
+---
+
 ## HARD RULE #3 — UX/UI design needs explicit user approval BEFORE implementation (2026-05-29)
 
 User explicit 2026-05-29: **"UX návrhy a schválování implementace chci vidět. v pipeline pokud bude UX design, tak mě to předem zobraz pro schválení!"**
