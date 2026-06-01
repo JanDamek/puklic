@@ -17,6 +17,11 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
@@ -257,17 +262,25 @@ private fun GuildRail(
     onSelectGuild: (GuildId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(
+    // Issue #79: guild rail must scroll when guilds overflow the viewport. LazyColumn provides
+    // built-in vertical scrolling AND lazy item rendering, which keeps memory bounded under the
+    // architectural "Cache is always bounded" rule.
+    LazyColumn(
         modifier = modifier.background(MaterialTheme.colorScheme.background).padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp),
+        state = rememberLazyListState(),
     ) {
-        HomeRailItem(isSelected = isDmHomeSelected, onClick = onSelectDmHome)
-        HorizontalDivider(
-            color = MaterialTheme.colorScheme.outlineVariant,
-            modifier = Modifier.width(32.dp),
-        )
-        guilds.forEach { g ->
+        item(key = "rail-home") {
+            HomeRailItem(isSelected = isDmHomeSelected, onClick = onSelectDmHome)
+        }
+        item(key = "rail-divider") {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.width(32.dp),
+            )
+        }
+        items(guilds, key = { "rail-guild-${it.id.value}" }) { g ->
             GuildRailItem(
                 guild = g,
                 isSelected = g.id == selectedGuildId,
@@ -435,6 +448,19 @@ private fun ChannelListPane(
                     "withParent: ${textChannels.count { it.parentId != null }}, " +
                     "orphanRendered: ${orphanText.size}"
             }
+            // Issue #76: per-category collapse state persisted per session in-memory.
+            // Default = expanded (Discord default). State key = category id string so that
+            // navigating between guilds keeps each guild's collapse state independent.
+            val collapsedCategories = rememberSaveable(
+                saver = listSaver<SnapshotStateMap<String, Boolean>, Pair<String, Boolean>>(
+                    save = { it.entries.map { e -> e.key to e.value } },
+                    restore = { saved ->
+                        mutableStateMapOf<String, Boolean>().apply {
+                            saved.forEach { (k, v) -> put(k, v) }
+                        }
+                    },
+                ),
+            ) { mutableStateMapOf<String, Boolean>() }
             LazyColumn {
                 if (orphanText.isNotEmpty()) {
                     items(orphanText, key = { "txt-${it.id.value}" }) { ch ->
@@ -456,33 +482,39 @@ private fun ChannelListPane(
                     }
                 }
                 categories.forEach { cat ->
+                    val catKey = cat.id.value.toString()
+                    val isCollapsed = collapsedCategories[catKey] == true
                     item(key = "cat-${cat.id.value}") {
                         CategoryHeader(
                             label = cat.name.orEmpty(),
-                            isExpanded = true,
-                            onToggle = {},
+                            isExpanded = !isCollapsed,
+                            onToggle = {
+                                collapsedCategories[catKey] = !isCollapsed
+                            },
                         )
                     }
-                    val underText = textChannels
-                        .filter { it.parentId == cat.id }
-                        .sortedBy { it.position }
-                    items(underText, key = { "txt-${it.id.value}" }) { ch ->
-                        ChannelListItem(
-                            channel = ch,
-                            isSelected = ch.id == selectedChannelId,
-                            onClick = { onSelectChannel(ch.id) },
-                        )
-                    }
-                    val underVoice = voiceChannels
-                        .filter { it.parentId == cat.id }
-                        .sortedBy { it.position }
-                    items(underVoice, key = { "voi-${it.id.value}" }) { ch ->
-                        VoiceChannelEntry(
-                            channel = ch,
-                            members = voiceMembersByChannel[ch.id].orEmpty(),
-                            resolveDisplayName = resolveDisplayName,
-                            onJoin = { onJoinVoiceChannel(ch.guildId, ch.id) },
-                        )
+                    if (!isCollapsed) {
+                        val underText = textChannels
+                            .filter { it.parentId == cat.id }
+                            .sortedBy { it.position }
+                        items(underText, key = { "txt-${it.id.value}" }) { ch ->
+                            ChannelListItem(
+                                channel = ch,
+                                isSelected = ch.id == selectedChannelId,
+                                onClick = { onSelectChannel(ch.id) },
+                            )
+                        }
+                        val underVoice = voiceChannels
+                            .filter { it.parentId == cat.id }
+                            .sortedBy { it.position }
+                        items(underVoice, key = { "voi-${it.id.value}" }) { ch ->
+                            VoiceChannelEntry(
+                                channel = ch,
+                                members = voiceMembersByChannel[ch.id].orEmpty(),
+                                resolveDisplayName = resolveDisplayName,
+                                onJoin = { onJoinVoiceChannel(ch.guildId, ch.id) },
+                            )
+                        }
                     }
                 }
             }
