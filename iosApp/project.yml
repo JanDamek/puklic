@@ -44,6 +44,10 @@ targets:
         UIRequiredDeviceCapabilities:
           - arm64
         CFBundleIconName: AppIcon
+        # Required by Compose Multiplatform iOS — `PlistSanityCheck` at app launch
+        # asserts this key is set, otherwise throws and crashes the app.
+        # YES allows the display to refresh at its native max rate (ProMotion etc.).
+        CADisableMinimumFrameDurationOnPhone: true
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
           - UIInterfaceOrientationLandscapeLeft
