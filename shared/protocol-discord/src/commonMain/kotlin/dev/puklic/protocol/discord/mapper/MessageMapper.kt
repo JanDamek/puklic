@@ -13,6 +13,7 @@ import dev.puklic.domain.MessageEmbed
 import dev.puklic.domain.MessageFlags
 import dev.puklic.domain.MessageMentions
 import dev.puklic.domain.MessageReference
+import dev.puklic.domain.MessageType
 import dev.puklic.domain.Reaction
 import dev.puklic.domain.ReactionCountDetails
 import dev.puklic.domain.ReferenceType
@@ -53,6 +54,7 @@ internal fun DiscordMessageDto.toDomain(): ChatMessage =
             everyone = mentionEveryone,
         ),
         flags = decodeFlags(flags, pinned, tts),
+        type = MessageType.fromRaw(type),
         timestamp = Instant.parse(timestamp),
         editedTimestamp = editedTimestamp?.let(Instant::parse),
         referencedMessage = messageReference?.toDomain(),

@@ -1,0 +1,4 @@
+-- Migration v2 -> v3
+-- Adds message.type column to persist Discord message variants (CALL=3, RECIPIENT_ADD=1, etc.).
+-- Existing rows default to 0 (DEFAULT), matching their previous implicit behaviour.
+ALTER TABLE message ADD COLUMN type INTEGER NOT NULL DEFAULT 0;

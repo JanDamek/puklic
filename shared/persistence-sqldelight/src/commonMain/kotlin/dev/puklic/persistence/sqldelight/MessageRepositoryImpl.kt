@@ -100,6 +100,7 @@ class MessageRepositoryImpl(
             timestamp = cols.timestamp,
             edited_timestamp = cols.editedTimestamp,
             flags = cols.flags,
+            type = cols.type,
             reference_message_id = cols.referenceMessageId,
             reference_channel_id = cols.referenceChannelId,
             reference_type = cols.referenceType,

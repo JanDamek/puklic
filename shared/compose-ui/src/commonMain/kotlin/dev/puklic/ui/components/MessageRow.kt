@@ -40,6 +40,7 @@ import dev.puklic.domain.Attachment
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.MessageEmbed
+import dev.puklic.domain.MessageType
 import dev.puklic.domain.UserSummary
 import dev.puklic.ui.theme.LocalPuklicColors
 import dev.puklic.ui.theme.LocalPuklicSpacing
@@ -75,6 +76,12 @@ public fun MessageRow(
     val spacing = LocalPuklicSpacing.current
     val mentionBg = LocalPuklicColors.current.mentionBackground
     val background = if (isMentionedUser) mentionBg else MaterialTheme.colorScheme.background
+
+    val systemLabel = systemMessageLabel(message)
+    if (systemLabel != null) {
+        SystemMessageRow(text = systemLabel, modifier = modifier)
+        return
+    }
 
     Row(
         modifier = modifier
@@ -409,6 +416,48 @@ private fun EmbedFields(fields: List<dev.puklic.domain.EmbedField>) {
                 }
             }
         }
+    }
+}
+
+/**
+ * Render a single-line "system" event row (call started, recipient added, channel renamed, …).
+ * Discord uses a muted, italic style with no avatar; we mirror that. Pure presentation.
+ */
+@Composable
+internal fun SystemMessageRow(text: String, modifier: Modifier = Modifier) {
+    val spacing = LocalPuklicSpacing.current
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = spacing.space2, horizontal = spacing.space4),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall.copy(
+                fontStyle = androidx.compose.ui.text.font.FontStyle.Italic,
+            ),
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/**
+ * Maps a non-DEFAULT [MessageType] to a user-facing system line. Returns null for
+ * [MessageType.DEFAULT] / [MessageType.REPLY] / [MessageType.UNKNOWN] so the regular bubble
+ * renders. Pure function — no Compose state — so it is also reachable from unit tests.
+ */
+internal fun systemMessageLabel(message: ChatMessage): String? {
+    val name = message.author.globalName ?: message.author.username
+    return when (message.type) {
+        MessageType.CALL -> "$name started a call."
+        MessageType.RECIPIENT_ADD -> "$name added someone to the group."
+        MessageType.RECIPIENT_REMOVE -> "$name removed someone from the group."
+        MessageType.CHANNEL_NAME_CHANGE -> "$name changed the channel name."
+        MessageType.CHANNEL_ICON_CHANGE -> "$name changed the channel icon."
+        MessageType.CHANNEL_PINNED_MESSAGE -> "$name pinned a message to this channel."
+        MessageType.USER_JOIN -> "$name joined."
+        MessageType.DEFAULT, MessageType.REPLY, MessageType.UNKNOWN -> null
     }
 }
 
