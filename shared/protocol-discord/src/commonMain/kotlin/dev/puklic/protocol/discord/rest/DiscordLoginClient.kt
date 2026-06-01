@@ -1,7 +1,12 @@
 package dev.puklic.protocol.discord.rest
 
+import dev.puklic.protocol.discord.DiscordClientProperties
 import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordJson
+import dev.puklic.protocol.discord.buildClientProperties
+import dev.puklic.protocol.discord.currentTimeZoneId
+import dev.puklic.protocol.discord.encodeSuperProperties
+import dev.puklic.protocol.discord.normalizeLocale
 import io.ktor.client.HttpClient
 import io.ktor.client.request.headers
 import io.ktor.client.request.post
@@ -23,9 +28,6 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
 private const val DEFAULT_BASE_URL = "https://discord.com/api/v10"
-// Keep in sync with `puklic.version` in root `gradle.properties` (single source of truth
-// for the packaging version). This is a User-Agent string sent on login REST calls.
-private const val DEFAULT_UA = "Puklic/1.0.0 (Linux; Wayland)"
 
 /**
  * Outcome of an email/password (or username/password) login attempt against
@@ -71,9 +73,14 @@ internal data class MfaRequest(
  */
 public class DiscordLoginClient(
     private val httpClient: HttpClient,
-    private val userAgent: String = DEFAULT_UA,
+    clientProperties: DiscordClientProperties = buildClientProperties(),
     private val baseUrl: String = DEFAULT_BASE_URL,
+    private val timeZoneId: String = currentTimeZoneId(),
 ) {
+    private val userAgent: String = clientProperties.browserUserAgent
+    private val systemLocale: String = normalizeLocale(clientProperties.systemLocale)
+    // X-Super-Properties — identical for every request, encode once on init.
+    private val superPropertiesB64: String = encodeSuperProperties(clientProperties)
 
     /**
      * POST /auth/login with email-or-username + password. Returns [LoginResponse].
@@ -113,6 +120,14 @@ public class DiscordLoginClient(
                 headers {
                     append(HttpHeaders.UserAgent, userAgent)
                     append(HttpHeaders.Accept, ContentType.Application.Json.toString())
+                    // Discord rejects auth requests that lack the desktop-client identity
+                    // headers used by the official Electron app. Without these, Cloudflare
+                    // and the auth backend respond with generic 4xx + Captcha challenges
+                    // (HTTP transport errors on iOS NSURLSession, presumably TLS / WAF
+                    // fingerprinting), which surfaced to the user as "Sign in failed."
+                    append("X-Super-Properties", superPropertiesB64)
+                    append("X-Discord-Locale", systemLocale)
+                    append("X-Discord-Timezone", timeZoneId)
                 }
                 contentType(ContentType.Application.Json)
                 setBody(bodyBuilder())
