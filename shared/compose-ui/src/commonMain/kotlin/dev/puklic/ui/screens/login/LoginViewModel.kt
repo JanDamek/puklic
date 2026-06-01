@@ -165,11 +165,15 @@ public class LoginViewModel(
 
     private fun mapTokenError(throwable: Throwable?): String {
         if (throwable == null) return "Sign in failed"
-        val msg = throwable.message.orEmpty().lowercase()
+        val msg = throwable.message.orEmpty()
+        val lower = msg.lowercase()
         return when {
             throwable is IllegalArgumentException -> "Token rejected by Discord"
-            looksLikeNetwork(msg) -> "Cannot reach Discord. Check connection."
-            else -> "Sign in failed"
+            looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
+            // Surface the transport / unknown failure detail so the user (and bug
+            // reports) can see what went wrong; the previous generic "Sign in failed"
+            // hid the real cause (HTTP status, TLS error, Discord WAF rejection, …).
+            else -> "Sign in failed: ${throwable::class.simpleName}${msg.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}"
         }
     }
 
@@ -178,9 +182,10 @@ public class LoginViewModel(
         val msg = throwable.message.orEmpty()
         val lower = msg.lowercase()
         return when {
-            throwable is IllegalArgumentException -> "Bad email/username or password."
+            throwable is IllegalArgumentException -> "Bad email/username or password." +
+                msg.takeIf { it.isNotBlank() && it != "Bad email/username or password." }?.let { " ($it)" }.orEmpty()
             looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
-            else -> "Sign in failed."
+            else -> "Sign in failed: ${throwable::class.simpleName}${msg.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}"
         }
     }
 
