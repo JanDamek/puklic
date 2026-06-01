@@ -29,7 +29,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.puklic.ui.theme.LocalPuklicSpacing
@@ -119,6 +122,15 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
         label = { Text("Paste your token") },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
+        // Keyboard hints: password-class field; disable autocorrect + capitalization
+        // so the OS suggests stored passwords (via iCloud Keychain) instead of
+        // dictionary words (the localized "čau / já / jsem" Czech suggestions
+        // confuse users pasting a base64 token).
+        keyboardOptions = KeyboardOptions(
+            keyboardType = KeyboardType.Password,
+            autoCorrectEnabled = false,
+            capitalization = KeyboardCapitalization.None,
+        ),
         enabled = !state.submitting,
         isError = state.error != null,
         supportingText = state.error?.let { msg ->
@@ -159,6 +171,11 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
             singleLine = true,
             enabled = !state.submitting,
             isError = state.error != null,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Email,
+                autoCorrectEnabled = false,
+                capitalization = KeyboardCapitalization.None,
+            ),
             modifier = Modifier.widthIn(min = 320.dp),
         )
         OutlinedTextField(
@@ -169,6 +186,11 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
             singleLine = true,
             enabled = !state.submitting,
             isError = state.error != null,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Password,
+                autoCorrectEnabled = false,
+                capitalization = KeyboardCapitalization.None,
+            ),
             supportingText = state.error?.let { msg ->
                 { Text(msg, color = MaterialTheme.colorScheme.error) }
             },
@@ -192,6 +214,10 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
             singleLine = true,
             enabled = !state.submitting,
             isError = state.error != null,
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.NumberPassword,
+                autoCorrectEnabled = false,
+            ),
             supportingText = state.error?.let { msg ->
                 { Text(msg, color = MaterialTheme.colorScheme.error) }
             },

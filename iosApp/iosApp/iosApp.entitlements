@@ -8,5 +8,14 @@
     <array>
         <string>$(AppIdentifierPrefix)cz.damek.puklic.app</string>
     </array>
+    <!--
+        TODO(#75): Associated Domains (`webcredentials:discord.com`) for iCloud
+        Passwords QuickType integration. Requires enabling "Associated Domains"
+        capability for cz.damek.puklic.app in Apple Developer Portal + new
+        provisioning profile + Discord-side `apple-app-site-association` for
+        full Face ID autofill (won't happen). Without the entitlement, Compose's
+        KeyboardType.Password hint still lights up the iOS Passwords key in
+        QuickType — same end-state as Image 2 in practice.
+    -->
 </dict>
 </plist>
