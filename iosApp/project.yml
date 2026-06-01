@@ -37,7 +37,12 @@ targets:
       path: iosApp/Sources/Info.plist
       properties:
         CFBundleDisplayName: Puklic
-        CFBundleShortVersionString: "1.2.1"
+        # `MARKETING_VERSION` is provided by xcodebuild on every build (passed via
+        # fastlane's `xcargs` from the canonical `puklic.version` in
+        # `gradle.properties`). Keep this referenced — never hardcode the literal —
+        # so the iOS Info.plist version is always in lockstep with the rest of the
+        # release artefacts (Mac App Store .pkg, AUR PKGBUILD, GitHub Release tag).
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "1"
         UILaunchScreen:
           UIColorName: ""

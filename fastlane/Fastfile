@@ -87,6 +87,14 @@ platform :ios do
       xcodeproj: File.expand_path("../iosApp/iosApp.xcodeproj", __dir__)
     )
 
+    # Read the canonical version from gradle.properties (`puklic.version`) and pass
+    # it to xcodebuild as MARKETING_VERSION, which `iosApp/project.yml` interpolates
+    # into `CFBundleShortVersionString`. Single source of truth = gradle.properties;
+    # the Mac App Store + AUR pipelines read the same key.
+    marketing_version = File.read(File.expand_path("../gradle.properties", __dir__))
+      .match(/^puklic\.version=(.+)$/)&.captures&.first&.strip
+    UI.user_error!("puklic.version missing from gradle.properties") if marketing_version.nil? || marketing_version.empty?
+
     build_app(
       project: File.expand_path("../iosApp/iosApp.xcodeproj", __dir__),
       scheme: "iosApp",
@@ -95,7 +103,8 @@ platform :ios do
       export_options: File.expand_path("../dist/apple/ExportOptions-AppStore.filled.plist", __dir__),
       clean: true,
       output_directory: File.expand_path("../build/ios-archive", __dir__),
-      output_name: "Puklic.ipa"
+      output_name: "Puklic.ipa",
+      xcargs: "MARKETING_VERSION=#{marketing_version}"
     )
   end
 
