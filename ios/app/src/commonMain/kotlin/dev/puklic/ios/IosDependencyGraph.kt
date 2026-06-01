@@ -136,7 +136,6 @@ public class IosDependencyGraph private constructor(
             val outboundQueue = OutboundQueueImpl(database, ioDispatcher)
             @Suppress("UNUSED_VARIABLE")
             val localDrafts = LocalDraftRepositoryImpl(database, ioDispatcher)
-            @Suppress("UNUSED_VARIABLE")
             val readState = ReadStateRepositoryImpl(database, ioDispatcher)
             @Suppress("UNUSED_VARIABLE")
             val attachmentCache = AttachmentCacheIndexImpl(database, ioDispatcher)
@@ -162,6 +161,7 @@ public class IosDependencyGraph private constructor(
                     outboundQueue = outboundQueue,
                     notificationService = notifications,
                     roleStore = roleStore,
+                    readStateStore = readState,
                 )
             }
 
@@ -205,6 +205,7 @@ public class IosDependencyGraph private constructor(
             outboundQueue: OutboundQueueImpl,
             notificationService: NotificationService,
             roleStore: RoleStore,
+            readStateStore: ReadStateRepositoryImpl,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
             val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
@@ -268,6 +269,11 @@ public class IosDependencyGraph private constructor(
             val userOrch = UserOrchestrator(sessionScope, gatewayEventSource, userStore)
             val dmListOrch = DmListOrchestrator(sessionScope, gatewayEventSource)
             val voiceStateRepo = VoiceStateRepository(sessionScope, gatewayEventSource)
+            val readStateOrch = dev.puklic.repositories.ReadStateOrchestrator(
+                sessionScope = sessionScope,
+                gatewaySource = gatewayEventSource,
+                storage = readStateStore,
+            )
             val orchestrators = Orchestrators(
                 messages = messageOrchestrator,
                 outboundWorker = outboundWorker,
@@ -278,6 +284,7 @@ public class IosDependencyGraph private constructor(
                 user = userOrch,
                 dms = dmListOrch,
                 voiceStates = voiceStateRepo,
+                readState = readStateOrch,
             )
             outboundWorker.start()
 

@@ -163,7 +163,6 @@ public class DependencyGraph private constructor(
             val outboundQueue = OutboundQueueImpl(database, ioDispatcher)
             @Suppress("UNUSED_VARIABLE")
             val localDrafts = LocalDraftRepositoryImpl(database, ioDispatcher)
-            @Suppress("UNUSED_VARIABLE")
             val readState = ReadStateRepositoryImpl(database, ioDispatcher)
             @Suppress("UNUSED_VARIABLE")
             val attachmentCache = AttachmentCacheIndexImpl(database, ioDispatcher)
@@ -194,6 +193,7 @@ public class DependencyGraph private constructor(
                     outboundQueue = outboundQueue,
                     notificationService = notifications,
                     roleStore = roleStore,
+                    readStateStore = readState,
                 )
             }
 
@@ -264,6 +264,7 @@ public class DependencyGraph private constructor(
             outboundQueue: OutboundQueueImpl,
             notificationService: dev.puklic.platform.NotificationService,
             roleStore: dev.puklic.repositories.RoleStore,
+            readStateStore: ReadStateRepositoryImpl,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
             val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
@@ -332,6 +333,11 @@ public class DependencyGraph private constructor(
             val userOrch = UserOrchestrator(sessionScope, gatewayEventSource, userStore)
             val dmListOrch = dev.puklic.repositories.DmListOrchestrator(sessionScope, gatewayEventSource)
             val voiceStateRepo = dev.puklic.repositories.VoiceStateRepository(sessionScope, gatewayEventSource)
+            val readStateOrch = dev.puklic.repositories.ReadStateOrchestrator(
+                sessionScope = sessionScope,
+                gatewaySource = gatewayEventSource,
+                storage = readStateStore,
+            )
             val orchestrators = Orchestrators(
                 messages = messageOrchestrator,
                 outboundWorker = outboundWorker,
@@ -342,6 +348,7 @@ public class DependencyGraph private constructor(
                 user = userOrch,
                 dms = dmListOrch,
                 voiceStates = voiceStateRepo,
+                readState = readStateOrch,
             )
             outboundWorker.start()
 

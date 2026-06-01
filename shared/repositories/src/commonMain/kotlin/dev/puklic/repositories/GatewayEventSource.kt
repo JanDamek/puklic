@@ -64,6 +64,21 @@ public sealed interface GatewayDomainEvent {
     public data class GuildDeleted(val guildId: GuildId) : GatewayDomainEvent
     /** Issue #85 — user-account guild ordering from READY's user_settings. */
     public data class GuildPositionsUpdated(val positions: List<GuildId>) : GatewayDomainEvent
+
+    /** Issue #81 — per-channel read state, snapshot from READY. */
+    public data class ReadStateEntry(
+        val channelId: ChannelId,
+        val lastReadMessageId: MessageId?,
+        val mentionCount: Int,
+    )
+    public data class ReadStatesReplaced(val entries: List<ReadStateEntry>) : GatewayDomainEvent
+
+    /** Issue #81 — incremental read-state update from MESSAGE_ACK gateway dispatch. */
+    public data class ReadStateAck(
+        val channelId: ChannelId,
+        val lastReadMessageId: MessageId?,
+        val mentionCount: Int,
+    ) : GatewayDomainEvent
     public data class ChannelCreated(val channel: Channel) : GatewayDomainEvent
     public data class ChannelUpdated(val channel: Channel) : GatewayDomainEvent
     public data class ChannelDeleted(val channelId: ChannelId) : GatewayDomainEvent

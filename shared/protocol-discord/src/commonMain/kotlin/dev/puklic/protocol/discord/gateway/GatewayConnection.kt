@@ -508,9 +508,11 @@ public class GatewayConnection(
         primitive?.let { runCatching { it.jsonPrimitive.content.toInt() }.getOrNull() }
 
     /** Sentinel exception used to break out of `flow.collect` when a Close frame arrives. */
-    private object CloseSignal : RuntimeException() {
+    private object CloseSignal : RuntimeException("close-signal") {
+        // No `fillInStackTrace` override: Kotlin/Native's Throwable doesn't expose it as
+        // overridable. The sentinel is thrown + caught on the same call stack so the missing
+        // stack-trace optimisation isn't material.
         private fun readResolve(): Any = CloseSignal
-        override fun fillInStackTrace(): Throwable = this
     }
 
     private companion object {

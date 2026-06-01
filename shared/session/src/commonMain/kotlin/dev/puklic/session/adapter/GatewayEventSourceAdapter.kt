@@ -90,6 +90,14 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.GuildDeleted -> GatewayDomainEvent.GuildDeleted(ev.guildId)
         is DiscordDomainEvent.GuildPositionsUpdated ->
             GatewayDomainEvent.GuildPositionsUpdated(ev.positions)
+        is DiscordDomainEvent.ReadStatesReplaced ->
+            GatewayDomainEvent.ReadStatesReplaced(
+                ev.entries.map {
+                    GatewayDomainEvent.ReadStateEntry(it.channelId, it.lastReadMessageId, it.mentionCount)
+                },
+            )
+        is DiscordDomainEvent.ReadStateAck ->
+            GatewayDomainEvent.ReadStateAck(ev.channelId, ev.lastReadMessageId, ev.mentionCount)
         is DiscordDomainEvent.ChannelCreated -> GatewayDomainEvent.ChannelCreated(ev.channel)
         is DiscordDomainEvent.ChannelUpdated -> GatewayDomainEvent.ChannelUpdated(ev.channel)
         is DiscordDomainEvent.ChannelDeleted -> GatewayDomainEvent.ChannelDeleted(ev.channelId)

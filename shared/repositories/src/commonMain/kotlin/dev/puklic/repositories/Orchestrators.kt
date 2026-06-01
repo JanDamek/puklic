@@ -14,4 +14,6 @@ public data class Orchestrators(
     val user: UserOrchestrator,
     val dms: DmListOrchestrator,
     val voiceStates: VoiceStateRepository,
+    /** Issue #81 — per-channel unread / mention view derived from READY + MESSAGE_ACK. */
+    val readState: ReadStateOrchestrator? = null,
 )

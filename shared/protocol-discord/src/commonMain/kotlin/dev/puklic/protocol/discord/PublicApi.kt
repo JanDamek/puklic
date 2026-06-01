@@ -37,6 +37,7 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 
 /**
@@ -121,6 +122,32 @@ public sealed interface DiscordDomainEvent {
      * rail never silently drops a guild whose position is missing from settings.
      */
     public data class GuildPositionsUpdated(val positions: List<GuildId>) : DiscordDomainEvent
+
+    /**
+     * Read-state entry from READY's `read_state` array OR a `MESSAGE_ACK` dispatch.
+     * Per-channel: `mention_count` is the count of unread mentions, `lastReadMessageId` is the
+     * id of the last message the user has marked as read.
+     */
+    public data class ReadStateEntry(
+        val channelId: ChannelId,
+        val lastReadMessageId: MessageId?,
+        val mentionCount: Int,
+    )
+
+    /**
+     * READY `read_state.entries` — full snapshot, replaces any cached read-state. Emitted once
+     * per gateway session right after the user identifies. (Issue #81.)
+     */
+    public data class ReadStatesReplaced(val entries: List<ReadStateEntry>) : DiscordDomainEvent
+
+    /**
+     * Gateway `MESSAGE_ACK` dispatch — incremental update for one channel. (Issue #81.)
+     */
+    public data class ReadStateAck(
+        val channelId: ChannelId,
+        val lastReadMessageId: MessageId?,
+        val mentionCount: Int,
+    ) : DiscordDomainEvent
 
     public data class ReactionAdded(
         val channelId: ChannelId,
@@ -528,6 +555,20 @@ public class DiscordGatewayBridge(
                     ))
                 }
                 "READY" -> mapReady(payload)
+                "MESSAGE_ACK" -> {
+                    // Issue #81 — Discord ACK dispatch updates unread counts.
+                    // Payload: { channel_id, message_id, mention_count?, version }
+                    val obj = payload.jsonObject
+                    val channelId = obj["channel_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                        ?.let(::ChannelId)
+                    if (channelId == null) emptyList()
+                    else {
+                        val msgId = obj["message_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                            ?.let(::MessageId)
+                        val mentions = obj["mention_count"]?.jsonPrimitive?.intOrNull ?: 0
+                        listOf(DiscordDomainEvent.ReadStateAck(channelId, msgId, mentions))
+                    }
+                }
                 else -> {
                     onUnknown(event.type)
                     emptyList()
@@ -639,6 +680,10 @@ public class DiscordGatewayBridge(
         // Issue #85 — extract user-account guild ordering. Discord places this under
         // `user_settings` for user-mode connections; bot tokens don't ship this field at all.
         extractGuildPositions(obj)?.let { events += it }
+        // Issue #81 — extract per-channel read state so the rail can render unread / mention
+        // indicators. Tolerates both top-level `read_state` (older shape) and nested
+        // `read_state.entries` (user-mode shape).
+        extractReadStates(obj)?.let { events += it }
         val guildsArray = obj["guilds"]?.let { it as? kotlinx.serialization.json.JsonArray } ?: return events
         for ((index, guildElement) in guildsArray.withIndex()) {
             val dto = runCatching {
@@ -772,6 +817,36 @@ public class DiscordGatewayBridge(
      */
     private fun extractGuildPositions(readyObj: kotlinx.serialization.json.JsonObject):
         DiscordDomainEvent.GuildPositionsUpdated? = extractGuildPositionsFromReady(readyObj)
+
+    /**
+     * READY ships per-channel read state. User-mode wraps the array in
+     * `read_state.entries`, bot tokens send a flat `read_state` array. Tolerate both. Each
+     * entry: `{ id (channel_id), last_message_id, mention_count }`. (Issue #81.)
+     */
+    private fun extractReadStates(readyObj: kotlinx.serialization.json.JsonObject):
+        DiscordDomainEvent.ReadStatesReplaced? {
+        val node = readyObj["read_state"] ?: return null
+        val array: kotlinx.serialization.json.JsonArray = when (node) {
+            is kotlinx.serialization.json.JsonArray -> node
+            is kotlinx.serialization.json.JsonObject ->
+                node["entries"] as? kotlinx.serialization.json.JsonArray ?: return null
+            else -> return null
+        }
+        val entries = array.mapNotNull { el ->
+            val obj = el as? kotlinx.serialization.json.JsonObject ?: return@mapNotNull null
+            val channelId = obj["id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                ?: obj["channel_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                ?: return@mapNotNull null
+            val lastMessageId = obj["last_message_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+            val mentions = obj["mention_count"]?.jsonPrimitive?.intOrNull ?: 0
+            DiscordDomainEvent.ReadStateEntry(
+                channelId = ChannelId(channelId),
+                lastReadMessageId = lastMessageId?.let(::MessageId),
+                mentionCount = mentions,
+            )
+        }
+        return DiscordDomainEvent.ReadStatesReplaced(entries)
+    }
 
     /**
      * Extracts the `channels` array embedded in a GUILD_CREATE / READY-guild payload and maps
