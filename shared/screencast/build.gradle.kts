@@ -126,7 +126,7 @@ fun detectFfmpegClassifier(): String {
         // Windows x86_64 added 2026-05-29 (FP-9) for the .exe / .msi distribution
         // channel — DXGI Output Duplication capture feeds frames into libx264
         // via the same javacpp FFmpeg-GPL bundle Linux uses.
-        osName.contains("windows") && osArch == "amd64" -> "windows-x86_64-gpl"
+        osName.contains("windows") && osArch in setOf("amd64", "x86_64") -> "windows-x86_64-gpl"
         // macOS x86_64 is out of scope (CLAUDE.md §Platforms).
         else -> error("Unsupported OS/arch for FFmpeg native classifier: $osName / $osArch")
     }

@@ -273,7 +273,11 @@ fun detectFfmpegClassifier(): String {
         osName.contains("linux") && osArch == "amd64" -> "linux-x86_64-gpl"
         osName.contains("linux") && osArch in setOf("aarch64", "arm64") -> "linux-arm64-gpl"
         osName.contains("mac") && osArch in setOf("aarch64", "arm64") -> "macosx-arm64-gpl"
-        // Windows and macOS x86_64 are out of scope (issue #22, CLAUDE.md §Platforms).
+        // Windows x86_64 (FP-9 2026-05-29) — same JavaCPP FFmpeg-GPL bundle as Linux,
+        // feeds libx264 for screen-share encoding. Keep this branch in lockstep with
+        // :shared:screencast / :shared:voice.
+        osName.contains("windows") && osArch in setOf("amd64", "x86_64") -> "windows-x86_64-gpl"
+        // macOS x86_64 is out of scope (issue #22, CLAUDE.md §Platforms).
         else -> error("Unsupported OS/arch for FFmpeg native classifier: $osName / $osArch")
     }
 }
