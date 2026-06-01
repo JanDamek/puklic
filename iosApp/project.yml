@@ -80,7 +80,15 @@ targets:
         CODE_SIGN_ENTITLEMENTS: iosApp/iosApp.entitlements
         # Manual code signing for local TestFlight builds (HARD RULE #4 LOCAL ONLY).
         CODE_SIGN_STYLE: Manual
-        CODE_SIGN_IDENTITY: "Apple Distribution"
+        # Pin the Puklic-specific Apple Distribution cert by SHA1 (NOT the
+        # generic "Apple Distribution" display name) so a future rotation of
+        # the Jan Damek team cert in another project cannot silently grab
+        # this build slot. See global CLAUDE.md HARD RULE #7 (Apple cert
+        # per-application) + docs/06_ops/apple-release.md.
+        #
+        # Puklic cert SHA1: 87C2C002603CAACDC619BA32762945AB03C0BCA0
+        # (Apple Distribution: Jan Damek, team GR74KSG8M9)
+        CODE_SIGN_IDENTITY: "87C2C002603CAACDC619BA32762945AB03C0BCA0"
         PROVISIONING_PROFILE_SPECIFIER: "Puklic App Store"
         # Embed the Compose iOS framework produced by Gradle.
         FRAMEWORK_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)"

@@ -3,8 +3,51 @@
 > **HARD RULE #4 (CLAUDE.md, 2026-05-31):** Apple distribution is LOCAL ONLY.
 > All commands below run from a developer Mac. There is no CI variant.
 
+> **HARD RULE #7 (CLAUDE.md, 2026-06-01):** Apple Distribution cert is
+> per-application. Puklic's cert SHA1 is hardcoded in `iosApp/project.yml`;
+> never replace or regenerate via App Store Connect web UI.
+
 Architect report:
 [`../03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`](../03_infrastructure/architect-reports/2026-05-31-apple-local-only.md).
+
+## Apple Distribution cert — Puklic-specific (do not share)
+
+| Field | Value |
+|-------|-------|
+| Display name | `Apple Distribution: Jan Damek (GR74KSG8M9)` |
+| **SHA1 (pinned)** | `87C2C002603CAACDC619BA32762945AB03C0BCA0` |
+| Team ID | `GR74KSG8M9` |
+| Bundle ID family | `cz.damek.puklic.*` |
+| Provisioning profile | `Puklic App Store` (UUID `e9ae0eef-e9b8-47c0-9391-7430d4ccaad2`) |
+| Pinned in | `iosApp/project.yml` `CODE_SIGN_IDENTITY` |
+| Profile expiry | 2027-05-28 |
+| `.p12` backup | **TBD — export from Keychain Access app + store in 1Password** |
+
+### Backup procedure (one-time, must do before first release)
+
+1. Open **Keychain Access.app** → My Certificates
+2. Right-click `Apple Distribution: Jan Damek (GR74KSG8M9)` (SHA1 above) → Export
+3. Save as `Puklic-AppleDistribution-87C2C002.p12`, set strong passphrase
+4. Store the `.p12` + passphrase in **1Password** vault item "Puklic — Apple certs"
+5. Verify restore on a fresh keychain before retiring the original Mac
+
+### Forbidden operations
+
+- ❌ **Regenerate** this cert via ASC web UI — revoke is irreversible and the
+  identical display name `Jan Damek` is used by other projects (Jervis, …).
+- ❌ **Delete** any cert in keychain marked `Apple Distribution: Jan Damek`
+  without first checking the SHA1 against this table + the per-project
+  registry in global `~/.claude/CLAUDE.md` HARD RULE #7.
+- ❌ **Use generic `"Apple Distribution"`** as `CODE_SIGN_IDENTITY` — collides
+  with other projects' certs sharing the same display name.
+
+### If `security find-identity` no longer shows SHA1 `87C2…`
+
+1. **STOP** building — do not regenerate
+2. Restore from 1Password `.p12` backup:
+   `security import Puklic-AppleDistribution-87C2C002.p12 -P <passphrase>`
+3. Verify: `security find-identity -v -p codesigning | grep 87C2C002`
+4. Re-run `dist/apple/build-ipa.sh`
 
 ## Pre-release checklist (one-time per Mac)
 

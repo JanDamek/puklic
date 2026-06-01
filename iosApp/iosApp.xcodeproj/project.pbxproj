@@ -290,7 +290,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_IDENTITY = 87C2C002603CAACDC619BA32762945AB03C0BCA0;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = GR74KSG8M9;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
@@ -316,7 +316,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = iosApp/iosApp.entitlements;
-				CODE_SIGN_IDENTITY = "Apple Distribution";
+				CODE_SIGN_IDENTITY = 87C2C002603CAACDC619BA32762945AB03C0BCA0;
 				CODE_SIGN_STYLE = Manual;
 				DEVELOPMENT_TEAM = GR74KSG8M9;
 				FRAMEWORK_SEARCH_PATHS = "$(inherited) $(SRCROOT)/../ios/app/build/xcode-frameworks/$(CONFIGURATION)/$(SDK_NAME)";
