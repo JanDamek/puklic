@@ -31,6 +31,23 @@ public enum class PresenceState { ONLINE, IDLE, DO_NOT_DISTURB, OFFLINE, INVISIB
 public sealed interface GatewayDomainEvent {
     public data class MessageCreated(val message: ChatMessage) : GatewayDomainEvent
     public data class MessageUpdated(val message: ChatMessage) : GatewayDomainEvent
+
+    /**
+     * Partial MESSAGE_UPDATE forwarded from the protocol layer (issue #83). The orchestrator
+     * merges these field-by-field onto the cached message — fields absent in the dispatch keep
+     * their existing value.
+     */
+    public data class MessageUpdatedPartial(
+        val messageId: MessageId,
+        val channelId: ChannelId,
+        val content: String? = null,
+        val editedTimestampEpochMs: Long? = null,
+        val flags: Int? = null,
+        val pinned: Boolean? = null,
+        val embeds: List<dev.puklic.domain.MessageEmbed>? = null,
+        val attachments: List<dev.puklic.domain.Attachment>? = null,
+    ) : GatewayDomainEvent
+
     public data class MessageDeleted(val channelId: ChannelId, val messageId: MessageId) : GatewayDomainEvent
     public data class MessageDeletedBulk(
         val channelId: ChannelId,

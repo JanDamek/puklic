@@ -70,6 +70,37 @@ public class MessageOrchestrator(
                         }
                         persistWithAuthor(merged)
                     }
+                    is GatewayDomainEvent.MessageUpdatedPartial -> {
+                        // Issue #83: merge partial fields onto the cached message. No-op if the
+                        // message is not in storage (e.g. older than the warm window).
+                        val existing = storage.findById(event.messageId) ?: return@onEach
+                        val mergedFlags = when {
+                            event.pinned == true -> dev.puklic.domain.MessageFlags.PINNED
+                            event.flags != null -> {
+                                val raw = event.flags
+                                when {
+                                    raw and PARTIAL_FLAG_EPHEMERAL != 0 ->
+                                        dev.puklic.domain.MessageFlags.EPHEMERAL
+                                    raw and PARTIAL_FLAG_SUPPRESS_EMBEDS != 0 ->
+                                        dev.puklic.domain.MessageFlags.SUPPRESS_EMBEDS
+                                    else -> existing.flags
+                                }
+                            }
+                            else -> existing.flags
+                        }
+                        val merged = existing.copy(
+                            rawContent = event.content ?: existing.rawContent,
+                            parsedContent = event.content?.let { dev.puklic.chatparser.parseRichText(it) }
+                                ?: existing.parsedContent,
+                            embeds = event.embeds ?: existing.embeds,
+                            attachments = event.attachments ?: existing.attachments,
+                            flags = mergedFlags,
+                            editedTimestamp = event.editedTimestampEpochMs
+                                ?.let(kotlinx.datetime.Instant::fromEpochMilliseconds)
+                                ?: existing.editedTimestamp,
+                        )
+                        storage.persist(merged)
+                    }
                     is GatewayDomainEvent.MessageDeleted -> storage.delete(event.messageId)
                     is GatewayDomainEvent.MessageDeletedBulk -> event.messageIds.forEach { id ->
                         storage.delete(id)
@@ -257,6 +288,12 @@ public class MessageOrchestrator(
         public const val HOT_CHANNEL_LIMIT: Int = 200
         public const val WARM_CHANNEL_LIMIT: Int = 50
         public const val DEFAULT_PAGE: Int = 50
+
+        // Discord message-flag bits referenced by partial MESSAGE_UPDATE merge (issue #83).
+        // Source of truth for the canonical decode lives in MessageMapper.kt; mirrored here so
+        // the orchestrator can interpret the raw int without importing protocol DTOs.
+        internal const val PARTIAL_FLAG_SUPPRESS_EMBEDS: Int = 1 shl 2
+        internal const val PARTIAL_FLAG_EPHEMERAL: Int = 1 shl 6
 
         private fun defaultNonce(): String =
             "puklic-${Clock.System.now().toEpochMilliseconds()}"

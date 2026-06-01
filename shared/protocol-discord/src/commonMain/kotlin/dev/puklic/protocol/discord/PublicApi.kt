@@ -59,6 +59,30 @@ public fun discordJson(): Json = DiscordJson
 public sealed interface DiscordDomainEvent {
     public data class MessageCreated(val message: ChatMessage) : DiscordDomainEvent
     public data class MessageUpdated(val message: ChatMessage) : DiscordDomainEvent
+
+    /**
+     * Partial `MESSAGE_UPDATE` dispatch (issue #83). Discord sends partial payloads for many
+     * common updates — link-unfurl embed enrichment, pin / unpin, flag mutation. These
+     * payloads omit `author` and / or `timestamp`, which previously caused the full
+     * `DiscordMessageDto` decode to fail silently and the event to be dropped. The bridge now
+     * detects the partial shape and emits this event so the orchestrator can merge the
+     * provided fields onto the cached message.
+     *
+     * Every field except [messageId] / [channelId] is nullable; null means "not present in the
+     * update, keep the cached value". An empty list means "Discord explicitly cleared this
+     * field" — the bridge distinguishes presence vs absence by inspecting raw JSON keys.
+     */
+    public data class MessageUpdatedPartial(
+        val messageId: MessageId,
+        val channelId: ChannelId,
+        val content: String? = null,
+        val editedTimestampEpochMs: Long? = null,
+        val flags: Int? = null,
+        val pinned: Boolean? = null,
+        val embeds: List<dev.puklic.domain.MessageEmbed>? = null,
+        val attachments: List<dev.puklic.domain.Attachment>? = null,
+    ) : DiscordDomainEvent
+
     public data class MessageDeleted(val channelId: ChannelId, val messageId: MessageId) : DiscordDomainEvent
     public data class MessageDeletedBulk(
         val channelId: ChannelId,
@@ -276,9 +300,22 @@ public class DiscordGatewayBridge(
                 "MESSAGE_CREATE" -> listOf(DiscordDomainEvent.MessageCreated(
                     DiscordJson.decodeFromJsonElement(DiscordMessageDto.serializer(), payload).toDomain(),
                 ))
-                "MESSAGE_UPDATE" -> listOf(DiscordDomainEvent.MessageUpdated(
-                    DiscordJson.decodeFromJsonElement(DiscordMessageDto.serializer(), payload).toDomain(),
-                ))
+                "MESSAGE_UPDATE" -> {
+                    // Issue #83: Discord sends partial MESSAGE_UPDATE payloads for many cases
+                    // (link unfurl embed enrichment, pin / unpin, flag mutation). Those payloads
+                    // omit `author` and / or `timestamp`. Probe the raw JSON before attempting
+                    // the strict full-message decode so we don't drop the event silently.
+                    val updateObj = payload.jsonObject
+                    val hasAuthor = updateObj.containsKey("author")
+                    val hasTimestamp = updateObj.containsKey("timestamp")
+                    if (hasAuthor && hasTimestamp) {
+                        listOf(DiscordDomainEvent.MessageUpdated(
+                            DiscordJson.decodeFromJsonElement(DiscordMessageDto.serializer(), payload).toDomain(),
+                        ))
+                    } else {
+                        listOf(decodePartialMessageUpdate(updateObj))
+                    }
+                }
                 "MESSAGE_DELETE" -> {
                     val obj = payload.jsonObject
                     listOf(DiscordDomainEvent.MessageDeleted(
@@ -503,6 +540,47 @@ public class DiscordGatewayBridge(
             }
             onUnknown("${event.type}:decode-failed")
         }.getOrDefault(emptyList())
+    }
+
+    /**
+     * Decode a partial `MESSAGE_UPDATE` JSON object (issue #83). Reads only keys actually
+     * present in [obj]; absent keys map to `null` so the orchestrator preserves the cached
+     * value during merge. Embeds / attachments parse via the existing internal DTO mappers.
+     */
+    private fun decodePartialMessageUpdate(
+        obj: kotlinx.serialization.json.JsonObject,
+    ): DiscordDomainEvent.MessageUpdatedPartial {
+        val messageId = MessageId(obj.getValue("id").jsonPrimitive.content.toLong())
+        val channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong())
+        val content = obj["content"]?.jsonPrimitive?.contentOrNull
+        val editedTs = obj["edited_timestamp"]?.jsonPrimitive?.contentOrNull
+            ?.let { runCatching { kotlinx.datetime.Instant.parse(it).toEpochMilliseconds() }.getOrNull() }
+        val flags = obj["flags"]?.jsonPrimitive?.content?.toIntOrNull()
+        val pinned = obj["pinned"]?.jsonPrimitive?.content?.toBooleanStrictOrNull()
+        val embeds = (obj["embeds"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { el ->
+            runCatching {
+                DiscordJson.decodeFromJsonElement(
+                    dev.puklic.protocol.discord.dto.DiscordEmbedDto.serializer(), el,
+                ).toDomain()
+            }.getOrNull()
+        }
+        val attachments = (obj["attachments"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { el ->
+            runCatching {
+                DiscordJson.decodeFromJsonElement(
+                    dev.puklic.protocol.discord.dto.DiscordAttachmentDto.serializer(), el,
+                ).toDomain()
+            }.getOrNull()
+        }
+        return DiscordDomainEvent.MessageUpdatedPartial(
+            messageId = messageId,
+            channelId = channelId,
+            content = content,
+            editedTimestampEpochMs = editedTs,
+            flags = flags,
+            pinned = pinned,
+            embeds = embeds,
+            attachments = attachments,
+        )
     }
 
     /**

@@ -64,6 +64,16 @@ public class GatewayEventSourceAdapter(
     private fun map(ev: DiscordDomainEvent): GatewayDomainEvent = when (ev) {
         is DiscordDomainEvent.MessageCreated -> GatewayDomainEvent.MessageCreated(ev.message)
         is DiscordDomainEvent.MessageUpdated -> GatewayDomainEvent.MessageUpdated(ev.message)
+        is DiscordDomainEvent.MessageUpdatedPartial -> GatewayDomainEvent.MessageUpdatedPartial(
+            messageId = ev.messageId,
+            channelId = ev.channelId,
+            content = ev.content,
+            editedTimestampEpochMs = ev.editedTimestampEpochMs,
+            flags = ev.flags,
+            pinned = ev.pinned,
+            embeds = ev.embeds,
+            attachments = ev.attachments,
+        )
         is DiscordDomainEvent.MessageDeleted -> GatewayDomainEvent.MessageDeleted(ev.channelId, ev.messageId)
         is DiscordDomainEvent.MessageDeletedBulk -> GatewayDomainEvent.MessageDeletedBulk(ev.channelId, ev.messageIds)
         is DiscordDomainEvent.PresenceUpdated -> GatewayDomainEvent.PresenceUpdated(
