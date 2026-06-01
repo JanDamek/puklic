@@ -64,6 +64,46 @@ class GuildOrchestratorTest {
     }
 
     @Test
+    fun guild_positions_event_orders_guilds_by_user_settings() = runTest {
+        val gw = FakeGatewayEventSource()
+        val storage = FakeGuildRepository()
+        storage.persist(guild(1L, "Charlie"))
+        storage.persist(guild(2L, "Alpha"))
+        storage.persist(guild(3L, "Bravo"))
+        val job = Job()
+        val scope = CoroutineScope(coroutineContext + job)
+        val orch = GuildOrchestrator(scope, gw, storage)
+        testScheduler.runCurrent()
+
+        // user-ordered: 3, 1 (2 is missing -> appended by name)
+        gw.emit(GatewayDomainEvent.GuildPositionsUpdated(listOf(GuildId(3L), GuildId(1L))))
+        testScheduler.runCurrent()
+
+        val ordered = orch.orderedGuilds.value
+        ordered.map { it.id.value } shouldBe listOf(3L, 1L, 2L)
+        job.cancel()
+    }
+
+    @Test
+    fun apply_ordering_falls_back_to_name_when_positions_empty() {
+        val gs = listOf(guild(1L, "Zulu"), guild(2L, "Alpha"), guild(3L, "Mike"))
+        val ordered = GuildOrchestrator.applyOrdering(gs, emptyList())
+        ordered.map { it.name } shouldBe listOf("Alpha", "Mike", "Zulu")
+    }
+
+    @Test
+    fun apply_ordering_appends_unknown_guilds_after_positioned_ones() {
+        val gs = listOf(
+            guild(1L, "One"),
+            guild(2L, "Two"),
+            guild(3L, "Three"),
+            guild(4L, "Four"),
+        )
+        val ordered = GuildOrchestrator.applyOrdering(gs, listOf(GuildId(3L), GuildId(1L)))
+        ordered.map { it.id.value } shouldBe listOf(3L, 1L, 4L, 2L)
+    }
+
+    @Test
     fun guild_deleted_event_removes_guild() = runTest {
         val gw = FakeGatewayEventSource()
         val storage = FakeGuildRepository()

@@ -85,6 +85,19 @@ public sealed interface DiscordDomainEvent {
         val users: List<UserSummary> = emptyList(),
     ) : DiscordDomainEvent
 
+    /**
+     * User-account guild ordering from READY's `user_settings`. Discord syncs this across all
+     * official clients. The list is ordered top-to-bottom as the user has arranged the rail.
+     *
+     * Sources, in order of precedence:
+     * 1. `user_settings.guild_folders[*].guild_ids` flattened in folder order (modern shape).
+     * 2. `user_settings.guild_positions` (legacy fallback).
+     *
+     * Guilds not mentioned in either source are appended by the orchestrator in name order so the
+     * rail never silently drops a guild whose position is missing from settings.
+     */
+    public data class GuildPositionsUpdated(val positions: List<GuildId>) : DiscordDomainEvent
+
     public data class ReactionAdded(
         val channelId: ChannelId,
         val messageId: MessageId,
@@ -545,6 +558,9 @@ public class DiscordGatewayBridge(
         val events = mutableListOf<DiscordDomainEvent>(
             DiscordDomainEvent.Ready(self, sessionId, readyUsers),
         )
+        // Issue #85 — extract user-account guild ordering. Discord places this under
+        // `user_settings` for user-mode connections; bot tokens don't ship this field at all.
+        extractGuildPositions(obj)?.let { events += it }
         val guildsArray = obj["guilds"]?.let { it as? kotlinx.serialization.json.JsonArray } ?: return events
         for ((index, guildElement) in guildsArray.withIndex()) {
             val dto = runCatching {
@@ -669,6 +685,15 @@ public class DiscordGatewayBridge(
             put("recipients", resolved)
         }
     }
+
+    /**
+     * Extracts user-account guild ordering from a READY payload. Returns null when the payload
+     * carries no user settings (e.g. bot connection or stripped READY). Prefers
+     * `guild_folders[*].guild_ids` (modern shape, includes folder grouping); falls back to the
+     * legacy flat `guild_positions` array.
+     */
+    private fun extractGuildPositions(readyObj: kotlinx.serialization.json.JsonObject):
+        DiscordDomainEvent.GuildPositionsUpdated? = extractGuildPositionsFromReady(readyObj)
 
     /**
      * Extracts the `channels` array embedded in a GUILD_CREATE / READY-guild payload and maps
@@ -950,4 +975,42 @@ public class DiscordSessionBridge(private val rest: DiscordRestClient) {
         rest.createDm(recipientId).mapCatching { dto ->
             dto.toDomain() ?: error("createDm: unexpected channel type ${dto.type}")
         }
+}
+
+/**
+ * Pure extractor for user-account guild ordering from a READY `user_settings` block. Kept as a
+ * top-level internal function so unit tests don't need to construct a full [DiscordGatewayBridge].
+ * Issue #85. Prefers `guild_folders[*].guild_ids` (modern shape) and falls back to the legacy
+ * `guild_positions` flat array.
+ */
+internal fun extractGuildPositionsFromReady(
+    readyObj: kotlinx.serialization.json.JsonObject,
+): DiscordDomainEvent.GuildPositionsUpdated? {
+    val settings = readyObj["user_settings"] as? kotlinx.serialization.json.JsonObject
+        ?: return null
+    val foldersArray = settings["guild_folders"] as? kotlinx.serialization.json.JsonArray
+    if (foldersArray != null && foldersArray.isNotEmpty()) {
+        val ordered = foldersArray.flatMap { folder ->
+            val folderObj = folder as? kotlinx.serialization.json.JsonObject
+                ?: return@flatMap emptyList<GuildId>()
+            val ids = folderObj["guild_ids"] as? kotlinx.serialization.json.JsonArray
+                ?: return@flatMap emptyList<GuildId>()
+            ids.mapNotNull { el ->
+                (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
+            }
+        }
+        if (ordered.isNotEmpty()) {
+            return DiscordDomainEvent.GuildPositionsUpdated(ordered)
+        }
+    }
+    val positionsArray = settings["guild_positions"] as? kotlinx.serialization.json.JsonArray
+    if (positionsArray != null && positionsArray.isNotEmpty()) {
+        val ordered = positionsArray.mapNotNull { el ->
+            (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
+        }
+        if (ordered.isNotEmpty()) {
+            return DiscordDomainEvent.GuildPositionsUpdated(ordered)
+        }
+    }
+    return null
 }

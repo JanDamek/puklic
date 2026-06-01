@@ -78,6 +78,8 @@ public class GatewayEventSourceAdapter(
         is DiscordDomainEvent.GuildCreated -> GatewayDomainEvent.GuildCreated(ev.guild)
         is DiscordDomainEvent.GuildUpdated -> GatewayDomainEvent.GuildUpdated(ev.guild)
         is DiscordDomainEvent.GuildDeleted -> GatewayDomainEvent.GuildDeleted(ev.guildId)
+        is DiscordDomainEvent.GuildPositionsUpdated ->
+            GatewayDomainEvent.GuildPositionsUpdated(ev.positions)
         is DiscordDomainEvent.ChannelCreated -> GatewayDomainEvent.ChannelCreated(ev.channel)
         is DiscordDomainEvent.ChannelUpdated -> GatewayDomainEvent.ChannelUpdated(ev.channel)
         is DiscordDomainEvent.ChannelDeleted -> GatewayDomainEvent.ChannelDeleted(ev.channelId)

@@ -45,6 +45,8 @@ public sealed interface GatewayDomainEvent {
     public data class GuildCreated(val guild: Guild) : GatewayDomainEvent
     public data class GuildUpdated(val guild: Guild) : GatewayDomainEvent
     public data class GuildDeleted(val guildId: GuildId) : GatewayDomainEvent
+    /** Issue #85 — user-account guild ordering from READY's user_settings. */
+    public data class GuildPositionsUpdated(val positions: List<GuildId>) : GatewayDomainEvent
     public data class ChannelCreated(val channel: Channel) : GatewayDomainEvent
     public data class ChannelUpdated(val channel: Channel) : GatewayDomainEvent
     public data class ChannelDeleted(val channelId: ChannelId) : GatewayDomainEvent
