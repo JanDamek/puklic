@@ -16,10 +16,37 @@ data class ChatMessage(
     val reactions: List<Reaction>,
     val mentions: MessageMentions,
     val flags: MessageFlags,
+    val type: MessageType = MessageType.DEFAULT,
     val timestamp: Instant,
     val editedTimestamp: Instant?,
     val referencedMessage: MessageReference?,
 )
+
+/**
+ * Discord message type (raw numeric code mapped to a closed enum). Only the variants that the
+ * client currently renders are listed explicitly; everything else lands on [UNKNOWN] and is
+ * still shown as plain text so unknown variants never produce a blank row.
+ *
+ * Reference: https://discord.com/developers/docs/resources/channel#message-object-message-types
+ */
+enum class MessageType(val raw: Int) {
+    DEFAULT(0),
+    RECIPIENT_ADD(1),
+    RECIPIENT_REMOVE(2),
+    CALL(3),
+    CHANNEL_NAME_CHANGE(4),
+    CHANNEL_ICON_CHANGE(5),
+    CHANNEL_PINNED_MESSAGE(6),
+    USER_JOIN(7),
+    REPLY(19),
+    UNKNOWN(-1),
+    ;
+
+    public companion object {
+        public fun fromRaw(raw: Int): MessageType =
+            entries.firstOrNull { it.raw == raw } ?: UNKNOWN
+    }
+}
 
 enum class MessageFlags {
     NONE,

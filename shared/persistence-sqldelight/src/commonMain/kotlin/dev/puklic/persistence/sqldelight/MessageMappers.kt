@@ -5,6 +5,7 @@ import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.MessageFlags
 import dev.puklic.domain.MessageMentions
 import dev.puklic.domain.MessageReference
+import dev.puklic.domain.MessageType
 import dev.puklic.domain.ReferenceType
 import dev.puklic.domain.RichTextDocument
 import dev.puklic.domain.UserSummary
@@ -53,6 +54,7 @@ internal fun MessageRow.toDomain(author: UserSummary): ChatMessage = ChatMessage
         everyone = (mentions_everyone ?: 0L) != 0L,
     ),
     flags = decodeFlags(flags),
+    type = MessageType.fromRaw(type.toInt()),
     timestamp = Instant.fromEpochMilliseconds(timestamp),
     editedTimestamp = edited_timestamp?.let(Instant::fromEpochMilliseconds),
     referencedMessage = reference_type?.let { refType ->
@@ -73,6 +75,7 @@ internal data class MessageColumns(
     val timestamp: Long,
     val editedTimestamp: Long?,
     val flags: Long,
+    val type: Long,
     val referenceMessageId: Long?,
     val referenceChannelId: Long?,
     val referenceType: Long?,
@@ -93,6 +96,7 @@ internal fun ChatMessage.toColumns(): MessageColumns = MessageColumns(
     timestamp = timestamp.toEpochMilliseconds(),
     editedTimestamp = editedTimestamp?.toEpochMilliseconds(),
     flags = encodeFlags(flags),
+    type = type.raw.toLong(),
     referenceMessageId = referencedMessage?.messageId?.value,
     referenceChannelId = referencedMessage?.channelId?.value,
     referenceType = referencedMessage?.let { encodeReferenceType(it.type) },

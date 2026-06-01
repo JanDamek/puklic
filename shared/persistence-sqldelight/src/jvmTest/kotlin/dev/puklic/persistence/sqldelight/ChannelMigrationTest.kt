@@ -61,6 +61,32 @@ class ChannelMigrationTest {
             "INSERT INTO channel(id, type, updated_at) VALUES (42, 0, 0)",
             0,
         )
+        // The message table is required so subsequent migrations (2.sqm — `type` column) can ALTER it.
+        raw.execute(
+            null,
+            """
+            CREATE TABLE message (
+                id INTEGER NOT NULL PRIMARY KEY,
+                channel_id INTEGER NOT NULL,
+                author_id INTEGER NOT NULL,
+                raw_content TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                edited_timestamp INTEGER,
+                flags INTEGER NOT NULL DEFAULT 0,
+                reference_message_id INTEGER,
+                reference_channel_id INTEGER,
+                reference_type INTEGER,
+                mentions_everyone INTEGER DEFAULT 0,
+                attachments_json TEXT NOT NULL DEFAULT '[]',
+                embeds_json TEXT NOT NULL DEFAULT '[]',
+                reactions_json TEXT NOT NULL DEFAULT '[]',
+                mentions_users_json TEXT NOT NULL DEFAULT '[]',
+                mentions_roles_json TEXT NOT NULL DEFAULT '[]',
+                mentions_channels_json TEXT NOT NULL DEFAULT '[]'
+            )
+            """.trimIndent(),
+            0,
+        )
         raw.execute(null, "PRAGMA user_version = 1", 0)
         raw.close()
 

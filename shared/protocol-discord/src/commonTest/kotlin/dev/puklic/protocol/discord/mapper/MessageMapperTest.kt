@@ -2,6 +2,7 @@ package dev.puklic.protocol.discord.mapper
 
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.MessageFlags
+import dev.puklic.domain.MessageType
 import dev.puklic.protocol.discord.DiscordJsonStrict
 import dev.puklic.protocol.discord.dto.DiscordMessageDto
 import dev.puklic.protocol.discord.dto.MESSAGE_CREATE_RICH
@@ -26,6 +27,42 @@ class MessageMapperTest {
         assertEquals(Instant.parse("2026-05-21T10:00:00.000000+00:00"), msg.timestamp)
         assertEquals(MessageFlags.NONE, msg.flags)
         assertTrue(msg.parsedContent.blocks.isNotEmpty())
+    }
+
+    @Test
+    fun call_message_type_is_decoded() {
+        val raw = """{
+          "id": "1000000000000000003",
+          "channel_id": "2000000000000000002",
+          "author": {"id":"3000000000000000003","username":"tester","discriminator":"0"},
+          "content": "",
+          "timestamp": "2026-05-21T10:00:00.000000+00:00",
+          "type": 3
+        }"""
+        val dto = DiscordJsonStrict.decodeFromString(DiscordMessageDto.serializer(), raw)
+        val msg = dto.toDomain()
+        assertEquals(MessageType.CALL, msg.type)
+    }
+
+    @Test
+    fun unknown_message_type_falls_back_to_unknown_enum() {
+        val raw = """{
+          "id": "1000000000000000004",
+          "channel_id": "2000000000000000002",
+          "author": {"id":"3000000000000000003","username":"tester","discriminator":"0"},
+          "content": "",
+          "timestamp": "2026-05-21T10:00:00.000000+00:00",
+          "type": 999
+        }"""
+        val dto = DiscordJsonStrict.decodeFromString(DiscordMessageDto.serializer(), raw)
+        val msg = dto.toDomain()
+        assertEquals(MessageType.UNKNOWN, msg.type)
+    }
+
+    @Test
+    fun default_message_type_when_absent() {
+        val dto = DiscordJsonStrict.decodeFromString(DiscordMessageDto.serializer(), MESSAGE_CREATE_SIMPLE)
+        assertEquals(MessageType.DEFAULT, dto.toDomain().type)
     }
 
     @Test

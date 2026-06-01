@@ -51,6 +51,7 @@ import com.arkivanov.essenty.lifecycle.resume
 import com.arkivanov.essenty.lifecycle.destroy
 import dev.puklic.repositories.MessageOrchestrator
 import dev.puklic.ui.components.Composer
+import dev.puklic.ui.components.MessageAction
 import dev.puklic.ui.components.MessageList
 import dev.puklic.ui.components.fileDropTarget
 import androidx.compose.ui.Alignment
@@ -144,6 +145,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
         }
         val topic = (selectedChannel as? GuildTextChannel)?.topic
         val voiceStateForHeader by viewModel.voiceState.collectAsState()
+        val selfUser by viewModel.selfUser.collectAsState()
         MessagePane(
             selectedChannelId = state.selectedChannelId,
             selectedChannelName = displayName,
@@ -155,6 +157,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             voiceState = voiceStateForHeader,
             onStartDmCall = viewModel::startDmCall,
             onHangUpVoice = viewModel::hangUpVoice,
+            selfUserId = selfUser?.id,
             modifier = Modifier.fillMaxHeight().fillMaxWidth(),
         )
     }
@@ -551,6 +554,7 @@ private fun MessagePane(
     voiceState: VoiceState = VoiceState.Idle,
     onStartDmCall: (ChannelId) -> Unit = {},
     onHangUpVoice: () -> Unit = {},
+    selfUserId: UserId? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -581,6 +585,7 @@ private fun MessagePane(
                 voiceState = voiceState,
                 onStartDmCall = onStartDmCall,
                 onHangUpVoice = onHangUpVoice,
+                selfUserId = selfUserId,
             )
         }
     }
@@ -622,6 +627,7 @@ private fun ChannelMessages(
     voiceState: VoiceState = VoiceState.Idle,
     onStartDmCall: (ChannelId) -> Unit = {},
     onHangUpVoice: () -> Unit = {},
+    selfUserId: UserId? = null,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
     // resumed for the lifetime of this composition and destroyed in onDispose.
@@ -694,8 +700,17 @@ private fun ChannelMessages(
             MessageList(
                 state = state,
                 onLoadOlder = viewModel.viewModel::loadOlder,
-                onMessageAction = {},
+                onMessageAction = { action ->
+                    when (action) {
+                        is MessageAction.Delete ->
+                            viewModel.viewModel.deleteMessage(action.message.id)
+                        is MessageAction.Edit ->
+                            viewModel.viewModel.editMessage(action.message.id, action.newContent)
+                        is MessageAction.CopyLink, is MessageAction.React -> Unit
+                    }
+                },
                 modifier = Modifier.fillMaxWidth(),
+                selfUserId = selfUserId,
                 onReact = { message, emoji ->
                     val alreadyReacted = message.reactions.any { it.me && it.emoji == emoji }
                     viewModel.viewModel.toggleReaction(message.id, emoji, alreadyReacted)
