@@ -7,11 +7,18 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ContentPaste
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Tab
@@ -22,6 +29,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.puklic.ui.theme.LocalPuklicSpacing
@@ -38,8 +46,19 @@ public fun LoginScreen(viewModel: LoginViewModel) {
     val state by viewModel.state.collectAsState()
     val spacing = LocalPuklicSpacing.current
 
+    // `imePadding()` shifts the entire login surface above the system keyboard so
+    // the Sign-In button remains tappable on small screens; `verticalScroll` lets
+    // the user scroll the card content if the keyboard still overlaps once the
+    // form grows (MFA step, error supporting text). Belt-and-suspenders with
+    // `OnFocusBehavior.FocusableAboveKeyboard` configured on the iOS view
+    // controller — together they cover both Compose iOS's automatic focus shift
+    // and any layout that needs scrolling.
     Box(
-        modifier = Modifier.fillMaxSize().padding(spacing.space5),
+        modifier = Modifier
+            .fillMaxSize()
+            .imePadding()
+            .verticalScroll(rememberScrollState())
+            .padding(spacing.space5),
         contentAlignment = Alignment.Center,
     ) {
         Card(modifier = Modifier.widthIn(max = 480.dp).padding(spacing.space5)) {
@@ -89,6 +108,11 @@ public fun LoginScreen(viewModel: LoginViewModel) {
 
 @Composable
 private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
+    // Explicit Paste affordance — Compose Multiplatform 1.8 iOS does not surface
+    // the system long-press paste menu on text fields with PasswordVisualTransformation,
+    // so we render a trailing IconButton that reads the system clipboard via
+    // LocalClipboardManager and forwards the value to the view model.
+    val clipboard = LocalClipboardManager.current
     OutlinedTextField(
         value = state.token,
         onValueChange = viewModel::onTokenChange,
@@ -99,6 +123,16 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
         isError = state.error != null,
         supportingText = state.error?.let { msg ->
             { Text(msg, color = MaterialTheme.colorScheme.error) }
+        },
+        trailingIcon = {
+            IconButton(
+                enabled = !state.submitting,
+                onClick = {
+                    clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let(viewModel::onTokenChange)
+                },
+            ) {
+                Icon(Icons.Outlined.ContentPaste, contentDescription = "Paste token")
+            }
         },
         modifier = Modifier.widthIn(min = 320.dp),
     )

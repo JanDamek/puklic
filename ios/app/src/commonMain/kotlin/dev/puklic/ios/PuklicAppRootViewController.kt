@@ -1,5 +1,6 @@
 package dev.puklic.ios
 
+import androidx.compose.ui.uikit.OnFocusBehavior
 import androidx.compose.ui.window.ComposeUIViewController
 import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
@@ -41,7 +42,13 @@ public fun puklicAppRootViewController(
         preferences = preferences,
     )
     lifecycle.resume()
-    return ComposeUIViewController {
+    // `OnFocusBehavior.FocusableAboveKeyboard` makes Compose iOS shift the focused
+    // text field above the system keyboard automatically — without it the keyboard
+    // overlays the input on small screens (incl. login Sign-In button, making the
+    // form impossible to submit).
+    return ComposeUIViewController(configure = {
+        onFocusBehavior = OnFocusBehavior.FocusableAboveKeyboard
+    }) {
         PuklicApp(
             root = root,
             mentionResolver = mentionResolver,
