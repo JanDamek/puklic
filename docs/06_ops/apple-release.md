@@ -3,51 +3,74 @@
 > **HARD RULE #4 (CLAUDE.md, 2026-05-31):** Apple distribution is LOCAL ONLY.
 > All commands below run from a developer Mac. There is no CI variant.
 
-> **HARD RULE #7 (CLAUDE.md, 2026-06-01):** Apple Distribution cert is
-> per-application. Puklic's cert SHA1 is hardcoded in `iosApp/project.yml`;
-> never replace or regenerate via App Store Connect web UI.
+> **HARD RULE (CLAUDE.md, 2026-06-01):** Apple Distribution cert is ONE
+> shared cert for all apps under one Apple Developer Team ID. Puklic's
+> provisioning profile embeds the team-shared SHA1 pinned in
+> `iosApp/project.yml`; never regenerate via App Store Connect web UI.
 
 Architect report:
 [`../03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`](../03_infrastructure/architect-reports/2026-05-31-apple-local-only.md).
 
-## Apple Distribution cert — Puklic-specific (do not share)
+## Apple Distribution cert — team-shared (single cert for all apps under team GR74KSG8M9)
+
+Apple Distribution cert is **shared** across every iOS / macOS app published
+under Team ID `GR74KSG8M9` — ASC's hard limit of 2 active certs per type
+makes per-application certs unworkable at scale. Every project's
+provisioning profile embeds the same SHA1.
 
 | Field | Value |
 |-------|-------|
 | Display name | `Apple Distribution: Jan Damek (GR74KSG8M9)` |
 | **SHA1 (pinned)** | `87C2C002603CAACDC619BA32762945AB03C0BCA0` |
 | Team ID | `GR74KSG8M9` |
-| Bundle ID family | `cz.damek.puklic.*` |
-| Provisioning profile | `Puklic App Store` (UUID `e9ae0eef-e9b8-47c0-9391-7430d4ccaad2`) |
-| Pinned in | `iosApp/project.yml` `CODE_SIGN_IDENTITY` |
+| Used by (apps) | Puklic (cz.damek.puklic.app), Jervis (com.jervis.*), … |
+| Puklic provisioning profile | `Puklic App Store` (UUID `e9ae0eef-e9b8-47c0-9391-7430d4ccaad2`) |
+| Pinned in this repo | `iosApp/project.yml` `CODE_SIGN_IDENTITY` |
 | Profile expiry | 2027-05-28 |
-| `.p12` backup | **TBD — export from Keychain Access app + store in 1Password** |
+| Cert expiry | check `security find-certificate -c "Apple Distribution: Jan Damek" -p \| openssl x509 -noout -dates` |
+| `.p12` backup | **central 1Password vault item "Apple Distribution Cert — Team GR74KSG8M9"** (shared with Jervis + other Apple projects) |
 
-### Backup procedure (one-time, must do before first release)
+### Backup procedure (one-time, central — single backup for all projects)
 
 1. Open **Keychain Access.app** → My Certificates
 2. Right-click `Apple Distribution: Jan Damek (GR74KSG8M9)` (SHA1 above) → Export
-3. Save as `Puklic-AppleDistribution-87C2C002.p12`, set strong passphrase
-4. Store the `.p12` + passphrase in **1Password** vault item "Puklic — Apple certs"
+3. Save as `AppleDistribution-GR74KSG8M9-87C2C002.p12`, set strong passphrase
+4. Store the `.p12` + passphrase in **1Password** central vault item
+   `Apple Distribution Cert — Team GR74KSG8M9` (same backup referenced by
+   Puklic + Jervis + every other Apple project under this team)
 5. Verify restore on a fresh keychain before retiring the original Mac
 
 ### Forbidden operations
 
-- ❌ **Regenerate** this cert via ASC web UI — revoke is irreversible and the
-  identical display name `Jan Damek` is used by other projects (Jervis, …).
+- ❌ **Regenerate** this cert via ASC web UI — revoke is irreversible and
+  every project under team GR74KSG8M9 with profiles embedding this SHA1
+  will fail to sign until profiles are regenerated against the replacement.
+- ❌ **Create a duplicate** Apple Distribution cert (a second "Apple
+  Distribution: Jan Damek" with a different SHA1) — keychain ambiguity
+  causes codesign to pick the wrong one and builds fail.
 - ❌ **Delete** any cert in keychain marked `Apple Distribution: Jan Damek`
-  without first checking the SHA1 against this table + the per-project
-  registry in global `~/.claude/CLAUDE.md` HARD RULE #7.
-- ❌ **Use generic `"Apple Distribution"`** as `CODE_SIGN_IDENTITY` — collides
-  with other projects' certs sharing the same display name.
+  as "duplicate" — every SHA1 corresponds to a real cert that is or was
+  active in ASC. Verify first.
+- ❌ **Use generic `"Apple Distribution"`** as `CODE_SIGN_IDENTITY` — falls
+  back to the keychain's first match by display name, which is non-
+  deterministic when more than one cert with that subject exists.
 
 ### If `security find-identity` no longer shows SHA1 `87C2…`
 
 1. **STOP** building — do not regenerate
-2. Restore from 1Password `.p12` backup:
-   `security import Puklic-AppleDistribution-87C2C002.p12 -P <passphrase>`
+2. Restore from 1Password central backup:
+   `security import AppleDistribution-GR74KSG8M9-87C2C002.p12 -P <passphrase> -k login.keychain-db -T /usr/bin/codesign`
 3. Verify: `security find-identity -v -p codesigning | grep 87C2C002`
 4. Re-run `dist/apple/build-ipa.sh`
+
+### Rotation (cert approaching 5-year expiry — plan 30 days ahead)
+
+1. ASC → Certificates → New → Apple Distribution → use the empty backup slot
+2. Download new `.cer`, install in keychain
+3. Export new `.p12` → replace 1Password central backup (keep old in a versioned attachment until full migration complete)
+4. Update SHA1 pins in every Apple project's build config (search every repo for the old SHA1, replace with the new one)
+5. Regenerate every project's provisioning profile to embed the new cert
+6. After all projects build green on the new cert → revoke the old one in ASC
 
 ## Pre-release checklist (one-time per Mac)
 
