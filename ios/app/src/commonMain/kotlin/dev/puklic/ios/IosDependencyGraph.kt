@@ -44,6 +44,8 @@ import dev.puklic.repositories.UserOrchestrator
 import dev.puklic.repositories.VoiceStateRepository
 import dev.puklic.session.DiscordSession
 import dev.puklic.session.DmCreator
+import dev.puklic.session.FriendInviter
+import dev.puklic.session.ServerJoiner
 import dev.puklic.session.SessionManager
 import dev.puklic.session.adapter.DiscordCredentialsLoginAdapter
 import dev.puklic.session.adapter.GatewayEventSourceAdapter
@@ -303,6 +305,10 @@ public class IosDependencyGraph private constructor(
             val dmCreator = DmCreator { recipientId ->
                 sessionBridge.createOrOpenDm(recipientId)
             }
+            val friendInviter = FriendInviter { username, discriminator ->
+                sessionBridge.addFriend(username, discriminator)
+            }
+            val serverJoiner = ServerJoiner { code -> sessionBridge.joinServer(code) }
 
             return DiscordSession(
                 applicationScope = applicationScope,
@@ -311,6 +317,8 @@ public class IosDependencyGraph private constructor(
                 orchestrators = orchestrators,
                 voiceClient = voiceClient,
                 dmCreator = dmCreator,
+                friendInviter = friendInviter,
+                serverJoiner = serverJoiner,
             )
         }
     }

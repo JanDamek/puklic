@@ -393,6 +393,13 @@ public class DependencyGraph private constructor(
             val dmCreator = dev.puklic.session.DmCreator { recipientId ->
                 sessionBridge.createOrOpenDm(recipientId)
             }
+            // Issue #80 — friend-request + invite-accept REST seams.
+            val friendInviter = dev.puklic.session.FriendInviter { username, discriminator ->
+                sessionBridge.addFriend(username, discriminator)
+            }
+            val serverJoiner = dev.puklic.session.ServerJoiner { code ->
+                sessionBridge.joinServer(code)
+            }
 
             return DiscordSession(
                 applicationScope = applicationScope,
@@ -401,6 +408,8 @@ public class DependencyGraph private constructor(
                 orchestrators = orchestrators,
                 voiceClient = voiceClient,
                 dmCreator = dmCreator,
+                friendInviter = friendInviter,
+                serverJoiner = serverJoiner,
             )
         }
 

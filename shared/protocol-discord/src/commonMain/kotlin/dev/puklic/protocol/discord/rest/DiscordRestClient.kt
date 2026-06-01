@@ -395,6 +395,74 @@ public class DiscordRestClient(
     )
 
     /**
+     * Send an outgoing friend request via `POST /users/@me/relationships` (issue #80). Body
+     * mirrors the official desktop client: `{"username": "<name>", "discriminator": "<digits>"}`
+     * for the legacy form, or `{"username": "<name>", "discriminator": null}` for the new
+     * pomelo handle. Discord returns 204 No Content on success.
+     */
+    internal suspend fun addRelationship(
+        username: String,
+        discriminator: String?,
+    ): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.post("$baseUrl/users/@me/relationships") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DiscordJson.encodeToString(
+                        JsonElement.serializer(),
+                        buildJsonObject {
+                            put("username", username)
+                            put(
+                                "discriminator",
+                                discriminator
+                                    ?.let { kotlinx.serialization.json.JsonPrimitive(it) }
+                                    ?: kotlinx.serialization.json.JsonNull,
+                            )
+                        },
+                    ),
+                )
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (response.status.isSuccess()) Result.success(Unit) else Result.failure(errorOf(response))
+        },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
+     * Accept a Discord invite by [code] via `POST /invites/{code}` with an empty JSON body
+     * (issue #80). On success Discord returns the invite payload with the joined guild embedded
+     * under `guild`; we surface that dto best-effort so the caller can react immediately without
+     * waiting for the asynchronous `GUILD_CREATE` gateway dispatch. Null = decoding the guild
+     * failed (response shape unexpected) — caller should still treat the result as success.
+     */
+    internal suspend fun acceptInvite(code: String): Result<DiscordGuildDto?> = runCatching {
+        executeWithRetry {
+            httpClient.post("$baseUrl/invites/${code.encodeURLPathPart()}") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody("{}")
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (!response.status.isSuccess()) return@fold Result.failure(errorOf(response))
+            val body = response.bodyAsText()
+            val guildDto: DiscordGuildDto? = runCatching {
+                val root = DiscordJson.parseToJsonElement(body) as? kotlinx.serialization.json.JsonObject
+                    ?: return@runCatching null
+                val guildObj = root["guild"] as? kotlinx.serialization.json.JsonObject
+                    ?: return@runCatching null
+                DiscordJson.decodeFromJsonElement(serializer<DiscordGuildDto>(), guildObj)
+            }.getOrNull()
+            Result.success(guildDto)
+        },
+        onFailure = { Result.failure(it) },
+    )
+
+    /**
      * Fetch a single message by id. Used by the voice layer's caller-id message-author fallback
      * chain when CALL_CREATE arrives with an empty `voice_states` array but a `message_id` set.
      */

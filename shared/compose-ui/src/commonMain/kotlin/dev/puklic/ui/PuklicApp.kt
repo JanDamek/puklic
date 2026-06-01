@@ -81,6 +81,8 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
             voiceClient = activeSession?.voiceClient,
             sessionManager = root.sessionManager,
             dmCreator = activeSession?.dmCreator,
+            friendInviter = activeSession?.friendInviter,
+            serverJoiner = activeSession?.serverJoiner,
         )
     }
     val uriHandler = LocalUriHandler.current

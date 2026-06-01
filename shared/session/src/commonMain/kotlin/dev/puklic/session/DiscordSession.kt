@@ -35,6 +35,8 @@ public class DiscordSession(
     public val orchestrators: Orchestrators? = null,
     public val voiceClient: VoiceClient = NoOpVoiceClient(),
     public val dmCreator: DmCreator? = null,
+    public val friendInviter: FriendInviter? = null,
+    public val serverJoiner: ServerJoiner? = null,
 ) {
     private val sessionJob: Job = SupervisorJob(applicationScope.coroutineContext[Job])
     private val context: CoroutineContext = applicationScope.coroutineContext + sessionJob

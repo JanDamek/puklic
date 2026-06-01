@@ -26,6 +26,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.PersonAdd
+import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -105,6 +107,8 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             isDmHomeSelected = state.isDmHome,
             onSelectDmHome = viewModel::selectDmHome,
             onSelectGuild = viewModel::selectGuild,
+            onOpenAddFriend = viewModel::openAddFriend,
+            onOpenJoinServer = viewModel::openJoinServer,
             modifier = Modifier.width(56.dp).fillMaxHeight(),
         )
         VerticalDivider()
@@ -164,6 +168,8 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
         SnackbarHostMount(viewModel = viewModel)
         IncomingCallMount(viewModel = viewModel)
         NewDmDialogMount(viewModel = viewModel)
+        AddFriendDialogMount(viewModel = viewModel)
+        JoinServerDialogMount(viewModel = viewModel)
         val settingsOpen by viewModel.settingsOpen.collectAsState()
         val settingsCategory by viewModel.selectedSettingsCategory.collectAsState()
         SettingsOverlay(
@@ -228,6 +234,42 @@ private fun NewDmDialogMount(viewModel: MainViewModel) {
 }
 
 /**
+ * Mounts the Add-Friend dialog (issue #80). State + side-effects live in [MainViewModel].
+ */
+@Composable
+private fun AddFriendDialogMount(viewModel: MainViewModel) {
+    val state by viewModel.addFriend.collectAsState()
+    if (!state.isOpen) return
+    dev.puklic.ui.components.AddFriendDialog(
+        query = state.query,
+        isSubmitting = state.isSubmitting,
+        errorMessage = state.errorMessage,
+        successMessage = state.successMessage,
+        onQueryChange = viewModel::updateAddFriendQuery,
+        onSubmit = viewModel::submitAddFriend,
+        onDismiss = viewModel::closeAddFriend,
+    )
+}
+
+/**
+ * Mounts the Join-Server dialog (issue #80). State + side-effects live in [MainViewModel].
+ */
+@Composable
+private fun JoinServerDialogMount(viewModel: MainViewModel) {
+    val state by viewModel.joinServer.collectAsState()
+    if (!state.isOpen) return
+    dev.puklic.ui.components.JoinServerDialog(
+        query = state.query,
+        isSubmitting = state.isSubmitting,
+        errorMessage = state.errorMessage,
+        successMessage = state.successMessage,
+        onQueryChange = viewModel::updateJoinServerQuery,
+        onSubmit = viewModel::submitJoinServer,
+        onDismiss = viewModel::closeJoinServer,
+    )
+}
+
+/**
  * Surfaces the queue head of [MainViewModel.incomingCalls] as an [IncomingCallDialog]. The
  * dialog auto-advances when the head call is removed (accept / decline / remote cancel).
  */
@@ -263,6 +305,8 @@ private fun GuildRail(
     isDmHomeSelected: Boolean,
     onSelectDmHome: () -> Unit,
     onSelectGuild: (GuildId) -> Unit,
+    onOpenAddFriend: () -> Unit,
+    onOpenJoinServer: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     // Issue #79: guild rail must scroll when guilds overflow the viewport. LazyColumn provides
@@ -290,6 +334,51 @@ private fun GuildRail(
                 onClick = { onSelectGuild(g.id) },
             )
         }
+        item(key = "rail-action-divider") {
+            HorizontalDivider(
+                color = MaterialTheme.colorScheme.outlineVariant,
+                modifier = Modifier.width(32.dp),
+            )
+        }
+        // Issue #80 — Add Friend and Join Server affordances at rail bottom (below the guild
+        // list). Discord's web client places these in a separate top-level Friends route; in
+        // Puklic's reduced surface they live in the rail to stay one-click reachable.
+        item(key = "rail-add-friend") {
+            RailActionItem(
+                icon = Icons.Filled.PersonAdd,
+                description = "Add friend",
+                onClick = onOpenAddFriend,
+            )
+        }
+        item(key = "rail-join-server") {
+            RailActionItem(
+                icon = Icons.Filled.Public,
+                description = "Join server",
+                onClick = onOpenJoinServer,
+            )
+        }
+    }
+}
+
+@Composable
+private fun RailActionItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .width(40.dp)
+            .height(40.dp)
+            .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = description,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

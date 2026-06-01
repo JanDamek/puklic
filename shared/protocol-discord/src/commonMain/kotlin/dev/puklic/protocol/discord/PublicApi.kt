@@ -975,6 +975,23 @@ public class DiscordSessionBridge(private val rest: DiscordRestClient) {
         rest.createDm(recipientId).mapCatching { dto ->
             dto.toDomain() ?: error("createDm: unexpected channel type ${dto.type}")
         }
+
+    /**
+     * Send a friend request (issue #80). Accepts either the new pomelo handle (username only,
+     * [discriminator] null) or the legacy `username#discriminator` form. The endpoint is
+     * `POST /users/@me/relationships`; success surfaces as [Result.success].
+     */
+    public suspend fun addFriend(username: String, discriminator: String?): Result<Unit> =
+        rest.addRelationship(username, discriminator)
+
+    /**
+     * Accept a guild invite by [code] (issue #80). The joined guild surfaces in the rail
+     * asynchronously via the gateway `GUILD_CREATE` dispatch; the embedded REST guild dto is
+     * dropped because the orchestrators are the source of truth for guild membership and feed
+     * solely from gateway events.
+     */
+    public suspend fun joinServer(code: String): Result<Unit> =
+        rest.acceptInvite(code).map { /* drop guild dto — gateway delivers full state */ }
 }
 
 /**
