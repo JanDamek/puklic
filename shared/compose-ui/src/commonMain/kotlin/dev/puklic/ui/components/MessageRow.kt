@@ -2,6 +2,7 @@ package dev.puklic.ui.components
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,8 +19,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.input.pointer.isSecondaryPressed
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,10 +70,11 @@ public fun MessageRow(
     groupedWithPrevious: Boolean = false,
     deliveryState: MessageDeliveryState = MessageDeliveryState.Committed,
     isMentionedUser: Boolean = false,
+    isOwnMessage: Boolean = false,
     onReact: (EmojiRef) -> Unit = {},
-    @Suppress("UnusedParameter") onEdit: () -> Unit = {},
-    @Suppress("UnusedParameter") onDelete: () -> Unit = {},
-    @Suppress("UnusedParameter") onCopyLink: () -> Unit = {},
+    onEdit: () -> Unit = {},
+    onDelete: () -> Unit = {},
+    onCopyLink: () -> Unit = {},
     @Suppress("UnusedParameter") onAuthorClick: (UserSummary) -> Unit = {},
     @Suppress("UnusedParameter") onAttachmentClick: (Attachment) -> Unit = {},
     onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
@@ -83,12 +91,46 @@ public fun MessageRow(
         return
     }
 
+    var menuOpen by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    val onCopyText: () -> Unit = {
+        val text = message.rawContent.ifBlank {
+            message.parsedContent.blocks.joinToString("\n") { it.toString() }
+        }
+        if (text.isNotEmpty()) clipboard.setText(AnnotatedString(text))
+    }
+    val gestureModifier = Modifier
+        .pointerInput(message.id.value) {
+            detectTapGestures(onLongPress = { menuOpen = true })
+        }
+        .pointerInput(message.id.value) {
+            awaitPointerEventScope {
+                while (true) {
+                    val event = awaitPointerEvent()
+                    if (event.buttons.isSecondaryPressed) {
+                        event.changes.forEach { it.consume() }
+                        menuOpen = true
+                    }
+                }
+            }
+        }
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .background(background)
+            .then(gestureModifier)
             .padding(vertical = spacing.space2, horizontal = spacing.space4),
     ) {
+        MessageContextMenu(
+            isOpen = menuOpen,
+            onDismiss = { menuOpen = false },
+            isOwnMessage = isOwnMessage,
+            onCopyText = { onCopyText(); menuOpen = false },
+            onCopyLink = { onCopyLink(); menuOpen = false },
+            onEdit = { onEdit(); menuOpen = false },
+            onDelete = { onDelete(); menuOpen = false },
+        )
         if (!groupedWithPrevious) {
             PuklicAvatar(user = message.author, size = AvatarSize)
             Spacer(Modifier.width(spacing.space4))
@@ -415,6 +457,37 @@ private fun EmbedFields(fields: List<dev.puklic.domain.EmbedField>) {
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * Right-click / long-press context menu for a chat message. Items:
+ *  - Copy text (always)
+ *  - Copy message link (always)
+ *  - Edit (own messages only)
+ *  - Delete (own messages only)
+ *
+ * Items are computed from [isOwnMessage] so the menu adapts to the viewer's authorship without
+ * the caller having to pre-filter callbacks. Closing happens via the parent (each item resets
+ * `menuOpen` before invoking the callback).
+ */
+@Composable
+internal fun MessageContextMenu(
+    isOpen: Boolean,
+    onDismiss: () -> Unit,
+    isOwnMessage: Boolean,
+    onCopyText: () -> Unit,
+    onCopyLink: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    DropdownMenu(expanded = isOpen, onDismissRequest = onDismiss) {
+        DropdownMenuItem(text = { Text("Copy text") }, onClick = onCopyText)
+        DropdownMenuItem(text = { Text("Copy message link") }, onClick = onCopyLink)
+        if (isOwnMessage) {
+            DropdownMenuItem(text = { Text("Edit") }, onClick = onEdit)
+            DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
         }
     }
 }

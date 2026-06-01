@@ -124,6 +124,22 @@ public class MessageListViewModel(
         }
     }
 
+    /** Delete a message via the orchestrator (issues REST DELETE + removes the local row). */
+    public fun deleteMessage(messageId: MessageId) {
+        scope.launch {
+            orchestrator.delete(messageId, channelId)
+                .onFailure { Logger.w("MessageListViewModel", it) { "delete failed mid=$messageId" } }
+        }
+    }
+
+    /** Edit a message via the orchestrator (issues REST PATCH with new content). */
+    public fun editMessage(messageId: MessageId, newContent: String) {
+        scope.launch {
+            orchestrator.edit(messageId, channelId, newContent)
+                .onFailure { Logger.w("MessageListViewModel", it) { "edit failed mid=$messageId" } }
+        }
+    }
+
     public fun loadOlder() {
         val loaded = _state.value as? MessageListState.Loaded ?: return
         val oldest = loaded.messages.firstOrNull() ?: return

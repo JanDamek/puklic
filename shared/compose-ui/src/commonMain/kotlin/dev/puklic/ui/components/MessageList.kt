@@ -18,6 +18,7 @@ import dev.puklic.domain.Attachment
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.EmojiRef
 import dev.puklic.ids.EmojiId
+import dev.puklic.ids.UserId
 import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
 
@@ -35,8 +36,9 @@ public sealed interface MessageAction {
 public fun MessageList(
     state: MessageListState,
     @Suppress("UnusedParameter") onLoadOlder: () -> Unit,
-    @Suppress("UnusedParameter") onMessageAction: (MessageAction) -> Unit,
+    onMessageAction: (MessageAction) -> Unit,
     modifier: Modifier = Modifier,
+    selfUserId: UserId? = null,
     onReact: (ChatMessage, EmojiRef) -> Unit = { _, _ -> },
     onAttachmentClick: (Attachment) -> Unit = {},
     onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
@@ -90,13 +92,18 @@ public fun MessageList(
                             kotlin.math.abs(
                                 msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
                             ) <= GROUPING_WINDOW_SECONDS
+                        val msg = msgs[idx]
                         MessageRow(
-                            message = msgs[idx],
+                            message = msg,
                             groupedWithPrevious = grouped,
-                            onReact = { emoji -> onReact(msgs[idx], emoji) },
+                            isOwnMessage = selfUserId != null && msg.author.id == selfUserId,
+                            onReact = { emoji -> onReact(msg, emoji) },
                             onAttachmentClick = onAttachmentClick,
                             onChannelMentionClick = onChannelMentionClick,
                             onUserMentionClick = onUserMentionClick,
+                            onDelete = { onMessageAction(MessageAction.Delete(msg)) },
+                            onEdit = { onMessageAction(MessageAction.Edit(msg, msg.rawContent)) },
+                            onCopyLink = { onMessageAction(MessageAction.CopyLink(msg)) },
                         )
                     }
                     if (state.isLoadingOlder) {
