@@ -69,4 +69,14 @@ class DiscordClientPropertiesTest {
         assertEquals("Windows", mapOsName("Windows 11"))
         assertEquals("Unknown", mapOsName(null))
     }
+
+    @Test
+    fun map_os_name_maps_apple_mobile_to_mac_os_x() {
+        // Puklic on iOS / iPadOS pretends to be macOS desktop client; keep the
+        // OS string in lockstep with the User-Agent (issue: Discord rejects
+        // auth when osName="iOS" but UA reads as macOS desktop).
+        assertEquals("Mac OS X", mapOsName("iOS"))
+        assertEquals("Mac OS X", mapOsName("iPhone OS"))
+        assertEquals("Mac OS X", mapOsName("iPadOS"))
+    }
 }

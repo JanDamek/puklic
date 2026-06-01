@@ -106,6 +106,16 @@ internal fun mapOsName(raw: String?): String = when {
     raw == null -> "Unknown"
     raw.contains("Mac", ignoreCase = true) -> "Mac OS X"
     raw.contains("Darwin", ignoreCase = true) -> "Mac OS X"
+    // iOS / iPadOS / iPhone OS — Puklic does not ship a dedicated Discord-iOS
+    // client identity (separate client_build_number + UA), so we pretend to be
+    // the macOS desktop client. Without this branch the super-properties payload
+    // claimed `os: "iOS"` while the User-Agent header still read as macOS desktop
+    // — Discord rejects the inconsistent identity (auth/token endpoints return
+    // generic auth failures, surfaced in the UI as "credentials wrong"). Keep
+    // this row in lockstep with `userAgentForOs` and the `DEFAULT_*` constants.
+    raw.contains("iOS", ignoreCase = true) -> "Mac OS X"
+    raw.contains("iPhone", ignoreCase = true) -> "Mac OS X"
+    raw.contains("iPad", ignoreCase = true) -> "Mac OS X"
     raw.contains("Linux", ignoreCase = true) -> "Linux"
     raw.contains("Windows", ignoreCase = true) -> "Windows"
     else -> raw
