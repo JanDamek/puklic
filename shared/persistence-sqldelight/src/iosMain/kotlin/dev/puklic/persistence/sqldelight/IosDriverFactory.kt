@@ -1,7 +1,10 @@
 package dev.puklic.persistence.sqldelight
 
+import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.native.NativeSqliteDriver
+import co.touchlab.sqliter.DatabaseConfiguration
+import co.touchlab.sqliter.JournalMode
 import dev.puklic.db.PuklicDatabase
 import dev.puklic.persistence.DriverFactory
 
@@ -13,10 +16,14 @@ import dev.puklic.persistence.DriverFactory
  * [`IosPlatformPaths.databaseFile()`] — both point to `<Application Support>/puklic.db`.
  *
  * Pragmas mirror [JvmDriverFactory]:
- * - `journal_mode=WAL` for concurrent reads during writes
- * - `synchronous=NORMAL` (WAL-safe + fast)
- * - `foreign_keys=ON` enforced at every connection
- * - `temp_store=MEMORY`, `mmap_size=256 MB`, `cache_size=8 MB`
+ * - `journal_mode=WAL` for concurrent reads during writes — set via [JournalMode.WAL] on the
+ *   sqliter [DatabaseConfiguration] so it is applied during connection open (not via execute()).
+ * - `foreign_keys=ON` enforced at every connection — set via
+ *   [DatabaseConfiguration.Extended.foreignKeyConstraints].
+ * - `synchronous=NORMAL`, `temp_store=MEMORY`, `mmap_size=256 MB`, `cache_size=8 MB` — applied
+ *   via `driver.executeQuery()` because every PRAGMA that returns the new value (which is
+ *   most of them) makes sqliter's `executeNonQuery` throw with `executeUpdateDelete returned
+ *   a row` (issue: app crashes on launch on iOS — JDBC swallows the row, sqliter does not).
  *
  * Additive schema (e.g. `user_preferences`) is created idempotently after driver construction —
  * SQLDelight only runs `Schema.create` for the bundled SQL files, so newer additive tables that
@@ -24,19 +31,40 @@ import dev.puklic.persistence.DriverFactory
  */
 public class IosDriverFactory(private val dbName: String = "puklic.db") : DriverFactory {
     override fun createDriver(): SqlDriver {
-        val driver = NativeSqliteDriver(PuklicDatabase.Schema, dbName)
-        applyPragmas(driver)
+        val driver = NativeSqliteDriver(
+            schema = PuklicDatabase.Schema,
+            name = dbName,
+            onConfiguration = { config: DatabaseConfiguration ->
+                config.copy(
+                    journalMode = JournalMode.WAL,
+                    extendedConfig = config.extendedConfig.copy(
+                        foreignKeyConstraints = true,
+                    ),
+                )
+            },
+        )
+        applyTuningPragmas(driver)
         ensureAdditiveTables(driver)
         return driver
     }
 
-    private fun applyPragmas(driver: SqlDriver) {
-        driver.execute(null, "PRAGMA journal_mode = WAL", 0)
-        driver.execute(null, "PRAGMA synchronous = NORMAL", 0)
-        driver.execute(null, "PRAGMA foreign_keys = ON", 0)
-        driver.execute(null, "PRAGMA temp_store = MEMORY", 0)
-        driver.execute(null, "PRAGMA mmap_size = 268435456", 0)
-        driver.execute(null, "PRAGMA cache_size = -8000", 0)
+    private fun applyTuningPragmas(driver: SqlDriver) {
+        listOf(
+            "PRAGMA synchronous = NORMAL",
+            "PRAGMA temp_store = MEMORY",
+            "PRAGMA mmap_size = 268435456",
+            "PRAGMA cache_size = -8000",
+        ).forEach { sql ->
+            driver.executeQuery(
+                identifier = null,
+                sql = sql,
+                parameters = 0,
+                mapper = { cursor ->
+                    cursor.next()
+                    QueryResult.Unit
+                },
+            )
+        }
     }
 
     private fun ensureAdditiveTables(driver: SqlDriver) {
