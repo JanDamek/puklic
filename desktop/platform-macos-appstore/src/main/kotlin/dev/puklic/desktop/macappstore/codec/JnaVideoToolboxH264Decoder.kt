@@ -40,7 +40,7 @@ public class JnaVideoToolboxH264Decoder(
     private var sps: ByteArray? = null
     private var pps: ByteArray? = null
     private var closed: Boolean = false
-    private var lastFrame: IntArray? = null
+    private var lastFrame: H264Decoder.DecodedFrame? = null
 
     /** Strong-held trampoline so the VT queue can dispatch into the JVM. */
     @Suppress("unused")
@@ -55,7 +55,7 @@ public class JnaVideoToolboxH264Decoder(
             presentationDuration: CoreMedia.CMTime,
         ) {
             if (status != 0 || imageBuffer == null) return
-            lastFrame = readBgraAsArgb(imageBuffer)
+            lastFrame = readBgraAsRgba(imageBuffer)
         }
     }
 
@@ -63,7 +63,7 @@ public class JnaVideoToolboxH264Decoder(
         require(width > 0 && height > 0) { "width/height must be > 0" }
     }
 
-    public override fun decode(annexBNalUnit: ByteArray): IntArray? {
+    public override fun decode(annexBNalUnit: ByteArray): H264Decoder.DecodedFrame? {
         check(!closed) { "JnaVideoToolboxH264Decoder is closed" }
         val nals = splitAnnexB(annexBNalUnit)
         if (nals.isEmpty()) return null
@@ -196,26 +196,31 @@ public class JnaVideoToolboxH264Decoder(
         session = sessionOut.value
     }
 
-    private fun readBgraAsArgb(buffer: Pointer): IntArray? {
+    private fun readBgraAsRgba(buffer: Pointer): H264Decoder.DecodedFrame? {
         cv.CVPixelBufferLockBaseAddress(buffer, 1L) // kCVPixelBufferLock_ReadOnly
         try {
             val w = cv.CVPixelBufferGetWidth(buffer).toInt()
             val h = cv.CVPixelBufferGetHeight(buffer).toInt()
             val rowStride = cv.CVPixelBufferGetBytesPerRow(buffer).toInt()
             val base = cv.CVPixelBufferGetBaseAddress(buffer) ?: return null
-            val out = IntArray(w * h)
+            val out = ByteArray(w * h * BYTES_PER_BGRA_PIXEL)
             for (row in 0 until h) {
                 val rowBytes = base.getByteArray(row.toLong() * rowStride, w * BYTES_PER_BGRA_PIXEL)
+                val rowOff = row * w * BYTES_PER_BGRA_PIXEL
                 for (col in 0 until w) {
                     val i = col * BYTES_PER_BGRA_PIXEL
-                    val b = rowBytes[i].toInt() and 0xFF
-                    val g = rowBytes[i + 1].toInt() and 0xFF
-                    val r = rowBytes[i + 2].toInt() and 0xFF
-                    val a = rowBytes[i + 3].toInt() and 0xFF
-                    out[row * w + col] = (a shl 24) or (r shl 16) or (g shl 8) or b
+                    val outIdx = rowOff + i
+                    val b = rowBytes[i]
+                    val g = rowBytes[i + 1]
+                    val r = rowBytes[i + 2]
+                    val a = rowBytes[i + 3]
+                    out[outIdx] = r
+                    out[outIdx + 1] = g
+                    out[outIdx + 2] = b
+                    out[outIdx + 3] = a
                 }
             }
-            return out
+            return H264Decoder.DecodedFrame(rgba = out, width = w, height = h)
         } finally {
             cv.CVPixelBufferUnlockBaseAddress(buffer, 1L)
         }

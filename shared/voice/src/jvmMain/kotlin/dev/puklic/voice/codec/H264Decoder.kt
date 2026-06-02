@@ -1,5 +1,7 @@
 package dev.puklic.voice.codec
 
+import dev.puklic.voice.codec.video.H264Decoder
+import dev.puklic.voice.codec.video.H264DecoderFactory
 import org.bytedeco.ffmpeg.avcodec.AVCodec
 import org.bytedeco.ffmpeg.avcodec.AVCodecContext
 import org.bytedeco.ffmpeg.avcodec.AVPacket
@@ -34,13 +36,20 @@ import java.util.concurrent.atomic.AtomicBoolean
  * of screenshare.
  *
  * Accepts Annex-B framed access units (`00 00 00 01 NAL …`, possibly multiple NALs
- * concatenated) and emits decoded ARGB frames as [DecodedFrame] (RGBA byte layout suitable
- * for Compose `BufferedImage(TYPE_INT_ARGB).setRGB`).
+ * concatenated) and emits decoded RGBA frames as [H264Decoder.DecodedFrame] (byte layout
+ * R G B A per pixel; size `width * height * 4`).
  *
  * Lifecycle: one decoder per remote SSRC. Not thread-safe; the owning pipeline coroutine
  * must serialise calls. [close] is idempotent.
+ *
+ * FP-14h-5 (architect report 2026-06-02-fp14h-applevoiceclient-promotion-plan.md §2):
+ * implements the KMP `H264Decoder` SPI from `:shared:voice-codec/commonMain`. libavcodec is
+ * GPL and stays in `:shared:voice/jvmMain`, behind the SPI; the App-Store-bound voice-codec
+ * KMP graph wires the Apple-native `JnaVideoToolboxH264DecoderFactory` /
+ * `IosH264DecoderFactory` instead. The factory `width` / `height` parameters are ignored
+ * because libavcodec learns dimensions from the SPS in the bitstream.
  */
-internal class H264Decoder {
+internal class LibavH264Decoder : H264Decoder {
 
     private val codec: AVCodec
     private val ctx: AVCodecContext
@@ -86,14 +95,14 @@ internal class H264Decoder {
      * Decode one Annex-B access unit. Returns the produced frame, or null if the decoder
      * needs more input (typical for the first few packets before SPS/PPS are seen).
      */
-    fun decode(annexB: ByteArray): DecodedFrame? {
-        check(!closed.get()) { "H264Decoder is closed" }
-        if (annexB.isEmpty()) return null
+    override fun decode(annexBNalUnit: ByteArray): H264Decoder.DecodedFrame? {
+        check(!closed.get()) { "LibavH264Decoder is closed" }
+        if (annexBNalUnit.isEmpty()) return null
 
-        val data = BytePointer(annexB.size.toLong())
-        data.put(annexB, 0, annexB.size)
+        val data = BytePointer(annexBNalUnit.size.toLong())
+        data.put(annexBNalUnit, 0, annexBNalUnit.size)
         packet.data(data)
-        packet.size(annexB.size)
+        packet.size(annexBNalUnit.size)
         val sendRc = avcodec_send_packet(ctx, packet)
         av_packet_unref(packet)
         if (sendRc < 0 && sendRc != AVERROR_EAGAIN()) {
@@ -135,7 +144,7 @@ internal class H264Decoder {
             ptr.position(y.toLong() * rgbStride.toLong()).get(row, 0, rowBytes)
             row.copyInto(rgba, destinationOffset = y * rowBytes)
         }
-        return DecodedFrame(rgba, w, h)
+        return H264Decoder.DecodedFrame(rgba = rgba, width = w, height = h)
     }
 
     private fun ensureRgbBuffer(w: Int, h: Int) {
@@ -156,7 +165,7 @@ internal class H264Decoder {
         rgbFrame.linesize(0, stride)
     }
 
-    fun close() {
+    override fun close() {
         if (closed.compareAndSet(false, true)) {
             sws?.let { sws_freeContext(it) }
             sws = null
@@ -169,26 +178,18 @@ internal class H264Decoder {
         }
     }
 
-    /** Decoded RGBA frame: `rgba.size == width * height * 4`, layout R G B A per pixel. */
-    data class DecodedFrame(val rgba: ByteArray, val width: Int, val height: Int) {
-        override fun equals(other: Any?): Boolean {
-            if (this === other) return true
-            if (other !is DecodedFrame) return false
-            return width == other.width && height == other.height && rgba.contentEquals(other.rgba)
-        }
-
-        override fun hashCode(): Int {
-            var h = width
-            h = 31 * h + height
-            h = 31 * h + rgba.contentHashCode()
-            return h
-        }
-    }
-
     companion object {
         private const val BYTES_PER_PIXEL = 4
         private const val STRIDE_ALIGN = 32
     }
+}
+
+/**
+ * JVM factory for the libavcodec H.264 decoder. Width/height hints are ignored — libavcodec
+ * learns the dimensions from the SPS NAL unit.
+ */
+internal object LibavH264DecoderFactory : H264DecoderFactory {
+    override fun create(width: Int, height: Int): H264Decoder = LibavH264Decoder()
 }
 
 internal class H264DecoderException(message: String) : RuntimeException(message)
