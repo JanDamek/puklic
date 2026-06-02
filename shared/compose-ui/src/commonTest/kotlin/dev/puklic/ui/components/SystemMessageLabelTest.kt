@@ -16,8 +16,12 @@ import kotlin.test.assertNull
 
 class SystemMessageLabelTest {
 
-    private fun msg(type: MessageType, displayName: String = "Tester"): ChatMessage = ChatMessage(
-        id = MessageId(1L),
+    private fun msg(
+        type: MessageType,
+        displayName: String = "Tester",
+        messageId: Long = 1L,
+    ): ChatMessage = ChatMessage(
+        id = MessageId(messageId),
         channelId = ChannelId(2L),
         author = UserSummary(
             id = UserId(3L),
@@ -59,6 +63,26 @@ class SystemMessageLabelTest {
     @Test
     fun unknown_type_returns_null_to_avoid_blank_system_row() {
         assertNull(systemMessageLabel(msg(MessageType.UNKNOWN)))
+    }
+
+    @Test
+    fun user_join_picks_deterministic_variant_from_message_id() {
+        // Two USER_JOIN messages with snowflake IDs whose upper-22-bit rotation yields
+        // different remainders mod 13 produce different greetings (Discord parity).
+        val a = systemMessageLabel(msg(MessageType.USER_JOIN, messageId = 4194304L * 0L))
+        val b = systemMessageLabel(msg(MessageType.USER_JOIN, messageId = 4194304L * 1L))
+        assertEquals(false, a == b)
+        // The chosen variant must include the user's display name.
+        assertEquals(true, a!!.contains("Tester"))
+        assertEquals(true, b!!.contains("Tester"))
+    }
+
+    @Test
+    fun user_join_is_stable_for_same_message_id() {
+        // Picking is purely deterministic — same id renders the same line every time.
+        val a = systemMessageLabel(msg(MessageType.USER_JOIN, messageId = 12345L))
+        val b = systemMessageLabel(msg(MessageType.USER_JOIN, messageId = 12345L))
+        assertEquals(a, b)
     }
 
     @Test

@@ -519,6 +519,11 @@ internal fun SystemMessageRow(text: String, modifier: Modifier = Modifier) {
  * Maps a non-DEFAULT [MessageType] to a user-facing system line. Returns null for
  * [MessageType.DEFAULT] / [MessageType.REPLY] / [MessageType.UNKNOWN] so the regular bubble
  * renders. Pure function — no Compose state — so it is also reachable from unit tests.
+ *
+ * USER_JOIN variants (issue #91): Discord picks one of 13 greeting templates based on
+ * `(messageId >>> 22) % 13`. The upper bits of a snowflake encode the Discord epoch
+ * timestamp, so consecutive joins land on visually different lines instead of repeating
+ * "X joined.". Czech localisations mirror the official Discord client's translations.
  */
 internal fun systemMessageLabel(message: ChatMessage): String? {
     val name = message.author.globalName ?: message.author.username
@@ -529,10 +534,31 @@ internal fun systemMessageLabel(message: ChatMessage): String? {
         MessageType.CHANNEL_NAME_CHANGE -> "$name changed the channel name."
         MessageType.CHANNEL_ICON_CHANGE -> "$name changed the channel icon."
         MessageType.CHANNEL_PINNED_MESSAGE -> "$name pinned a message to this channel."
-        MessageType.USER_JOIN -> "$name joined."
+        MessageType.USER_JOIN -> userJoinGreeting(name, message.id.value)
         MessageType.DEFAULT, MessageType.REPLY, MessageType.UNKNOWN -> null
     }
 }
+
+internal fun userJoinGreeting(name: String, messageId: Long): String {
+    val idx = ((messageId ushr 22) % USER_JOIN_TEMPLATES.size).toInt()
+    return USER_JOIN_TEMPLATES[idx](name)
+}
+
+private val USER_JOIN_TEMPLATES: List<(String) -> String> = listOf(
+    { "$it se právě připojil/a." },
+    { "$it je tu." },
+    { "Vítej, $it. Doufáme, že neseš pizzu." },
+    { "Objevil/a se divoký $it." },
+    { "$it právě přistál/a." },
+    { "$it právě proklouznul/a na server." },
+    { "$it se ukázal/a!" },
+    { "Vítej, $it. Pozdrav nám tu ostatní!" },
+    { "$it naskočil/a na server." },
+    { "Všichni přivítejme $it!" },
+    { "Jsme rádi, že jsi tady, $it." },
+    { "Moc rádi tě tu vidíme, $it." },
+    { "$it je tady! Pěkně vítáme!" },
+)
 
 @Composable
 private fun EmbedFieldCell(field: dev.puklic.domain.EmbedField, modifier: Modifier = Modifier) {
