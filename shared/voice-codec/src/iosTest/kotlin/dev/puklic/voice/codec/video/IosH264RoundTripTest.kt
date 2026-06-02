@@ -71,15 +71,19 @@ class IosH264RoundTripTest {
             // Split the Annex-B payload into individual NAL units and feed them one-by-one.
             val nalus = splitAnnexB(frame.bytes)
             assertTrue(nalus.isNotEmpty(), "expected at least one NAL unit in encoded frame")
-            var pixels: IntArray? = null
+            var decoded: H264Decoder.DecodedFrame? = null
             for (nalu in nalus) {
                 val out = decoder.decode(nalu)
-                if (out != null) pixels = out
+                if (out != null) decoded = out
             }
-            val px = assertNotNull(pixels, "decoder produced no pixels for a self-emitted IDR")
+            val df = assertNotNull(decoded, "decoder produced no frame for a self-emitted IDR")
             // Decoder may crop to expected dims or return the encoder's padded width if
-            // VT pads — accept either >= w*h.
-            assertTrue(px.size >= width * height, "decoded pixel count too small: ${px.size}")
+            // VT pads — accept either >= w*h*4 bytes.
+            assertTrue(
+                df.rgba.size == df.width * df.height * 4,
+                "rgba length must equal w*h*4 — got ${df.rgba.size} for ${df.width}x${df.height}",
+            )
+            assertTrue(df.width >= width && df.height >= height, "decoded dims too small")
         } finally {
             encoder.close()
             decoder.close()

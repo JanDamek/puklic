@@ -7,6 +7,7 @@ import dev.puklic.ids.UserId
 import dev.puklic.voice.audio.audioCapture
 import dev.puklic.voice.audio.audioPlayback
 import dev.puklic.voice.audio.listAudioDevices
+import dev.puklic.voice.codec.LibavH264DecoderFactory
 import dev.puklic.voice.codec.OpusCodecFactory
 import dev.puklic.voice.crypto.NonceGenerator
 import dev.puklic.voice.crypto.xchacha20Poly1305
@@ -464,7 +465,11 @@ public class DefaultVoiceClient(
         // SSRC 0 is fine for *decode-only* — encode() / nonce counter is never invoked here.
         val videoCodec = VoicePacketCodec(aead = xchacha20Poly1305(secretKey), ssrc = 0)
         videoPacketCodec = videoCodec
-        val videoPipeline = IncomingVideoPipeline(dispatcher = dispatcher, packetCodec = videoCodec)
+        val videoPipeline = IncomingVideoPipeline(
+            dispatcher = dispatcher,
+            packetCodec = videoCodec,
+            decoderFactory = LibavH264DecoderFactory,
+        )
         incomingVideoPipeline = videoPipeline
         videoPipeline.start(scope)
         videoFramesCollectorJob = scope.launch {
@@ -594,7 +599,8 @@ public class DefaultVoiceClient(
         screenShareImpl = NoOpScreenShareClient()
         runCatching { capture?.stop() }
         runCatching { playback?.stop() }
-        runCatching { incomingVideoPipeline?.stop() }
+        runCatching { incomingVideoPipeline?.stop() } // suspend
+
         runCatching { packetDispatcher?.stop() }
         runCatching { videoFramesCollectorJob?.cancel() }
         runCatching { daveStateCollectorJob?.cancel() }

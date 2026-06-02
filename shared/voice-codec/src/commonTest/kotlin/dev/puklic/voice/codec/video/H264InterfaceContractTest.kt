@@ -44,9 +44,19 @@ class H264InterfaceContractTest {
     fun decoderFactory_producesDecoderImplementingInterface() {
         val factory: H264DecoderFactory = FakeDecoderFactory
         val dec: H264Decoder = factory.create(width = 1280, height = 720)
-        val pixels = dec.decode(annexBNalUnit = byteArrayOf(0x67.toByte(), 0x42))
-        pixels shouldBe null
+        val frame = dec.decode(annexBNalUnit = byteArrayOf(0x67.toByte(), 0x42))
+        frame shouldBe null
         dec.close()
+    }
+
+    @Test
+    fun decodedFrame_equalsAndHashCode_respectByteContent() {
+        val a = H264Decoder.DecodedFrame(rgba = byteArrayOf(1, 2, 3, 4), width = 1, height = 1)
+        val b = H264Decoder.DecodedFrame(rgba = byteArrayOf(1, 2, 3, 4), width = 1, height = 1)
+        val c = H264Decoder.DecodedFrame(rgba = byteArrayOf(1, 2, 3, 5), width = 1, height = 1)
+        (a == b) shouldBe true
+        a.hashCode() shouldBe b.hashCode()
+        (a == c) shouldBe false
     }
 
     private object FakeEncoderFactory : H264EncoderFactory {
@@ -64,7 +74,7 @@ class H264InterfaceContractTest {
     }
 
     private object FakeDecoder : H264Decoder {
-        override fun decode(annexBNalUnit: ByteArray): IntArray? = null
+        override fun decode(annexBNalUnit: ByteArray): H264Decoder.DecodedFrame? = null
         override fun close() = Unit
     }
 }

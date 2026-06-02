@@ -109,7 +109,7 @@ internal class IosH264Decoder(
         require(width > 0 && height > 0) { "width/height must be > 0" }
     }
 
-    override fun decode(annexBNalUnit: ByteArray): IntArray? {
+    override fun decode(annexBNalUnit: ByteArray): H264Decoder.DecodedFrame? {
         check(!closed) { "IosH264Decoder is closed" }
         val nalu = stripStartCode(annexBNalUnit) ?: return null
         if (nalu.isEmpty()) return null
@@ -213,7 +213,7 @@ internal class IosH264Decoder(
         if (s != 0) null else out.value
     }
 
-    private fun decodeSlice(sess: VTDecompressionSessionRef, nalu: ByteArray): IntArray? {
+    private fun decodeSlice(sess: VTDecompressionSessionRef, nalu: ByteArray): H264Decoder.DecodedFrame? {
         val avccSize = H264_AVCC_LENGTH_PREFIX_SIZE + nalu.size
         val raw = calloc(avccSize.convert(), 1u) ?: return null
         val rawBytes = raw.reinterpret<ByteVar>()
@@ -296,7 +296,7 @@ internal class IosH264Decoder(
     }
 
     internal class DecoderState(val width: Int, val height: Int) {
-        var lastDecoded: IntArray? = null
+        var lastDecoded: H264Decoder.DecodedFrame? = null
     }
 }
 
@@ -313,11 +313,17 @@ private val staticDecompressionCallback: CPointer<CFunction<
     ->
     if (status != 0 || imageBuffer == null || decompressionOutputRefCon == null) return@staticCFunction
     val state = decompressionOutputRefCon.asStableRef<IosH264Decoder.DecoderState>().get()
-    state.lastDecoded = bgraPixelBufferToArgb(imageBuffer, state.width, state.height)
+    state.lastDecoded = bgraPixelBufferToRgba(imageBuffer, state.width, state.height)
 }
 
+private const val BYTES_PER_PIXEL: Int = 4
+
 @OptIn(ExperimentalForeignApi::class)
-private fun bgraPixelBufferToArgb(buffer: CVPixelBufferRef, expectedWidth: Int, expectedHeight: Int): IntArray? {
+private fun bgraPixelBufferToRgba(
+    buffer: CVPixelBufferRef,
+    expectedWidth: Int,
+    expectedHeight: Int,
+): H264Decoder.DecodedFrame? {
     CVPixelBufferLockBaseAddress(buffer, CV_PIXEL_BUFFER_LOCK_READ_ONLY)
     try {
         val w = CVPixelBufferGetWidth(buffer).toInt()
@@ -325,22 +331,27 @@ private fun bgraPixelBufferToArgb(buffer: CVPixelBufferRef, expectedWidth: Int, 
         val stride = CVPixelBufferGetBytesPerRow(buffer).toInt()
         val base = CVPixelBufferGetBaseAddress(buffer)?.reinterpret<UInt8Var>() ?: return null
 
+        // The factory hint clamps oversize VT pixel buffers (some HW pipelines pad to a
+        // multiple of 16). Hints of 0 / negative are ignored.
         val outW = if (expectedWidth in 1..w) expectedWidth else w
         val outH = if (expectedHeight in 1..h) expectedHeight else h
-        val out = IntArray(outW * outH)
+        val out = ByteArray(outW * outH * BYTES_PER_PIXEL)
         var dstIdx = 0
         for (y in 0 until outH) {
             val rowStart = y * stride
             for (x in 0 until outW) {
-                val px = rowStart + x * 4
+                val px = rowStart + x * BYTES_PER_PIXEL
                 val b = base[px].toInt() and 0xFF
                 val g = base[px + 1].toInt() and 0xFF
                 val r = base[px + 2].toInt() and 0xFF
                 val a = base[px + 3].toInt() and 0xFF
-                out[dstIdx++] = (a shl 24) or (r shl 16) or (g shl 8) or b
+                out[dstIdx++] = r.toByte()
+                out[dstIdx++] = g.toByte()
+                out[dstIdx++] = b.toByte()
+                out[dstIdx++] = a.toByte()
             }
         }
-        return out
+        return H264Decoder.DecodedFrame(rgba = out, width = outW, height = outH)
     } finally {
         CVPixelBufferUnlockBaseAddress(buffer, CV_PIXEL_BUFFER_LOCK_READ_ONLY)
     }
