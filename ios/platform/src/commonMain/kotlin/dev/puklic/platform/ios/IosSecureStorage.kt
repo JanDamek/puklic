@@ -24,6 +24,8 @@ import platform.Security.errSecItemNotFound
 import platform.Security.errSecSuccess
 import platform.Security.kSecAttrAccount
 import platform.Security.kSecAttrService
+import platform.Security.kSecAttrSynchronizable
+import platform.Security.kSecAttrSynchronizableAny
 import platform.Security.kSecClass
 import platform.Security.kSecClassGenericPassword
 import platform.Security.kSecMatchLimit
@@ -41,6 +43,14 @@ import platform.Security.kSecValueData
  * service name matches the desktop macOS implementation
  * (`MacOsSecureStorage.DEFAULT_SERVICE = "puklic-client"`) so the same
  * conceptual key namespace is used across Apple platforms.
+ *
+ * **iCloud Keychain sync (Issue #74):** every write sets
+ * `kSecAttrSynchronizable = true`, which marks the item for iCloud Keychain
+ * propagation across the user's Apple devices. Reads / deletes use
+ * `kSecAttrSynchronizableAny` so both synced and any pre-existing
+ * non-synced rows are matched. The Discord token written on one Apple
+ * device (Mac App Store build of Puklic or iOS app) thus appears on every
+ * other signed-in device a few seconds later — no manual paste needed.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 class IosSecureStorage(
@@ -49,7 +59,7 @@ class IosSecureStorage(
 
     override suspend fun put(key: String, value: String) {
         val data = value.toNSData() ?: throw PlatformFailed("Unable to encode value as UTF-8")
-        val query = baseAttrs(key, includeValue = data)
+        val query = addAttrs(key, data)
         val status = SecItemAdd(query.toCF(), null)
         when (status) {
             errSecSuccess -> Unit
@@ -65,10 +75,7 @@ class IosSecureStorage(
     }
 
     override suspend fun get(key: String): String? {
-        val query = mapOf<Any?, Any?>(
-            kSecClass to kSecClassGenericPassword,
-            kSecAttrService to serviceName,
-            kSecAttrAccount to key,
+        val query = lookupAttrs(key) + mapOf<Any?, Any?>(
             kSecMatchLimit to kSecMatchLimitOne,
             kSecReturnData to true,
         )
@@ -88,7 +95,7 @@ class IosSecureStorage(
     }
 
     override suspend fun remove(key: String) {
-        val status = SecItemDelete(baseAttrs(key).toCF())
+        val status = SecItemDelete(lookupAttrs(key).toCF())
         if (status != errSecSuccess && status != errSecItemNotFound) {
             throw PlatformFailed("SecItemDelete failed: $status")
         }
@@ -98,6 +105,7 @@ class IosSecureStorage(
         val query = mapOf<Any?, Any?>(
             kSecClass to kSecClassGenericPassword,
             kSecAttrService to serviceName,
+            kSecAttrSynchronizable to kSecAttrSynchronizableAny,
             kSecMatchLimit to kSecMatchLimitAll,
             kSecReturnAttributes to true,
         )
@@ -123,12 +131,31 @@ class IosSecureStorage(
         }
     }
 
-    private fun baseAttrs(key: String, includeValue: NSData? = null): Map<Any?, Any?> = buildMap {
-        put(kSecClass, kSecClassGenericPassword)
-        put(kSecAttrService, serviceName)
-        put(kSecAttrAccount, key)
-        if (includeValue != null) put(kSecValueData, includeValue)
-    }
+    /**
+     * Attributes for [SecItemAdd]: marks the item as iCloud-synchronizable
+     * with `kSecAttrSynchronizable = true`. The added value bytes go in
+     * `kSecValueData`.
+     */
+    internal fun addAttrs(key: String, value: NSData): Map<Any?, Any?> = mapOf(
+        kSecClass to kSecClassGenericPassword,
+        kSecAttrService to serviceName,
+        kSecAttrAccount to key,
+        kSecAttrSynchronizable to true,
+        kSecValueData to value,
+    )
+
+    /**
+     * Attributes for [SecItemCopyMatching] / [SecItemDelete]: uses
+     * `kSecAttrSynchronizable = kSecAttrSynchronizableAny` so both synced
+     * and any pre-existing non-synced rows are matched (avoids leaking a
+     * pre-#74 local-only row that would otherwise become invisible).
+     */
+    internal fun lookupAttrs(key: String): Map<Any?, Any?> = mapOf(
+        kSecClass to kSecClassGenericPassword,
+        kSecAttrService to serviceName,
+        kSecAttrAccount to key,
+        kSecAttrSynchronizable to kSecAttrSynchronizableAny,
+    )
 
     companion object {
         internal const val DEFAULT_SERVICE = "puklic-client"
@@ -144,10 +171,6 @@ class IosSecureStorage(
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 @Suppress("UNCHECKED_CAST")
 private fun Map<Any?, Any?>.toCF(): CFDictionaryRef {
-    // Kotlin/Native auto-bridges Kotlin Map → NSDictionary, and NSDictionary is
-    // toll-free-bridged to CFDictionaryRef. The double cast is the documented
-    // K/N idiom (Map → NSDictionary via interop, NSDictionary → CFDictionaryRef
-    // via toll-free bridging).
     return (this as NSDictionary) as CFDictionaryRef
 }
 
