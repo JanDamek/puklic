@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
@@ -34,8 +35,8 @@ internal fun guildIconUrl(guildId: Long, iconHash: String?): String? {
 public fun GuildRailItem(
     guild: Guild,
     isSelected: Boolean,
-    @Suppress("UnusedParameter") hasUnread: Boolean = false,
-    @Suppress("UnusedParameter") mentionCount: Int = 0,
+    hasUnread: Boolean = false,
+    mentionCount: Int = 0,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -45,27 +46,67 @@ public fun GuildRailItem(
     } else {
         Modifier
     }
-    Box(
-        modifier = modifier
-            .size(36.dp)
-            .clip(CircleShape)
-            .then(selectionRing)
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        if (url != null) {
-            AsyncImage(
-                model = url,
-                contentDescription = guild.name,
-                modifier = Modifier.size(36.dp).clip(CircleShape),
-                contentScale = ContentScale.Crop,
+    Box(modifier = modifier.size(40.dp), contentAlignment = Alignment.Center) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .then(selectionRing)
+                .background(MaterialTheme.colorScheme.surfaceVariant)
+                .clickable(onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (url != null) {
+                AsyncImage(
+                    model = url,
+                    contentDescription = guild.name,
+                    modifier = Modifier.size(36.dp).clip(CircleShape),
+                    contentScale = ContentScale.Crop,
+                )
+            } else {
+                Text(
+                    text = guild.name.firstOrNull()?.uppercase().orEmpty(),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        if (mentionCount > 0) {
+            UnreadMentionDot(
+                count = mentionCount,
+                modifier = Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp),
             )
-        } else {
-            Text(
-                text = guild.name.firstOrNull()?.uppercase().orEmpty(),
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
+        } else if (hasUnread) {
+            UnreadDot(modifier = Modifier.align(Alignment.TopEnd).offset(x = 2.dp, y = (-2).dp))
         }
     }
+}
+
+@Composable
+private fun UnreadMentionDot(count: Int, modifier: Modifier = Modifier) {
+    val label = if (count > 9) "9+" else count.toString()
+    Box(
+        modifier = modifier
+            .size(16.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.error)
+            .border(1.dp, MaterialTheme.colorScheme.background, CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onError,
+        )
+    }
+}
+
+@Composable
+private fun UnreadDot(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(10.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.error)
+            .border(1.dp, MaterialTheme.colorScheme.background, CircleShape),
+    )
 }
