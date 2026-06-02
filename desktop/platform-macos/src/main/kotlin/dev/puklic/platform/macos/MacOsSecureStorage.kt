@@ -60,26 +60,25 @@ class MacOsSecureStorage(
         val dataPtr = CfQueryBuilder.cfData(bytes)
         val locals = mutableListOf<Pointer?>(keyPtr, servicePtr, dataPtr)
         try {
-            val addQuery = CfQueryBuilder.cfDictionary(
-                addEntries(servicePtr, keyPtr, dataPtr),
-            )
-            locals += addQuery
-            val status = Security.INSTANCE.SecItemAdd(addQuery, null)
+            // Try synced first (iCloud Keychain). When the host process is signed
+            // without the `application-identifier` entitlement (Developer ID local
+            // build, ad-hoc, unsigned dev runs) macOS returns
+            // `errSecMissingEntitlement = -34018`; fall back to a local-only
+            // write so the user can still sign in. The Mac App Store build keeps
+            // the synced write because it ships with the entitlement bundle.
+            val status = trySecItemAdd(servicePtr, keyPtr, dataPtr, synced = true, locals)
             when (status) {
                 Security.ERR_SEC_SUCCESS -> Unit
-                Security.ERR_SEC_DUPLICATE_ITEM -> {
-                    val deleteQuery = CfQueryBuilder.cfDictionary(
-                        lookupEntries(servicePtr, keyPtr),
-                    )
-                    locals += deleteQuery
-                    Security.INSTANCE.SecItemDelete(deleteQuery)
-                    val addQuery2 = CfQueryBuilder.cfDictionary(
-                        addEntries(servicePtr, keyPtr, dataPtr),
-                    )
-                    locals += addQuery2
-                    val status2 = Security.INSTANCE.SecItemAdd(addQuery2, null)
-                    if (status2 != Security.ERR_SEC_SUCCESS) {
-                        throw PlatformFailed("SecItemAdd (replace) failed: $status2")
+                Security.ERR_SEC_DUPLICATE_ITEM -> replaceExisting(servicePtr, keyPtr, dataPtr, locals)
+                ERR_SEC_MISSING_ENTITLEMENT -> {
+                    // Local-only fallback: this build can't access the iCloud
+                    // synced keychain. Persist without the sync flag instead.
+                    val statusLocal = trySecItemAdd(servicePtr, keyPtr, dataPtr, synced = false, locals)
+                    when (statusLocal) {
+                        Security.ERR_SEC_SUCCESS -> Unit
+                        Security.ERR_SEC_DUPLICATE_ITEM ->
+                            replaceExisting(servicePtr, keyPtr, dataPtr, locals)
+                        else -> throw PlatformFailed("SecItemAdd (local fallback) failed: $statusLocal")
                     }
                 }
                 else -> throw PlatformFailed("SecItemAdd failed: $status")
@@ -87,6 +86,42 @@ class MacOsSecureStorage(
         } finally {
             CfQueryBuilder.releaseAll(locals)
         }
+    }
+
+    private fun trySecItemAdd(
+        servicePtr: Pointer,
+        keyPtr: Pointer,
+        dataPtr: Pointer,
+        synced: Boolean,
+        locals: MutableList<Pointer?>,
+    ): Int {
+        val addQuery = CfQueryBuilder.cfDictionary(
+            addEntries(servicePtr, keyPtr, dataPtr, synced = synced),
+        )
+        locals += addQuery
+        return Security.INSTANCE.SecItemAdd(addQuery, null)
+    }
+
+    private fun replaceExisting(
+        servicePtr: Pointer,
+        keyPtr: Pointer,
+        dataPtr: Pointer,
+        locals: MutableList<Pointer?>,
+    ) {
+        val deleteQuery = CfQueryBuilder.cfDictionary(lookupEntries(servicePtr, keyPtr))
+        locals += deleteQuery
+        Security.INSTANCE.SecItemDelete(deleteQuery)
+        // Re-add — first try synced, then fall back to local on missing entitlement.
+        val statusSynced = trySecItemAdd(servicePtr, keyPtr, dataPtr, synced = true, locals)
+        if (statusSynced == Security.ERR_SEC_SUCCESS) return
+        if (statusSynced == ERR_SEC_MISSING_ENTITLEMENT) {
+            val statusLocal = trySecItemAdd(servicePtr, keyPtr, dataPtr, synced = false, locals)
+            if (statusLocal != Security.ERR_SEC_SUCCESS) {
+                throw PlatformFailed("SecItemAdd (replace, local fallback) failed: $statusLocal")
+            }
+            return
+        }
+        throw PlatformFailed("SecItemAdd (replace) failed: $statusSynced")
     }
 
     override suspend fun get(key: String): String? {
@@ -187,13 +222,16 @@ class MacOsSecureStorage(
         servicePtr: Pointer,
         accountPtr: Pointer,
         dataPtr: Pointer,
-    ): List<Pair<Pointer, Pointer>> = listOf(
-        Security.K_SEC_CLASS to Security.K_SEC_CLASS_GENERIC_PASSWORD,
-        Security.K_SEC_ATTR_SERVICE to servicePtr,
-        Security.K_SEC_ATTR_ACCOUNT to accountPtr,
-        Security.K_SEC_ATTR_SYNCHRONIZABLE to CoreFoundation.K_CF_BOOLEAN_TRUE,
-        Security.K_SEC_VALUE_DATA to dataPtr,
-    )
+        synced: Boolean = true,
+    ): List<Pair<Pointer, Pointer>> = buildList {
+        add(Security.K_SEC_CLASS to Security.K_SEC_CLASS_GENERIC_PASSWORD)
+        add(Security.K_SEC_ATTR_SERVICE to servicePtr)
+        add(Security.K_SEC_ATTR_ACCOUNT to accountPtr)
+        if (synced) {
+            add(Security.K_SEC_ATTR_SYNCHRONIZABLE to CoreFoundation.K_CF_BOOLEAN_TRUE)
+        }
+        add(Security.K_SEC_VALUE_DATA to dataPtr)
+    }
 
     /**
      * Common attribute set for `SecItemCopyMatching` / `SecItemDelete`. Uses
@@ -212,5 +250,12 @@ class MacOsSecureStorage(
 
     companion object {
         internal const val DEFAULT_SERVICE = "puklic-client"
+        /**
+         * `errSecMissingEntitlement` from `<Security/SecBase.h>`. Returned when the host
+         * process is not signed with the `application-identifier` entitlement required
+         * to write iCloud-synced keychain items. Developer ID / ad-hoc / unsigned dev
+         * builds always hit this on `kSecAttrSynchronizable = true` writes.
+         */
+        internal const val ERR_SEC_MISSING_ENTITLEMENT: Int = -34018
     }
 }
