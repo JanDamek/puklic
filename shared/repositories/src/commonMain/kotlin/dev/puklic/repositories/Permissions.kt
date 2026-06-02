@@ -72,9 +72,17 @@ public object Permissions {
     }
 
     /**
-     * Permissive fallback variant — used during bootstrap when role / member data has not yet
-     * arrived. Returns `true` (visible) on missing data; once data lands, the strict
-     * [canView] applies.
+     * Variant safe for the bootstrap window before role / self-member data has arrived.
+     *
+     * - If [roles] is empty we have no data at all — treat the channel as visible so it doesn't
+     *   pop in once roles land (any short-lived false positive corrects itself on the next
+     *   emit).
+     * - If [member] is `null` but [roles] is populated we KNOW the user's effective
+     *   permissions but not their extra role grants. Fall back to evaluating the channel
+     *   against a synthetic "@everyone-only" member: any channel that hides @everyone via a
+     *   deny overwrite stays hidden. This is the strict behaviour the user expects — a
+     *   channel that says "you don't have permission to view this channel" must never appear
+     *   in the list (issue #18 follow-up).
      */
     public fun canViewSafe(
         member: Member?,
@@ -83,9 +91,15 @@ public object Permissions {
         ownerId: UserId,
         everyoneRoleId: RoleId,
     ): Boolean {
-        if (member == null) return true
         if (roles.isEmpty()) return true
-        return canView(member, channel, roles, ownerId, everyoneRoleId)
+        val effectiveMember = member ?: Member(
+            userId = UserId(0L),
+            guildId = GuildId(everyoneRoleId.value),
+            roles = emptyList(),
+            nick = null,
+            joinedAt = null,
+        )
+        return canView(effectiveMember, channel, roles, ownerId, everyoneRoleId)
     }
 
     /** Discord convention: the @everyone role id within a guild equals the guild's id. */
