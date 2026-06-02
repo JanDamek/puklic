@@ -4,6 +4,7 @@ import com.sun.jna.Library
 import com.sun.jna.Native
 import com.sun.jna.NativeLibrary
 import com.sun.jna.Pointer
+import com.sun.jna.Structure
 
 /**
  * JNA bindings for the slice of `CoreFoundation.framework` needed to build
@@ -45,7 +46,15 @@ internal interface CoreFoundation : Library {
 
     fun CFDataCreate(allocator: Pointer?, bytes: ByteArray, length: Long): Pointer?
     fun CFDataGetLength(theData: Pointer?): Long
-    fun CFDataGetBytes(theData: Pointer?, range: LongArray, buffer: ByteArray)
+
+    /**
+     * `CFRange` is a struct passed by VALUE (two CFIndex, 16 bytes on 64-bit).
+     * JNA must receive a `Structure.ByValue` here — passing it as `LongArray`
+     * sends a pointer instead, and CFDataGetBytes then reads garbage for
+     * `range.length`, triggering an internal assert in `CFDataGetBytes.cold.8`
+     * and aborting the process. (Issue #74 follow-up — v1.2.6 crash regression.)
+     */
+    fun CFDataGetBytes(theData: Pointer?, range: CFRangeByValue, buffer: ByteArray)
 
     fun CFDictionaryCreate(
         allocator: Pointer?,
@@ -69,8 +78,10 @@ internal interface CoreFoundation : Library {
         /** `kCFStringEncodingUTF8` from CFString.h. */
         const val K_CF_STRING_ENCODING_UTF8: Int = 0x08000100
 
-        /** `CFRange` is two `CFIndex` (Long on 64-bit). */
-        fun cfRange(start: Long, length: Long): LongArray = longArrayOf(start, length)
+        /** `CFRange` as a JNA `Structure.ByValue` so it lands in registers / stack
+         * per Apple's ABI rather than being passed as a pointer. */
+        fun cfRange(start: Long, length: Long): CFRangeByValue =
+            CFRangeByValue().apply { location = start; this.length = length }
 
         val INSTANCE: CoreFoundation by lazy {
             Native.load("CoreFoundation", CoreFoundation::class.java)
@@ -98,3 +109,18 @@ internal interface CoreFoundation : Library {
             lib.getGlobalVariableAddress(symbol).getPointer(0)
     }
 }
+
+/**
+ * `CFRange` is `{CFIndex location; CFIndex length;}` (16 bytes on LP64). Apple's
+ * ABI passes it BY VALUE — JNA needs a `Structure.ByValue` to do that. Passing
+ * `LongArray` here would send a pointer to the array and cause CFDataGetBytes
+ * to read garbage for `length`, hitting an internal assert in
+ * `CFDataGetBytes.cold.8` and aborting the process (v1.2.6 crash regression).
+ */
+@Structure.FieldOrder("location", "length")
+internal open class CFRange : Structure() {
+    @JvmField var location: Long = 0
+    @JvmField var length: Long = 0
+}
+
+internal class CFRangeByValue : CFRange(), Structure.ByValue
