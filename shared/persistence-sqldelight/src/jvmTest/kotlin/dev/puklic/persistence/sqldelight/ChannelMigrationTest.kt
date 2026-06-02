@@ -96,10 +96,11 @@ class ChannelMigrationTest {
         val driver = JvmDriverFactory(JvmDriverFactory.DbPath.File(dbFile)).createDriver()
         val db = PuklicDatabase(driver)
 
-        // 3. Existing row survives, new columns default to NULL.
-        val migrated = db.channelQueries.selectById(42L).executeAsOne()
-        migrated.bitrate shouldBe null
-        migrated.user_limit shouldBe null
+        // 3. Migration v3 -> v4 (added 2026-06-02) deliberately wipes the channel table so
+        //    pre-fix rows with no permission_overwrites_json don't keep showing up in the
+        //    rail. The next READY repopulates with the fresh overwrites. Assert the row
+        //    is gone (this used to be `executeAsOne` with `bitrate shouldBe null`).
+        db.channelQueries.selectById(42L).executeAsOneOrNull() shouldBe null
 
         // 4. New writes with voice columns succeed (the original SQLITE_ERROR scenario).
         db.channelQueries.upsert(

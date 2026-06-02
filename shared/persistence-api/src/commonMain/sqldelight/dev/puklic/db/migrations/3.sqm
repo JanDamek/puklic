@@ -1,6 +1,17 @@
 -- Migration v3 -> v4 (issue #18 follow-up — channel permission overwrites)
--- Persist Discord per-channel permission_overwrites as a JSON-encoded array so
--- the cached channel list filters correctly on cold start. Without this,
--- cached channels round-trip with empty overwrites and the visibility filter
--- defaults to @everyone-allow.
+--
+-- 1. Persist Discord per-channel permission_overwrites as compact text so the
+--    cached channel list filters correctly on cold start. Without this, cached
+--    channels round-trip with empty overwrites and the visibility filter
+--    defaults to @everyone-allow.
 ALTER TABLE channel ADD COLUMN permission_overwrites_json TEXT;
+--
+-- 2. Invalidate every previously cached channel row. Pre-fix rows carry
+--    `permission_overwrites_json = NULL` (no data was ever persisted), so
+--    without this step the UI would keep showing the stale, unfiltered
+--    channel list until the user reconnected long enough for the gateway to
+--    re-deliver every CHANNEL_UPDATE. The next READY repopulates every
+--    guild's channels with the freshly-parsed overwrites within seconds of
+--    login. Testers cannot be expected to wipe the application support cache
+--    manually (HARD RULE #2 — the app handles its own data migration).
+DELETE FROM channel;
