@@ -51,7 +51,13 @@ public fun PuklicApp(
             Box(modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 when (routerState) {
                     RouterState.Bootstrapping -> BootstrappingScreen()
-                    RouterState.Login -> LoginScreen(viewModel = LoginViewModel(root, root.sessionManager))
+                    RouterState.Login -> LoginScreen(
+                        viewModel = LoginViewModel(
+                            componentContext = root,
+                            sessionManager = root.sessionManager,
+                            secureStorage = root.secureStorage,
+                        ),
+                    )
                     RouterState.Main -> MainRoute(root, platformOpen)
                 }
             }

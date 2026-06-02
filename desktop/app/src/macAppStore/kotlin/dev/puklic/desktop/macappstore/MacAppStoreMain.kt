@@ -263,7 +263,12 @@ public class MacAppStoreDependencyGraph private constructor(
             val lifecycle = LifecycleRegistry()
             val ctx = DefaultComponentContext(lifecycle = lifecycle)
             lifecycle.resume()
-            val root = RootComponent(ctx, sessionManager, preferences = userPreferences)
+            val root = RootComponent(
+                componentContext = ctx,
+                sessionManager = sessionManager,
+                preferences = userPreferences,
+                secureStorage = storage,
+            )
 
             applicationScope.launch {
                 runCatching { sessionManager.loadStoredSession() }

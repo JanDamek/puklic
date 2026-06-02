@@ -14,8 +14,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ContentPaste
+import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,16 +86,16 @@ public fun LoginScreen(viewModel: LoginViewModel) {
 
                 TabRow(selectedTabIndex = state.mode.ordinal, modifier = Modifier.fillMaxWidth()) {
                     Tab(
-                        selected = state.mode == LoginMode.TOKEN,
-                        onClick = { viewModel.selectMode(LoginMode.TOKEN) },
-                        enabled = !state.submitting,
-                        text = { Text("Token") },
-                    )
-                    Tab(
                         selected = state.mode == LoginMode.CREDENTIALS,
                         onClick = { viewModel.selectMode(LoginMode.CREDENTIALS) },
                         enabled = !state.submitting,
                         text = { Text("Email / Password") },
+                    )
+                    Tab(
+                        selected = state.mode == LoginMode.TOKEN,
+                        onClick = { viewModel.selectMode(LoginMode.TOKEN) },
+                        enabled = !state.submitting,
+                        text = { Text("Token") },
                     )
                 }
 
@@ -204,6 +206,17 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
             },
             modifier = Modifier.widthIn(min = 320.dp),
         )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.widthIn(min = 320.dp),
+        ) {
+            Checkbox(
+                checked = state.savePassword,
+                onCheckedChange = viewModel::onSavePasswordChange,
+                enabled = !state.submitting,
+            )
+            Text("Save password")
+        }
         SubmitButton(
             label = "Sign in",
             submitting = state.submitting,

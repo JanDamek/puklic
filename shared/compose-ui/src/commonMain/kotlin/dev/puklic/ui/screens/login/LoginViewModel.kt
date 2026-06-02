@@ -2,6 +2,7 @@ package dev.puklic.ui.screens.login
 
 import com.arkivanov.decompose.ComponentContext
 import com.arkivanov.essenty.lifecycle.coroutines.coroutineScope as lifecycleCoroutineScope
+import dev.puklic.platform.SecureStorage
 import dev.puklic.session.LoginOutcome
 import dev.puklic.session.SessionManager
 import kotlinx.coroutines.CoroutineScope
@@ -13,9 +14,11 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Sign-in mode the user has chosen on the [LoginScreen].
+ * Sign-in mode the user has chosen on the [LoginScreen]. CREDENTIALS is listed first so the
+ * tab row defaults to the email/password form — per #90 most users sign in that way and
+ * Discord rate-limits captcha challenges for repeat IPs, so the Token tab is a backup.
  */
-public enum class LoginMode { TOKEN, CREDENTIALS }
+public enum class LoginMode { CREDENTIALS, TOKEN }
 
 /**
  * Observable state of the login screen.
@@ -28,10 +31,17 @@ public enum class LoginMode { TOKEN, CREDENTIALS }
  *  - [error] — user-facing error string (already mapped), per `docs/04_ui/screens.md`.
  */
 public data class LoginState(
-    val mode: LoginMode = LoginMode.TOKEN,
+    val mode: LoginMode = LoginMode.CREDENTIALS,
     val token: String = "",
     val loginField: String = "",
     val password: String = "",
+    /**
+     * "Save password" checkbox state on the credentials tab. When `true`, [loginField] and
+     * [password] are written to [SecureStorage] under [LoginViewModel.LOGIN_FIELD_KEY] /
+     * [LoginViewModel.PASSWORD_KEY] on submit so the form auto-fills on the next launch.
+     * When `false`, the keys are wiped on submit so unchecking deletes the cached secrets.
+     */
+    val savePassword: Boolean = false,
     val submitting: Boolean = false,
     val mfaTicket: String? = null,
     val mfaCode: String = "",
@@ -70,6 +80,7 @@ public data class LoginState(
 public class LoginViewModel(
     componentContext: ComponentContext,
     private val sessionManager: SessionManager,
+    private val secureStorage: SecureStorage? = null,
     externalScope: CoroutineScope? = null,
 ) : ComponentContext by componentContext {
 
@@ -77,6 +88,24 @@ public class LoginViewModel(
 
     private val _state = MutableStateFlow(LoginState())
     public val state: StateFlow<LoginState> = _state.asStateFlow()
+
+    init {
+        // Hydrate saved email + password if the user previously ticked "Save password".
+        // A successful auto-login from a stored token never reaches this screen, so the
+        // prefill is only ever rendered when the token is missing/invalid — which is
+        // exactly when the user wants to retry credentials sign-in.
+        if (secureStorage != null) {
+            scope.launch {
+                val savedLogin = runCatching { secureStorage.get(LOGIN_FIELD_KEY) }.getOrNull()
+                val savedPassword = runCatching { secureStorage.get(PASSWORD_KEY) }.getOrNull()
+                if (!savedLogin.isNullOrBlank() && !savedPassword.isNullOrBlank()) {
+                    _state.update {
+                        it.copy(loginField = savedLogin, password = savedPassword, savePassword = true)
+                    }
+                }
+            }
+        }
+    }
 
     public fun selectMode(mode: LoginMode) {
         _state.update {
@@ -115,6 +144,10 @@ public class LoginViewModel(
         _state.update { it.copy(mfaCode = value.trim(), error = null) }
     }
 
+    public fun onSavePasswordChange(value: Boolean) {
+        _state.update { it.copy(savePassword = value) }
+    }
+
     public fun submit() {
         val current = _state.value
         when (current.mode) {
@@ -139,7 +172,30 @@ public class LoginViewModel(
 
     private fun submitCredentials(current: LoginState) {
         if (!current.canSubmitCredentials) return
+        persistCredentialPreference(current)
         runCredentials(current.loginField, current.password, captchaKey = null)
+    }
+
+    /**
+     * Writes the entered credentials when "Save password" is ticked, or wipes any previously
+     * saved copy when it is not. We persist before the network call so an interrupted attempt
+     * (network drop, captcha) still leaves the form auto-filled next launch.
+     */
+    private fun persistCredentialPreference(current: LoginState) {
+        val storage = secureStorage ?: return
+        scope.launch {
+            if (current.savePassword) {
+                runCatching {
+                    storage.put(LOGIN_FIELD_KEY, current.loginField)
+                    storage.put(PASSWORD_KEY, current.password)
+                }
+            } else {
+                runCatching {
+                    storage.remove(LOGIN_FIELD_KEY)
+                    storage.remove(PASSWORD_KEY)
+                }
+            }
+        }
     }
 
     /**
@@ -249,4 +305,9 @@ public class LoginViewModel(
 
     private fun looksLikeNetwork(msg: String): Boolean =
         "network" in msg || "connect" in msg || "timeout" in msg || "host" in msg || "unreachable" in msg
+
+    public companion object {
+        public const val LOGIN_FIELD_KEY: String = "discord.login_field"
+        public const val PASSWORD_KEY: String = "discord.password"
+    }
 }

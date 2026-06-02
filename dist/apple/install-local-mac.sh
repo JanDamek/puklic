@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+# install-local-mac.sh — install the current release's .dmg into /Applications and
+# re-sign with the local "Developer ID Application: Jan Damek (GR74KSG8M9)" identity.
+#
+# Why re-sign: jpackage's local `packageDmg` output and the CI-built .dmg are both
+# ad-hoc signed (Signature=adhoc, TeamIdentifier=not set) because Apple credentials
+# live only on this Mac per HARD RULE #4. macOS keychain ACL is keyed on the
+# designated requirement (Team ID + bundle ID); ad-hoc signatures change between
+# builds, so "Always Allow" never persists and the user is prompted on every
+# launch. Re-signing the installed bundle with Developer ID Application makes the
+# requirement stable across releases — one "Always Allow" carries forward.
+#
+# Issue #90.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+
+VERSION="$(awk -F= '/^puklic\.version=/ {print $2; exit}' "${REPO_ROOT}/gradle.properties" | tr -d '[:space:]')"
+[ -n "$VERSION" ] || { echo "puklic.version missing from gradle.properties" >&2; exit 1; }
+
+DMG_LOCAL="${REPO_ROOT}/desktop/app/build/compose/binaries/main/dmg/Puklic-${VERSION}.dmg"
+DMG_CI_DIR="/tmp/puklic-v${VERSION}"
+DMG="${DMG_LOCAL}"
+
+if [ ! -f "$DMG" ]; then
+  echo "[install-local-mac] local DMG missing; downloading v${VERSION} from GitHub Release"
+  mkdir -p "${DMG_CI_DIR}"
+  gh release download "v${VERSION}" --pattern '*.dmg' --dir "${DMG_CI_DIR}" -R JanDamek/puklic
+  DMG="${DMG_CI_DIR}/Puklic-${VERSION}.dmg"
+fi
+
+[ -f "$DMG" ] || { echo "[install-local-mac] no .dmg found at $DMG" >&2; exit 1; }
+
+IDENTITY="Developer ID Application: Jan Damek (GR74KSG8M9)"
+if ! security find-identity -v -p codesigning | grep -q "$IDENTITY"; then
+  echo "[install-local-mac] codesigning identity missing: $IDENTITY" >&2
+  exit 1
+fi
+
+echo "[install-local-mac] mounting $DMG"
+pkill -f "/Applications/Puklic.app/" 2>/dev/null || true
+sleep 1
+rm -rf /Applications/Puklic.app
+hdiutil attach "$DMG" -nobrowse -quiet
+APP_SRC="$(ls -d /Volumes/Puklic*/Puklic.app 2>/dev/null | head -1)"
+[ -n "$APP_SRC" ] || { echo "[install-local-mac] Puklic.app not found inside mounted DMG" >&2; exit 1; }
+
+cp -R "$APP_SRC" /Applications/Puklic.app
+hdiutil detach "$(dirname "$APP_SRC")" -force >/dev/null
+xattr -dr com.apple.quarantine /Applications/Puklic.app 2>/dev/null || true
+
+echo "[install-local-mac] re-signing /Applications/Puklic.app with $IDENTITY"
+codesign --force --deep --options runtime --sign "$IDENTITY" --timestamp=none /Applications/Puklic.app
+
+codesign --verify --deep --strict /Applications/Puklic.app
+INSTALLED="$(plutil -extract CFBundleShortVersionString raw /Applications/Puklic.app/Contents/Info.plist)"
+TEAM="$(codesign -dv /Applications/Puklic.app 2>&1 | awk -F= '/TeamIdentifier/ {print $2}')"
+echo "[install-local-mac] done — Puklic ${INSTALLED} installed, TeamIdentifier=${TEAM}"

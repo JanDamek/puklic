@@ -31,6 +31,7 @@ public class RootComponent(
     componentContext: ComponentContext,
     public val sessionManager: SessionManager,
     public val preferences: UserPreferencesRepository? = null,
+    public val secureStorage: dev.puklic.platform.SecureStorage? = null,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = lifecycleCoroutineScope(Dispatchers.Main.immediate)

@@ -209,7 +209,12 @@ public class DependencyGraph private constructor(
             val lifecycle = LifecycleRegistry()
             val ctx = DefaultComponentContext(lifecycle = lifecycle)
             lifecycle.resume()
-            val root = RootComponent(ctx, sessionManager, preferences = userPreferences)
+            val root = RootComponent(
+                componentContext = ctx,
+                sessionManager = sessionManager,
+                preferences = userPreferences,
+                secureStorage = storage,
+            )
 
             // Kick off auto-restore in the background. RootComponent observes
             // sessionManager.bootstrap + activeSession and renders BootstrappingScreen
