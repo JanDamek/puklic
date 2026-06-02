@@ -50,8 +50,25 @@ cp -R "$APP_SRC" /Applications/Puklic.app
 hdiutil detach "$(dirname "$APP_SRC")" -force >/dev/null
 xattr -dr com.apple.quarantine /Applications/Puklic.app 2>/dev/null || true
 
+ENT="${SCRIPT_DIR}/local-mac.entitlements"
+[ -f "$ENT" ] || { echo "[install-local-mac] missing entitlements file: $ENT" >&2; exit 1; }
+
 echo "[install-local-mac] re-signing /Applications/Puklic.app with $IDENTITY"
-codesign --force --deep --options runtime --sign "$IDENTITY" --timestamp=none /Applications/Puklic.app
+# Sign nested binaries first (--deep is documented as deprecated and is known
+# to skip JDK runtime dylibs in jpackage bundles). Order: leaf dylibs/jnilibs,
+# then the JDK launcher helper, then the app launcher, then the bundle wrapper.
+# Entitlements MUST be applied to every Mach-O binary that runs JIT code (the
+# JVM dylibs) — applying only to the outer .app is insufficient and triggers
+# pthread_jit_write_protect_np SIGTRAP at JNI_CreateJavaVM.
+find /Applications/Puklic.app -type f \( -name "*.dylib" -o -name "*.jnilib" -o -name "*.so" \) \
+  -exec codesign --force --options runtime --entitlements "$ENT" \
+    --sign "$IDENTITY" --timestamp=none {} \;
+codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
+  /Applications/Puklic.app/Contents/runtime/Contents/Home/lib/jspawnhelper
+codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
+  /Applications/Puklic.app/Contents/MacOS/Puklic
+codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
+  /Applications/Puklic.app
 
 codesign --verify --deep --strict /Applications/Puklic.app
 INSTALLED="$(plutil -extract CFBundleShortVersionString raw /Applications/Puklic.app/Contents/Info.plist)"

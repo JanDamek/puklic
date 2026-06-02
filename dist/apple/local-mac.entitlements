@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    Entitlements applied during local re-sign by dist/apple/install-local-mac.sh.
+
+    The JVM (libjvm.dylib) uses pthread_jit_write_protect_np / mprotect to flip
+    JIT-compiled code pages between writable and executable. Without
+    `allow-jit` + `allow-unsigned-executable-memory` macOS Hardened Runtime
+    sends SIGTRAP at JIT_create_vm — the app crashes immediately on launch.
+
+    `disable-library-validation` lets JNA + Compose's bundled dylibs load
+    despite carrying our own Team ID instead of Apple's platform identifier;
+    `allow-dyld-environment-variables` is needed for the launcher's
+    -Djna.library.path forwarding (jpackage emits DYLD_LIBRARY_PATH-style
+    overrides via the launcher cfg).
+
+    Mirrors the entitlements Compose Desktop applies during its own
+    nativeDistributions signing path; we re-apply them here because the
+    install-local-mac.sh re-sign overwrites the original signature.
+    -->
+    <key>com.apple.security.cs.allow-jit</key><true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+    <key>com.apple.security.cs.disable-library-validation</key><true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key><true/>
+</dict>
+</plist>
