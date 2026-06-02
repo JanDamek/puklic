@@ -15,7 +15,7 @@ import javax.sound.sampled.TargetDataLine
  * blocking read of 1920 bytes = 960 samples = 20 ms per frame.
  */
 @PuklicVoiceCodec
-public fun audioCapture(): AudioCapture = JavaSoundCapture()
+public actual fun audioCapture(): AudioCapture = JavaSoundCapture()
 
 private class JavaSoundCapture : AudioCapture {
 

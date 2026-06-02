@@ -17,7 +17,7 @@ import javax.sound.sampled.TargetDataLine
  * requested line — this matches the OS default mixer convention on macOS/Linux.
  */
 @PuklicVoiceCodec
-public fun listAudioDevices(direction: AudioDevice.Direction): List<AudioDevice> {
+public actual fun listAudioDevices(direction: AudioDevice.Direction): List<AudioDevice> {
     val lineClass = when (direction) {
         AudioDevice.Direction.Capture -> TargetDataLine::class.java
         AudioDevice.Direction.Playback -> SourceDataLine::class.java

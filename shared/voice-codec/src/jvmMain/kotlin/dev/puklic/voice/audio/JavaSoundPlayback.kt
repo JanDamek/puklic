@@ -22,7 +22,7 @@ private const val SIGNED: Boolean = true
 private const val BIG_ENDIAN: Boolean = false
 
 @PuklicVoiceCodec
-public fun audioPlayback(): AudioPlayback = JavaSoundPlayback()
+public actual fun audioPlayback(): AudioPlayback = JavaSoundPlayback()
 
 @PuklicVoiceCodec
 public fun listPlaybackDevices(): List<AudioDevice> =

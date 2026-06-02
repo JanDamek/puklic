@@ -25,6 +25,14 @@ public interface AudioPlayback : AutoCloseable {
     override fun close()
 }
 
-// FP-14h-2e (issue #69): `audioPlayback()` and `listPlaybackDevices()` top-level
-// functions live in JavaSoundPlayback.kt as plain JVM functions (not expect/actual)
-// until FP-14h-3 ships Apple audio actuals. Per architect plan §1.1 deferred items.
+/**
+ * Open the platform default speaker playback pipeline.
+ *
+ * Promoted to `expect fun` in FP-14h-5.5 alongside [audioCapture]:
+ *  - JVM (Linux / Windows / macOS .dmg): JavaSound `SourceDataLine`
+ *  - iOS / iPadOS: `AVAudioEngine` output node via `IosAVAudioEnginePlayback`
+ *
+ * Mac App Store JVM injects `JnaAVAudioEnginePlayback` directly via DI.
+ */
+@PuklicVoiceCodec
+public expect fun audioPlayback(): AudioPlayback

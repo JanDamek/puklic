@@ -131,4 +131,4 @@ public class IosAVAudioEnginePlayback : AudioPlayback {
 }
 
 @PuklicVoiceCodec
-public fun iosAudioPlayback(): AudioPlayback = IosAVAudioEnginePlayback()
+public actual fun audioPlayback(): AudioPlayback = IosAVAudioEnginePlayback()

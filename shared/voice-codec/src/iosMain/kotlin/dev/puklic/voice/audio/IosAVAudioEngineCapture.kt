@@ -208,4 +208,4 @@ public class IosAVAudioEngineCapture : AudioCapture {
 }
 
 @PuklicVoiceCodec
-public fun iosAudioCapture(): AudioCapture = IosAVAudioEngineCapture()
+public actual fun audioCapture(): AudioCapture = IosAVAudioEngineCapture()

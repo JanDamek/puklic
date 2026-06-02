@@ -1,5 +1,6 @@
 package dev.puklic.voice.audio
 
+import dev.puklic.voice.AudioDevice
 import dev.puklic.voice.codec.PuklicVoiceCodec
 
 /**
@@ -24,7 +25,26 @@ public interface AudioCapture : AutoCloseable {
     override fun close()
 }
 
-// FP-14h-2e (issue #69): `audioCapture()` and `listAudioDevices()` top-level functions
-// live in JavaSoundCapture.kt / JavaSoundDevices.kt as plain JVM functions (not
-// expect/actual) until FP-14h-3 ships Apple audio actuals and these get promoted to
-// commonMain `expect`. Per architect plan §1.1 deferred items.
+/**
+ * Open the platform default microphone capture pipeline.
+ *
+ * Promoted to `expect fun` in FP-14h-5.5 so `DefaultVoiceClient` can live in commonMain
+ * and pick up the platform actual without per-platform wiring:
+ *  - JVM (Linux / Windows / macOS .dmg): JavaSound `TargetDataLine`
+ *  - iOS / iPadOS: `AVAudioEngine.inputNode` via `IosAVAudioEngineCapture`
+ *
+ * Mac App Store JVM builds inject `JnaAVAudioEngineCapture` directly into the DI graph
+ * instead of calling this function (the JNA bridge lives in `:desktop:platform-macos-appstore`
+ * which is not a Kotlin/Native target of this module).
+ */
+@PuklicVoiceCodec
+public expect fun audioCapture(): AudioCapture
+
+/**
+ * Enumerate physical audio devices for the requested direction.
+ *
+ * Promoted to `expect fun` in FP-14h-5.5 together with [audioCapture]. The result is
+ * surfaced to the UI via `VoiceClient.devices`.
+ */
+@PuklicVoiceCodec
+public expect fun listAudioDevices(direction: AudioDevice.Direction): List<AudioDevice>
