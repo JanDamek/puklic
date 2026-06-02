@@ -55,7 +55,7 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kover-gradle-plugin:$koverVersion")
 
     // Tests for build-logic pure helpers (e.g. IosGplChecker matcher)
-    testImplementation("org.junit.jupiter:junit-jupiter:5.10.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:6.1.0")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
 }
 
