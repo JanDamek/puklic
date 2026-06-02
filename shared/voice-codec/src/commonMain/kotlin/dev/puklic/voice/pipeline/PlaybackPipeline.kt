@@ -3,16 +3,19 @@ package dev.puklic.voice.pipeline
 import dev.puklic.voice.AudioConstants
 import dev.puklic.voice.audio.AudioPlayback
 import dev.puklic.voice.codec.OpusDecoder
+import dev.puklic.voice.codec.PuklicVoiceCodec
 import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.RtpPacket
 import dev.puklic.voice.transport.VoicePacketCodec
+import kotlinx.atomicfu.atomic
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlin.time.TimeSource
 
 /**
  * Receives UDP packets → AEAD decrypt → Opus decode (per SSRC) → mix → write to playback.
@@ -24,9 +27,19 @@ import java.util.concurrent.ConcurrentLinkedQueue
  * scheduled tick. A strict-tick mixer would be more correct under packet drift but is
  * deferred — see report §9 note on simplicity.
  *
- * SSRC streams are GC'd after [SSRC_IDLE_TIMEOUT_NS] of silence.
+ * SSRC streams are GC'd after [SSRC_IDLE_TIMEOUT] of silence.
+ *
+ * FP-14h-4 (architect report 2026-06-02-fp14h-applevoiceclient-promotion-plan.md §2):
+ * promoted from `:shared:voice/jvmMain` to `:shared:voice-codec/commonMain`. JVM-only
+ * concurrency primitives are replaced with KMP-portable equivalents:
+ * `ConcurrentHashMap` → [MutableMap] guarded by [Mutex]; `ConcurrentLinkedQueue` →
+ * `ArrayDeque` guarded by the same mutex; `java.util.concurrent.atomic` →
+ * `kotlinx.atomicfu`; `System.nanoTime()` → [TimeSource.Monotonic]. Behaviour is
+ * preserved: the receive coroutine is the sole writer to a stream's queue, the mixer
+ * coroutine is the sole reader, and the mutex serialises map structural changes.
  */
-internal class PlaybackPipeline(
+@PuklicVoiceCodec
+public class PlaybackPipeline(
     private val transport: VoiceUdpTransport,
     private val packetCodec: VoicePacketCodec,
     private val decoderFactory: () -> OpusDecoder,
@@ -35,7 +48,7 @@ internal class PlaybackPipeline(
     /**
      * Optional override for the packet source. Defaults to reading directly from [transport],
      * which is the legacy single-consumer mode used by tests. The wiring layer
-     * ([dev.puklic.voice.DefaultVoiceClient]) injects a dispatcher-fed source so audio and
+     * (`dev.puklic.voice.DefaultVoiceClient`) injects a dispatcher-fed source so audio and
      * video pipelines can co-exist on the same UDP socket without contending on receive().
      */
     private val packetSource: (suspend () -> ByteArray)? = null,
@@ -48,23 +61,25 @@ internal class PlaybackPipeline(
     private val daveDecrypt: (suspend (ssrc: Int, opusOrCiphertext: ByteArray) -> ByteArray?)? = null,
 ) {
 
-    private val streams = ConcurrentHashMap<Int, SsrcStream>()
+    private val mutex = Mutex()
+    private val streams: MutableMap<Int, SsrcStream> = mutableMapOf()
     private var receiveJob: Job? = null
     private var mixerJob: Job? = null
 
-    fun start(scope: CoroutineScope, deviceId: String? = null) {
+    public fun start(scope: CoroutineScope, deviceId: String? = null) {
         check(receiveJob == null && mixerJob == null) { "PlaybackPipeline already running" }
         playback.start(deviceId)
-        receiveJob = scope.launch(Dispatchers.IO) { receiveLoop() }
-        mixerJob = scope.launch(Dispatchers.IO) { mixerLoop() }
+        receiveJob = scope.launch(Dispatchers.Default) { receiveLoop() }
+        mixerJob = scope.launch(Dispatchers.Default) { mixerLoop() }
     }
 
-    fun stop() {
+    public fun stop() {
         receiveJob?.cancel()
         mixerJob?.cancel()
         receiveJob = null
         mixerJob = null
         playback.stop()
+        // Both coroutines cancelled; safe to iterate without the mutex.
         streams.values.forEach { it.decoder.close() }
         streams.clear()
     }
@@ -97,8 +112,10 @@ internal class PlaybackPipeline(
         }
         if (decoded.header.payloadType != RtpPacket.PAYLOAD_TYPE_OPUS) return
         val ssrc = decoded.header.ssrc
-        val stream = streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
-        stream.lastPacketNs = System.nanoTime()
+        val stream = mutex.withLock {
+            streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
+        }
+        stream.lastPacketNanos.value = monotonicNanos()
         // DAVE: strip the per-frame ciphertext layer (if any) BEFORE we hand
         // bytes to the jitter buffer + Opus decoder. Pass-through on null hook;
         // drop the frame on integrity failure (null return) when a hook is set.
@@ -114,7 +131,7 @@ internal class PlaybackPipeline(
             } catch (_: Exception) {
                 continue
             }
-            stream.pendingFrames.add(pcm)
+            stream.offerFrame(pcm)
         }
     }
 
@@ -123,8 +140,11 @@ internal class PlaybackPipeline(
         while (isActive()) {
             for (i in mixed.indices) mixed[i] = 0
             val active = mutableSetOf<Int>()
-            for ((ssrc, stream) in streams) {
-                val frame = stream.pendingFrames.poll() ?: continue
+            // Snapshot the current SSRC set so we don't hold the mutex while invoking
+            // user callbacks or blocking playback writes.
+            val snapshot = mutex.withLock { streams.toMap() }
+            for ((ssrc, stream) in snapshot) {
+                val frame = stream.pollFrame() ?: continue
                 active += ssrc
                 mixInto(mixed, frame)
             }
@@ -134,14 +154,16 @@ internal class PlaybackPipeline(
         }
     }
 
-    private fun gcIdleStreams() {
-        val now = System.nanoTime()
-        val it = streams.entries.iterator()
-        while (it.hasNext()) {
-            val (_, stream) = it.next()
-            if (now - stream.lastPacketNs > SSRC_IDLE_TIMEOUT_NS) {
-                stream.decoder.close()
-                it.remove()
+    private suspend fun gcIdleStreams() {
+        val now = monotonicNanos()
+        mutex.withLock {
+            val it = streams.entries.iterator()
+            while (it.hasNext()) {
+                val (_, stream) = it.next()
+                if (now - stream.lastPacketNanos.value > SSRC_IDLE_TIMEOUT_NS) {
+                    stream.decoder.close()
+                    it.remove()
+                }
             }
         }
     }
@@ -149,8 +171,17 @@ internal class PlaybackPipeline(
     private suspend fun isActive(): Boolean =
         currentCoroutineContext()[Job]?.isActive ?: false
 
-    companion object {
-        const val SSRC_IDLE_TIMEOUT_NS: Long = 10_000_000_000L
+    public companion object {
+        /** SSRC idle GC threshold in nanoseconds (10 s) — same as the legacy JVM impl. */
+        public const val SSRC_IDLE_TIMEOUT_NS: Long = 10_000_000_000L
+
+        // Monotonic clock anchor. TimeSource.Monotonic doesn't expose raw nanoseconds, but
+        // marking once at class-load and measuring elapsedNow() on each call gives a stable
+        // monotonic nanosecond value across both JVM (System.nanoTime) and Kotlin/Native
+        // (mach_absolute_time / clock_gettime CLOCK_MONOTONIC).
+        private val origin = TimeSource.Monotonic.markNow()
+
+        internal fun monotonicNanos(): Long = origin.elapsedNow().inWholeNanoseconds
 
         internal fun mixInto(dst: ShortArray, src: ShortArray) {
             val n = minOf(dst.size, src.size)
@@ -162,10 +193,25 @@ internal class PlaybackPipeline(
     }
 }
 
+/**
+ * Per-SSRC playback state. The pending-frames queue is guarded by an internal mutex
+ * because the receive coroutine writes and the mixer coroutine reads from different
+ * threads on JVM (`Dispatchers.Default` is a multi-thread pool). On single-threaded
+ * Kotlin/Native dispatchers the lock is uncontended.
+ */
 private class SsrcStream(
     val decoder: OpusDecoder,
     val buffer: JitterBuffer,
 ) {
-    val pendingFrames: ConcurrentLinkedQueue<ShortArray> = ConcurrentLinkedQueue()
-    @Volatile var lastPacketNs: Long = System.nanoTime()
+    val lastPacketNanos = atomic(PlaybackPipeline.monotonicNanos())
+    private val queueMutex = Mutex()
+    private val pending: ArrayDeque<ShortArray> = ArrayDeque()
+
+    suspend fun offerFrame(frame: ShortArray) {
+        queueMutex.withLock { pending.addLast(frame) }
+    }
+
+    suspend fun pollFrame(): ShortArray? = queueMutex.withLock {
+        if (pending.isEmpty()) null else pending.removeFirst()
+    }
 }
