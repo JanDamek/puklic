@@ -21,6 +21,6 @@ body:
     attributes:
       label: Verze Puklic
       description: Necháváme předvyplněné na aktuální release. Pokud testuješ jinou, přepiš.
-      value: "1.2.12"
+      value: "1.2.13"
     validations:
       required: false
