@@ -14,9 +14,11 @@ import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.domain.UserSummary
+import dev.puklic.domain.GuildChannel
 import dev.puklic.repositories.NewDmSearch
 import dev.puklic.repositories.Orchestrators
 import dev.puklic.repositories.PresenceState
+import dev.puklic.repositories.ReadStateView
 import dev.puklic.session.DmCreator
 import dev.puklic.session.FriendInviter
 import dev.puklic.session.ServerJoiner
@@ -45,6 +47,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -520,6 +523,55 @@ public class MainViewModel(
     public val voiceStates: StateFlow<Map<ChannelId, List<VoiceMember>>> =
         orchestrators?.voiceStates?.voiceStates
             ?: MutableStateFlow(emptyMap<ChannelId, List<VoiceMember>>()).asStateFlow()
+
+    /**
+     * Issue #81 — per-DM unread / mention view. Filtered passthrough of
+     * [ReadStateOrchestrator.byChannel] keyed by DM channel ids. Empty map when there is no
+     * orchestrator (tests) or no read-state pipeline wired yet.
+     */
+    public val dmUnread: StateFlow<Map<ChannelId, ReadStateView>> = run {
+        val readState = orchestrators?.readState
+        if (readState == null) {
+            MutableStateFlow(emptyMap<ChannelId, ReadStateView>()).asStateFlow()
+        } else {
+            combine(orchestrators.dms.dms, readState.byChannel) { dms, rs ->
+                computeDmUnread(dms, rs)
+            }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
+        }
+    }
+
+    /**
+     * Issue #81 — per-guild "has a mention" flag for the rail dot. True iff any of the guild's
+     * channels has [ReadStateView.mentionCount] > 0. The rail dot is mention-only by design
+     * (plain unread is too noisy at the top-level rail).
+     */
+    public val guildHasMention: StateFlow<Map<GuildId, Boolean>> = run {
+        val readState = orchestrators?.readState
+        if (readState == null) {
+            MutableStateFlow(emptyMap<GuildId, Boolean>()).asStateFlow()
+        } else {
+            orchestrators.guild.orderedGuilds
+                .flatMapLatest { guilds ->
+                    if (guilds.isEmpty()) {
+                        flowOf(emptyMap<GuildId, Boolean>())
+                    } else {
+                        val perGuildChannels: List<kotlinx.coroutines.flow.Flow<Pair<GuildId, List<Channel>>>> =
+                            guilds.map { g ->
+                                orchestrators.channel.channelsForGuild(g.id).map { g.id to it }
+                            }
+                        val perGuildFlow: kotlinx.coroutines.flow.Flow<List<Pair<GuildId, List<Channel>>>> =
+                            combine(perGuildChannels) { it.toList() }
+                        combine(perGuildFlow, readState.byChannel) { perGuild, rs ->
+                            perGuild.associate { (gid, channels) ->
+                                val guildChannels = channels.filterIsInstance<GuildChannel>()
+                                gid to guildHasMention(gid, guildChannels, rs)
+                            }
+                        }
+                    }
+                }
+                .stateIn(scope, SharingStarted.Eagerly, emptyMap())
+        }
+    }
 
     /**
      * Best-effort, non-suspending display name lookup used by voice-member rows. Falls back to

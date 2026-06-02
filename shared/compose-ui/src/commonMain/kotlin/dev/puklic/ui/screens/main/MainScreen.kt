@@ -36,6 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Badge
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -99,12 +100,15 @@ import dev.puklic.voice.VoiceState
 @Composable
 public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = null) {
     val state by viewModel.state.collectAsState()
+    val guildHasMention by viewModel.guildHasMention.collectAsState()
+    val dmUnread by viewModel.dmUnread.collectAsState()
     Box(modifier = Modifier.fillMaxSize()) {
     Row(modifier = Modifier.fillMaxSize()) {
         GuildRail(
             guilds = state.guilds,
             selectedGuildId = state.selectedGuildId,
             isDmHomeSelected = state.isDmHome,
+            guildHasMention = guildHasMention,
             onSelectDmHome = viewModel::selectDmHome,
             onSelectGuild = viewModel::selectGuild,
             onOpenAddFriend = viewModel::openAddFriend,
@@ -118,6 +122,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                 DmListPane(
                     dms = state.dmChannels,
                     selectedChannelId = state.selectedChannelId,
+                    dmUnread = dmUnread,
                     onSelectChannel = viewModel::selectChannel,
                     onStartNewDm = viewModel::openNewDm,
                     modifier = paneModifier,
@@ -303,6 +308,7 @@ private fun GuildRail(
     guilds: List<Guild>,
     selectedGuildId: GuildId?,
     isDmHomeSelected: Boolean,
+    guildHasMention: Map<GuildId, Boolean>,
     onSelectDmHome: () -> Unit,
     onSelectGuild: (GuildId) -> Unit,
     onOpenAddFriend: () -> Unit,
@@ -331,6 +337,8 @@ private fun GuildRail(
             GuildRailItem(
                 guild = g,
                 isSelected = g.id == selectedGuildId,
+                hasUnread = guildHasMention[g.id] == true,
+                mentionCount = 0,
                 onClick = { onSelectGuild(g.id) },
             )
         }
@@ -402,6 +410,7 @@ private fun HomeRailItem(isSelected: Boolean, onClick: () -> Unit) {
 private fun DmListPane(
     dms: List<DmChannel>,
     selectedChannelId: ChannelId?,
+    dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
     onSelectChannel: (ChannelId) -> Unit,
     onStartNewDm: () -> Unit,
     modifier: Modifier = Modifier,
@@ -443,6 +452,7 @@ private fun DmListPane(
                         label = "@$label",
                         avatar = recipient,
                         isSelected = dm.id == selectedChannelId,
+                        mentionCount = dmUnread[dm.id]?.mentionCount ?: 0,
                         onClick = { onSelectChannel(dm.id) },
                     )
                 }
@@ -456,6 +466,7 @@ private fun DmRow(
     label: String,
     avatar: dev.puklic.domain.UserSummary?,
     isSelected: Boolean,
+    mentionCount: Int,
     onClick: () -> Unit,
 ) {
     val bg = if (isSelected) MaterialTheme.colorScheme.primaryContainer else androidx.compose.ui.graphics.Color.Transparent
@@ -472,9 +483,18 @@ private fun DmRow(
         if (avatar != null) PuklicAvatar(user = avatar, size = 24.dp)
         Text(
             label,
+            modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
+        if (mentionCount > 0) {
+            Badge(
+                containerColor = MaterialTheme.colorScheme.error,
+                contentColor = MaterialTheme.colorScheme.onError,
+            ) {
+                Text(if (mentionCount > 9) "9+" else mentionCount.toString())
+            }
+        }
     }
 }
 
