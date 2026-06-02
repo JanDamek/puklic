@@ -715,11 +715,18 @@ public class DiscordGatewayBridge(
             events += extractGuildChannels(guildElement, guild.id.value)
             events += extractVoiceStatesBootstrap(guildElement, guild.id)
             // Per design §3a: pair `merged_members[i]` with `guilds[i]` to find the self member.
+            // User-mode READY places the user id at `user_id` (top-level) — bot tokens nest
+            // it under `user.id`. Match both so the self-member is found regardless of token
+            // type. Without the self member, channel visibility falls back to permissive
+            // (issue #18 follow-up — the tester saw the inverse-filter bug because every
+            // guild's selfMember was null and the rail couldn't compute role-aware perms).
             val mergedMembersArray = obj["merged_members"] as? kotlinx.serialization.json.JsonArray
             val perGuildMembers = mergedMembersArray?.getOrNull(index) as? kotlinx.serialization.json.JsonArray
             val selfEntry = perGuildMembers?.firstOrNull { el ->
                 val mObj = el as? kotlinx.serialization.json.JsonObject ?: return@firstOrNull false
-                val uid = mObj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                val uidTopLevel = mObj["user_id"]?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                val uidNested = mObj["user"]?.jsonObject?.get("id")?.jsonPrimitive?.contentOrNull?.toLongOrNull()
+                val uid = uidTopLevel ?: uidNested
                 uid != null && uid == self.id.value
             }
             val selfEvent = selfEntry?.let { el ->

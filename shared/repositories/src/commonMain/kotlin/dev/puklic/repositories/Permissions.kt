@@ -74,15 +74,13 @@ public object Permissions {
     /**
      * Variant safe for the bootstrap window before role / self-member data has arrived.
      *
-     * - If [roles] is empty we have no data at all — treat the channel as visible so it doesn't
-     *   pop in once roles land (any short-lived false positive corrects itself on the next
-     *   emit).
-     * - If [member] is `null` but [roles] is populated we KNOW the user's effective
-     *   permissions but not their extra role grants. Fall back to evaluating the channel
-     *   against a synthetic "@everyone-only" member: any channel that hides @everyone via a
-     *   deny overwrite stays hidden. This is the strict behaviour the user expects — a
-     *   channel that says "you don't have permission to view this channel" must never appear
-     *   in the list (issue #18 follow-up).
+     * Returns `true` (visible) on missing data. A previous attempt evaluated channels
+     * against a synthetic @everyone-only member when self-member was unknown, but that
+     * incorrectly hid channels the user can actually view (their role-grants weren't
+     * applied) AND showed channels they couldn't (role-deny wasn't applied either) — the
+     * tester's screenshot for issue #18 made the inversion clear. Permissive default is
+     * the lesser evil: the gateway's `merged_members` parser eventually delivers
+     * `SelfMemberUpdated`, at which point the strict [canView] kicks in.
      */
     public fun canViewSafe(
         member: Member?,
@@ -91,15 +89,9 @@ public object Permissions {
         ownerId: UserId,
         everyoneRoleId: RoleId,
     ): Boolean {
+        if (member == null) return true
         if (roles.isEmpty()) return true
-        val effectiveMember = member ?: Member(
-            userId = UserId(0L),
-            guildId = GuildId(everyoneRoleId.value),
-            roles = emptyList(),
-            nick = null,
-            joinedAt = null,
-        )
-        return canView(effectiveMember, channel, roles, ownerId, everyoneRoleId)
+        return canView(member, channel, roles, ownerId, everyoneRoleId)
     }
 
     /** Discord convention: the @everyone role id within a guild equals the guild's id. */
