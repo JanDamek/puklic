@@ -1,0 +1,6 @@
+-- Migration v3 -> v4 (issue #18 follow-up — channel permission overwrites)
+-- Persist Discord per-channel permission_overwrites as a JSON-encoded array so
+-- the cached channel list filters correctly on cold start. Without this,
+-- cached channels round-trip with empty overwrites and the visibility filter
+-- defaults to @everyone-allow.
+ALTER TABLE channel ADD COLUMN permission_overwrites_json TEXT;

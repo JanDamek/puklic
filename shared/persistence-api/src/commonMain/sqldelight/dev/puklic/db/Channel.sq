@@ -12,6 +12,7 @@ CREATE TABLE channel (
     user_limit INTEGER,
     last_message_id INTEGER,
     updated_at INTEGER NOT NULL,
+    permission_overwrites_json TEXT,
     FOREIGN KEY (guild_id) REFERENCES guild(id) ON DELETE CASCADE
 );
 
@@ -28,8 +29,8 @@ selectByGuild:
 SELECT * FROM channel WHERE guild_id = ? ORDER BY position;
 
 upsert:
-INSERT OR REPLACE INTO channel(id, guild_id, parent_id, type, name, topic, position, rate_limit_per_user, nsfw, bitrate, user_limit, last_message_id, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+INSERT OR REPLACE INTO channel(id, guild_id, parent_id, type, name, topic, position, rate_limit_per_user, nsfw, bitrate, user_limit, last_message_id, updated_at, permission_overwrites_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 updateLastMessage:
 UPDATE channel SET last_message_id = ?, updated_at = ? WHERE id = ?;

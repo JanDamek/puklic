@@ -116,6 +116,7 @@ class ChannelMigrationTest {
             user_limit = 10L,
             last_message_id = null,
             updated_at = 0L,
+            permission_overwrites_json = null,
         )
         val voice = db.channelQueries.selectById(99L).executeAsOne()
         voice.bitrate shouldBe 64_000L

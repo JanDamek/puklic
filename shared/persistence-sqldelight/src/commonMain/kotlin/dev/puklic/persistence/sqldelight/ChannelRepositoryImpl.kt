@@ -6,8 +6,11 @@ import dev.puklic.domain.Channel
 import dev.puklic.domain.ChannelType
 import dev.puklic.domain.DmChannel
 import dev.puklic.domain.GuildCategoryChannel
+import dev.puklic.domain.GuildChannel
 import dev.puklic.domain.GuildTextChannel
 import dev.puklic.domain.GuildVoiceChannel
+import dev.puklic.domain.OverwriteType
+import dev.puklic.domain.PermissionOverwrite
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
@@ -73,6 +76,7 @@ class ChannelRepositoryImpl(
                 user_limit = null,
                 last_message_id = null,
                 updated_at = nowEpochMs(),
+                permission_overwrites_json = (channel as? GuildChannel)?.let { encodeOverwrites(it.permissionOverwrites) },
             )
             is GuildVoiceChannel -> db.channelQueries.upsert(
                 id = channel.id.value,
@@ -88,6 +92,7 @@ class ChannelRepositoryImpl(
                 user_limit = channel.userLimit?.toLong(),
                 last_message_id = null,
                 updated_at = nowEpochMs(),
+                permission_overwrites_json = (channel as? GuildChannel)?.let { encodeOverwrites(it.permissionOverwrites) },
             )
             is GuildCategoryChannel -> db.channelQueries.upsert(
                 id = channel.id.value,
@@ -103,6 +108,7 @@ class ChannelRepositoryImpl(
                 user_limit = null,
                 last_message_id = null,
                 updated_at = nowEpochMs(),
+                permission_overwrites_json = (channel as? GuildChannel)?.let { encodeOverwrites(it.permissionOverwrites) },
             )
             is DmChannel -> db.channelQueries.upsert(
                 id = channel.id.value,
@@ -118,6 +124,7 @@ class ChannelRepositoryImpl(
                 user_limit = null,
                 last_message_id = null,
                 updated_at = nowEpochMs(),
+                permission_overwrites_json = (channel as? GuildChannel)?.let { encodeOverwrites(it.permissionOverwrites) },
             )
         }
     }
@@ -129,12 +136,14 @@ class ChannelRepositoryImpl(
      */
     private fun ChannelRow.toDomain(): Channel? {
         val ct = ChannelType.entries.getOrNull(type.toInt()) ?: return null
+        val overwrites = decodeOverwrites(permission_overwrites_json)
         return when (ct) {
             ChannelType.GUILD_CATEGORY -> GuildCategoryChannel(
                 id = ChannelId(id),
                 name = name,
                 guildId = GuildId(guild_id ?: return null),
                 position = (position ?: 0L).toInt(),
+                permissionOverwrites = overwrites,
             )
             ChannelType.GUILD_VOICE, ChannelType.GUILD_STAGE_VOICE -> GuildVoiceChannel(
                 id = ChannelId(id),
@@ -144,6 +153,7 @@ class ChannelRepositoryImpl(
                 parentId = parent_id?.let(::ChannelId),
                 bitrate = bitrate?.toInt(),
                 userLimit = user_limit?.toInt(),
+                permissionOverwrites = overwrites,
             )
             ChannelType.GUILD_TEXT, ChannelType.GUILD_ANNOUNCEMENT -> GuildTextChannel(
                 id = ChannelId(id),
@@ -154,9 +164,37 @@ class ChannelRepositoryImpl(
                 position = (position ?: 0L).toInt(),
                 rateLimitPerUser = (rate_limit_per_user ?: 0L).toInt(),
                 nsfw = (nsfw ?: 0L) != 0L,
+                permissionOverwrites = overwrites,
             )
             ChannelType.DM, ChannelType.GROUP_DM -> null
             else -> null
+        }
+    }
+
+    /**
+     * Persist permission overwrites as compact JSON (issue #18 follow-up): the SQLite row
+     * previously discarded them, so the cached channel list filter defaulted to @everyone-allow
+     * and channels the user couldn't view still appeared in the rail. Format:
+     * `[[targetId, type, allow, deny], ...]` — minimal token count, stable across schema.
+     */
+    private fun encodeOverwrites(list: List<PermissionOverwrite>): String? {
+        if (list.isEmpty()) return null
+        return list.joinToString(separator = ";", prefix = "", postfix = "") { ow ->
+            "${ow.targetId},${ow.type.ordinal},${ow.allow},${ow.deny}"
+        }
+    }
+
+    private fun decodeOverwrites(encoded: String?): List<PermissionOverwrite> {
+        if (encoded.isNullOrBlank()) return emptyList()
+        return encoded.split(';').mapNotNull { entry ->
+            val parts = entry.split(',')
+            if (parts.size != 4) return@mapNotNull null
+            val targetId = parts[0].toLongOrNull() ?: return@mapNotNull null
+            val typeOrdinal = parts[1].toIntOrNull() ?: return@mapNotNull null
+            val type = OverwriteType.entries.getOrNull(typeOrdinal) ?: return@mapNotNull null
+            val allow = parts[2].toLongOrNull() ?: return@mapNotNull null
+            val deny = parts[3].toLongOrNull() ?: return@mapNotNull null
+            PermissionOverwrite(targetId = targetId, type = type, allow = allow, deny = deny)
         }
     }
 }

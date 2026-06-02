@@ -52,6 +52,7 @@ internal fun PuklicDatabase.seedGuildChannelUser(
         user_limit = null,
         last_message_id = null,
         updated_at = 0L,
+        permission_overwrites_json = null,
     )
     userQueries.upsert(
         id = userId.value,
