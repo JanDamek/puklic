@@ -44,7 +44,7 @@
     <string>Apple Distribution</string>
 
     <key>destination</key>
-    <string>upload</string>
+    <string>export</string>
 
     <key>stripSwiftSymbols</key>
     <true/>
