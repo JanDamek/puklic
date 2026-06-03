@@ -34,6 +34,7 @@ private const val BRIDGE_NAME = "captcha"
 public actual fun CaptchaWebView(
     sitekey: String,
     service: String,
+    rqdata: String?,
     onSolved: (token: String) -> Unit,
     modifier: Modifier,
 ) {
@@ -69,7 +70,7 @@ public actual fun CaptchaWebView(
                         "Version/17.0 Mobile/15E148 Safari/604.1"
             }
             web.loadHTMLString(
-                captchaHtml(service = service, sitekey = sitekey),
+                captchaHtml(service = service, sitekey = sitekey, rqdata = rqdata),
                 baseURL = NSURL.URLWithString("https://discord.com/"),
             )
             web
@@ -132,8 +133,11 @@ private class CaptchaMessageHandler(
  * extremely rarely (and only on already-flagged accounts), so the hCaptcha path covers
  * effectively every challenge a normal sign-in encounters.
  */
-private fun captchaHtml(service: String, sitekey: String): String =
-    """
+private fun captchaHtml(service: String, sitekey: String, rqdata: String?): String {
+    // hCaptcha Enterprise challenge: when Discord supplies rqdata it MUST be rendered on the
+    // widget (`data-rqdata`), otherwise the solved token is rejected and the login loops.
+    val rqdataAttr = rqdata?.takeIf { it.isNotBlank() }?.let { "\n       data-rqdata=\"$it\"" }.orEmpty()
+    return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -163,9 +167,10 @@ private fun captchaHtml(service: String, sitekey: String): String =
   <div class="h-captcha"
        data-sitekey="$sitekey"
        data-callback="onCaptcha"
-       data-error-callback="onCaptchaError"
+       data-error-callback="onCaptchaError"$rqdataAttr
        data-theme="dark"></div>
   <div class="service">via ${service.ifBlank { "hcaptcha" }}</div>
 </body>
 </html>
     """.trimIndent()
+}

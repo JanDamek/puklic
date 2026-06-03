@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 public actual fun CaptchaWebView(
     sitekey: String,
     service: String,
+    rqdata: String?,
     onSolved: (token: String) -> Unit,
     modifier: Modifier,
 ) {

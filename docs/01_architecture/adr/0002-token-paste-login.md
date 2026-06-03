@@ -112,6 +112,30 @@ the user's own (browser-obtained) token and do not mint sessions.
 build from Discord's HTML (or a community feed) on startup. The default `User-Agent` is the
 macOS Electron variant; Phase 2 should pick the right OS-specific UA on Linux / Windows.
 
+## Update — 2026-06-03: hCaptcha Enterprise (rqdata / rqtoken) — supersedes the §"Captcha" constraint above
+
+The original constraint (surface a fixed error and ask the user to paste a browser token) was
+replaced by an in-app, **user-solved** hCaptcha WebView (`CaptchaWebView`, per-platform `actual`).
+The user solves the challenge themselves — this is not a programmatic captcha solver and stays
+within the "behave like a real user" rule; Puklic never automates the solve.
+
+Discord's login captcha is **hCaptcha Enterprise**. The `captcha_key` response additionally
+carries `captcha_rqdata` (the enterprise challenge blob) and `captcha_rqtoken`. The widget MUST be
+rendered with `rqdata`, and the retry `POST /auth/login` MUST echo `captcha_rqtoken` in the body —
+otherwise the solved hCaptcha token is rejected and the challenge re-appears (the captcha loop fixed
+in issue #92).
+
+Threading (every layer carries both values):
+
+- `DiscordLoginClient`: `LoginResponse.CaptchaRequired(sitekey, service, rqdata, rqtoken)`;
+  `loginWithCredentials(..., captchaRqtoken)` serializes `captcha_rqtoken` into the request body.
+- `:shared:session`: `CredentialsLoginResult.CaptchaRequired` / `LoginOutcome.CaptchaRequired` carry
+  `rqdata` + `rqtoken`; `CredentialsLogin.login(..., captchaRqtoken)` and
+  `SessionManager.startSessionWithCredentials(..., captchaRqtoken)` forward it.
+- `LoginViewModel`: `LoginState.captchaRqdata` / `captchaRqtoken`; `onCaptchaSolved` re-submits with
+  the stored `captchaRqtoken`.
+- `CaptchaWebView.ios.kt`: renders `data-rqdata="<rqdata>"` on the `.h-captcha` div when present.
+
 ## Related
 
 - ADR-0003: Cache & RAM strategy

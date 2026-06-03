@@ -5,6 +5,7 @@ import io.ktor.client.engine.mock.MockEngine
 import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
+import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import io.ktor.utils.io.ByteReadChannel
 import kotlin.test.Test
@@ -21,7 +22,7 @@ class DiscordRestClient_LoginTest {
         val engine = MockEngine { request ->
             assertTrue(request.url.toString().endsWith("/auth/login"))
             assertEquals(null, request.headers[HttpHeaders.Authorization]) // no token on login
-            capturedBody = request.body.toString()
+            capturedBody = (request.body as TextContent).text
             json(
                 """{"token":"M.abc","user_id":"42","user_settings":{}}""",
             )
@@ -49,6 +50,45 @@ class DiscordRestClient_LoginTest {
         assertIs<LoginResponse.CaptchaRequired>(response)
         assertEquals("site-1", response.sitekey)
         assertEquals("hcaptcha", response.service)
+        // rqdata/rqtoken absent in body → empty strings.
+        assertEquals("", response.rqdata)
+        assertEquals("", response.rqtoken)
+    }
+
+    @Test
+    fun captcha_required_response_with_rqdata_and_rqtoken_parsed() = runTest {
+        val engine = MockEngine { _ ->
+            json(
+                """{"captcha_key":["captcha-required"],"captcha_sitekey":"site-2","captcha_service":"hcaptcha","captcha_rqdata":"RQDATA_BLOB","captcha_rqtoken":"RQTOKEN"}""",
+            )
+        }
+        val client = DiscordLoginClient(HttpClient(engine))
+        val response = client.loginWithCredentials("user", "pw").getOrThrow()
+        assertIs<LoginResponse.CaptchaRequired>(response)
+        assertEquals("site-2", response.sitekey)
+        assertEquals("hcaptcha", response.service)
+        assertEquals("RQDATA_BLOB", response.rqdata)
+        assertEquals("RQTOKEN", response.rqtoken)
+    }
+
+    @Test
+    fun solved_captcha_request_body_carries_key_and_rqtoken() = runTest {
+        var capturedBody: String? = null
+        val engine = MockEngine { request ->
+            capturedBody = (request.body as TextContent).text
+            json("""{"token":"M.abc","user_id":"42","user_settings":{}}""")
+        }
+        val client = DiscordLoginClient(HttpClient(engine))
+        val response = client.loginWithCredentials(
+            "user@example.com",
+            "secret",
+            captchaKey = "solved-token",
+            captchaRqtoken = "RQTOKEN",
+        ).getOrThrow()
+        assertIs<LoginResponse.Success>(response)
+        val body = capturedBody.orEmpty()
+        assertTrue(body.contains("\"captcha_key\":\"solved-token\""), "missing captcha_key in body: $body")
+        assertTrue(body.contains("\"captcha_rqtoken\":\"RQTOKEN\""), "missing captcha_rqtoken in body: $body")
     }
 
     @Test

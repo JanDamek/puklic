@@ -38,7 +38,12 @@ private const val DEFAULT_BASE_URL = "https://discord.com/api/v10"
  */
 public sealed interface LoginResponse {
     public data class Success(val token: String, val userId: String) : LoginResponse
-    public data class CaptchaRequired(val sitekey: String, val service: String) : LoginResponse
+    public data class CaptchaRequired(
+        val sitekey: String,
+        val service: String,
+        val rqdata: String,
+        val rqtoken: String,
+    ) : LoginResponse
     public data class MfaRequired(
         val ticket: String,
         val totp: Boolean,
@@ -54,6 +59,7 @@ internal data class LoginRequest(
     val password: String,
     val undelete: Boolean = false,
     val captcha_key: String? = null,
+    val captcha_rqtoken: String? = null,
     val login_source: String? = null,
     val gift_code_sku_id: String? = null,
 )
@@ -93,10 +99,16 @@ public class DiscordLoginClient(
         login: String,
         password: String,
         captchaKey: String? = null,
+        captchaRqtoken: String? = null,
     ): Result<LoginResponse> = perform("$baseUrl/auth/login") {
         DiscordJson.encodeToString(
             LoginRequest.serializer(),
-            LoginRequest(login = login, password = password, captcha_key = captchaKey),
+            LoginRequest(
+                login = login,
+                password = password,
+                captcha_key = captchaKey,
+                captcha_rqtoken = captchaRqtoken,
+            ),
         )
     }
 
@@ -153,6 +165,8 @@ public class DiscordLoginClient(
             return LoginResponse.CaptchaRequired(
                 sitekey = root["captcha_sitekey"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
                 service = root["captcha_service"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
+                rqdata = root["captcha_rqdata"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
+                rqtoken = root["captcha_rqtoken"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
             )
         }
 

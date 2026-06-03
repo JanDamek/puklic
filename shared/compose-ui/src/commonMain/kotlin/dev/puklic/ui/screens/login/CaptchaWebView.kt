@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 public expect fun CaptchaWebView(
     sitekey: String,
     service: String,
+    rqdata: String?,
     onSolved: (token: String) -> Unit,
     modifier: Modifier = Modifier,
 )

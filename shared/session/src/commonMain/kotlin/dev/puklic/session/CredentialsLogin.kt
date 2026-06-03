@@ -12,7 +12,12 @@ public sealed interface LoginOutcome {
      * provider) site key required to render the widget; [service] identifies the provider
      * ("hcaptcha" / "arkose_labs" / …) so the UI can pick the right embed.
      */
-    public data class CaptchaRequired(val sitekey: String, val service: String) : LoginOutcome
+    public data class CaptchaRequired(
+        val sitekey: String,
+        val service: String,
+        val rqdata: String,
+        val rqtoken: String,
+    ) : LoginOutcome
 }
 
 /**
@@ -22,7 +27,12 @@ public sealed interface LoginOutcome {
 public sealed interface CredentialsLoginResult {
     public data class Success(val token: String) : CredentialsLoginResult
     public data class MfaRequired(val ticket: String) : CredentialsLoginResult
-    public data class CaptchaRequired(val sitekey: String, val service: String) : CredentialsLoginResult
+    public data class CaptchaRequired(
+        val sitekey: String,
+        val service: String,
+        val rqdata: String,
+        val rqtoken: String,
+    ) : CredentialsLoginResult
     public data class Error(val message: String) : CredentialsLoginResult
     public data class Transport(val message: String) : CredentialsLoginResult
 }
@@ -41,6 +51,7 @@ public interface CredentialsLogin {
         loginIdentifier: String,
         password: String,
         captchaKey: String? = null,
+        captchaRqtoken: String? = null,
     ): CredentialsLoginResult
 
     public suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult

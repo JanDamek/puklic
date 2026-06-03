@@ -268,6 +268,7 @@ private fun CaptchaSection(state: LoginState, viewModel: LoginViewModel) {
     CaptchaWebView(
         sitekey = sitekey,
         service = service,
+        rqdata = state.captchaRqdata,
         onSolved = viewModel::onCaptchaSolved,
         modifier = Modifier.fillMaxWidth(),
     )
