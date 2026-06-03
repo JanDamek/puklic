@@ -134,9 +134,13 @@ private class CaptchaMessageHandler(
  * effectively every challenge a normal sign-in encounters.
  */
 private fun captchaHtml(service: String, sitekey: String, rqdata: String?): String {
-    // hCaptcha Enterprise challenge: when Discord supplies rqdata it MUST be rendered on the
-    // widget (`data-rqdata`), otherwise the solved token is rejected and the login loops.
-    val rqdataAttr = rqdata?.takeIf { it.isNotBlank() }?.let { "\n       data-rqdata=\"$it\"" }.orEmpty()
+    // hCaptcha Enterprise challenge: Discord's rqdata is an enterprise-only ("sentry") parameter
+    // that is NOT supported via the implicit `data-rqdata` attribute — it must be supplied to
+    // `hcaptcha.render(node, { rqdata })` in an EXPLICIT render. Without it the user solves a
+    // non-enterprise challenge that Discord's enterprise endpoint rejects, so hCaptcha keeps
+    // re-issuing the puzzle ("are you human?" loop). We therefore load the API with
+    // `render=explicit&onload=…` and render the widget ourselves, injecting rqdata when present.
+    val rqdataLine = rqdata?.takeIf { it.isNotBlank() }?.let { "\n        rqdata: \"$it\"," }.orEmpty()
     return """
 <!DOCTYPE html>
 <html>
@@ -147,9 +151,8 @@ private fun captchaHtml(service: String, sitekey: String, rqdata: String?): Stri
            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
            display: flex; flex-direction: column; align-items: center; }
     .service { font-size: 11px; opacity: 0.6; margin-top: 8px; }
-    .h-captcha { margin-top: 4px; }
+    #h-captcha { margin-top: 4px; }
   </style>
-  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
   <script>
     function onCaptcha(token) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.$BRIDGE_NAME) {
@@ -161,14 +164,21 @@ private fun captchaHtml(service: String, sitekey: String, rqdata: String?): Stri
         window.webkit.messageHandlers.$BRIDGE_NAME.postMessage('__error:' + err);
       }
     }
+    function onHcaptchaLoad() {
+      hcaptcha.render("h-captcha", {
+        sitekey: "$sitekey",$rqdataLine
+        theme: "dark",
+        callback: onCaptcha,
+        "error-callback": onCaptchaError,
+        "chalexpired-callback": onCaptchaError,
+        "expired-callback": onCaptchaError
+      });
+    }
   </script>
+  <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcaptchaLoad" async defer></script>
 </head>
 <body>
-  <div class="h-captcha"
-       data-sitekey="$sitekey"
-       data-callback="onCaptcha"
-       data-error-callback="onCaptchaError"$rqdataAttr
-       data-theme="dark"></div>
+  <div id="h-captcha"></div>
   <div class="service">via ${service.ifBlank { "hcaptcha" }}</div>
 </body>
 </html>
