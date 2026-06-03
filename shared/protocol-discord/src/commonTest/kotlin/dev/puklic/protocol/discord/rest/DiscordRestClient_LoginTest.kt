@@ -50,16 +50,17 @@ class DiscordRestClient_LoginTest {
         assertIs<LoginResponse.CaptchaRequired>(response)
         assertEquals("site-1", response.sitekey)
         assertEquals("hcaptcha", response.service)
-        // rqdata/rqtoken absent in body → empty strings.
+        // rqdata/rqtoken/sessionId absent in body → empty strings.
         assertEquals("", response.rqdata)
         assertEquals("", response.rqtoken)
+        assertEquals("", response.sessionId)
     }
 
     @Test
     fun captcha_required_response_with_rqdata_and_rqtoken_parsed() = runTest {
         val engine = MockEngine { _ ->
             json(
-                """{"captcha_key":["captcha-required"],"captcha_sitekey":"site-2","captcha_service":"hcaptcha","captcha_rqdata":"RQDATA_BLOB","captcha_rqtoken":"RQTOKEN"}""",
+                """{"captcha_key":["captcha-required"],"captcha_sitekey":"site-2","captcha_service":"hcaptcha","captcha_rqdata":"RQDATA_BLOB","captcha_rqtoken":"RQTOKEN","captcha_session_id":"SID-1"}""",
             )
         }
         val client = DiscordLoginClient(HttpClient(engine))
@@ -69,26 +70,51 @@ class DiscordRestClient_LoginTest {
         assertEquals("hcaptcha", response.service)
         assertEquals("RQDATA_BLOB", response.rqdata)
         assertEquals("RQTOKEN", response.rqtoken)
+        assertEquals("SID-1", response.sessionId)
     }
 
     @Test
-    fun solved_captcha_request_body_carries_key_and_rqtoken() = runTest {
-        var capturedBody: String? = null
+    fun solved_captcha_retry_sets_captcha_headers() = runTest {
+        var captchaKeyHeader: String? = null
+        var captchaRqtokenHeader: String? = null
+        var captchaSessionIdHeader: String? = null
         val engine = MockEngine { request ->
-            capturedBody = (request.body as TextContent).text
+            captchaKeyHeader = request.headers["X-Captcha-Key"]
+            captchaRqtokenHeader = request.headers["X-Captcha-Rqtoken"]
+            captchaSessionIdHeader = request.headers["X-Captcha-Session-Id"]
             json("""{"token":"M.abc","user_id":"42","user_settings":{}}""")
         }
         val client = DiscordLoginClient(HttpClient(engine))
         val response = client.loginWithCredentials(
-            "user@example.com",
-            "secret",
+            "user",
+            "pw",
             captchaKey = "solved-token",
             captchaRqtoken = "RQTOKEN",
+            captchaSessionId = "SID-1",
         ).getOrThrow()
         assertIs<LoginResponse.Success>(response)
-        val body = capturedBody.orEmpty()
-        assertTrue(body.contains("\"captcha_key\":\"solved-token\""), "missing captcha_key in body: $body")
-        assertTrue(body.contains("\"captcha_rqtoken\":\"RQTOKEN\""), "missing captcha_rqtoken in body: $body")
+        assertEquals("solved-token", captchaKeyHeader)
+        assertEquals("RQTOKEN", captchaRqtokenHeader)
+        assertEquals("SID-1", captchaSessionIdHeader)
+    }
+
+    @Test
+    fun first_attempt_login_does_not_set_captcha_headers() = runTest {
+        var captchaKeyHeader: String? = "sentinel"
+        var captchaRqtokenHeader: String? = "sentinel"
+        var captchaSessionIdHeader: String? = "sentinel"
+        val engine = MockEngine { request ->
+            captchaKeyHeader = request.headers["X-Captcha-Key"]
+            captchaRqtokenHeader = request.headers["X-Captcha-Rqtoken"]
+            captchaSessionIdHeader = request.headers["X-Captcha-Session-Id"]
+            json("""{"token":"M.abc","user_id":"42","user_settings":{}}""")
+        }
+        val client = DiscordLoginClient(HttpClient(engine))
+        val response = client.loginWithCredentials("user", "pw").getOrThrow()
+        assertIs<LoginResponse.Success>(response)
+        assertEquals(null, captchaKeyHeader)
+        assertEquals(null, captchaRqtokenHeader)
+        assertEquals(null, captchaSessionIdHeader)
     }
 
     @Test

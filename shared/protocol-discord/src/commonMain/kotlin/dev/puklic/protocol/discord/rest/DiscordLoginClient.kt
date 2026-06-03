@@ -43,6 +43,7 @@ public sealed interface LoginResponse {
         val service: String,
         val rqdata: String,
         val rqtoken: String,
+        val sessionId: String,
     ) : LoginResponse
     public data class MfaRequired(
         val ticket: String,
@@ -58,8 +59,6 @@ internal data class LoginRequest(
     val login: String,
     val password: String,
     val undelete: Boolean = false,
-    val captcha_key: String? = null,
-    val captcha_rqtoken: String? = null,
     val login_source: String? = null,
     val gift_code_sku_id: String? = null,
 )
@@ -100,16 +99,30 @@ public class DiscordLoginClient(
         password: String,
         captchaKey: String? = null,
         captchaRqtoken: String? = null,
-    ): Result<LoginResponse> = perform("$baseUrl/auth/login") {
+        captchaSessionId: String? = null,
+    ): Result<LoginResponse> = perform(
+        url = "$baseUrl/auth/login",
+        extraHeaders = buildCaptchaHeaders(captchaKey, captchaRqtoken, captchaSessionId),
+    ) {
         DiscordJson.encodeToString(
             LoginRequest.serializer(),
-            LoginRequest(
-                login = login,
-                password = password,
-                captcha_key = captchaKey,
-                captcha_rqtoken = captchaRqtoken,
-            ),
+            LoginRequest(login = login, password = password),
         )
+    }
+
+    /**
+     * Captcha solutions are accepted by Discord ONLY in HTTP headers on the `/auth/login`
+     * retry (the request body fields are deprecated and ignored). Each header is emitted only
+     * when its value is present and non-blank.
+     */
+    private fun buildCaptchaHeaders(
+        captchaKey: String?,
+        captchaRqtoken: String?,
+        captchaSessionId: String?,
+    ): Map<String, String> = buildMap {
+        captchaKey?.takeIf { it.isNotBlank() }?.let { put(HEADER_CAPTCHA_KEY, it) }
+        captchaRqtoken?.takeIf { it.isNotBlank() }?.let { put(HEADER_CAPTCHA_RQTOKEN, it) }
+        captchaSessionId?.takeIf { it.isNotBlank() }?.let { put(HEADER_CAPTCHA_SESSION_ID, it) }
     }
 
     /**
@@ -126,7 +139,11 @@ public class DiscordLoginClient(
         )
     }
 
-    private suspend fun perform(url: String, bodyBuilder: () -> String): Result<LoginResponse> {
+    private suspend fun perform(
+        url: String,
+        extraHeaders: Map<String, String> = emptyMap(),
+        bodyBuilder: () -> String,
+    ): Result<LoginResponse> {
         val response: HttpResponse = try {
             httpClient.post(url) {
                 headers {
@@ -140,6 +157,7 @@ public class DiscordLoginClient(
                     append("X-Super-Properties", superPropertiesB64)
                     append("X-Discord-Locale", systemLocale)
                     append("X-Discord-Timezone", timeZoneId)
+                    extraHeaders.forEach { (name, value) -> append(name, value) }
                 }
                 contentType(ContentType.Application.Json)
                 setBody(bodyBuilder())
@@ -167,6 +185,7 @@ public class DiscordLoginClient(
                 service = root["captcha_service"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
                 rqdata = root["captcha_rqdata"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
                 rqtoken = root["captcha_rqtoken"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
+                sessionId = root["captcha_session_id"]?.jsonPrimitive?.contentOrEmpty().orEmpty(),
             )
         }
 
@@ -208,6 +227,9 @@ public class DiscordLoginClient(
     private fun JsonPrimitive.contentOrEmpty(): String = content
 
     private companion object {
+        const val HEADER_CAPTCHA_KEY = "X-Captcha-Key"
+        const val HEADER_CAPTCHA_RQTOKEN = "X-Captcha-Rqtoken"
+        const val HEADER_CAPTCHA_SESSION_ID = "X-Captcha-Session-Id"
         val SUCCESS_RANGE = 200..299
         val lenient: Json = Json { ignoreUnknownKeys = true; isLenient = true }
     }

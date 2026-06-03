@@ -43,6 +43,7 @@ class SessionManagerCredentialsTest {
                 service = "hcaptcha",
                 rqdata = "RQDATA_BLOB",
                 rqtoken = "RQTOKEN",
+                sessionId = "SID-1",
             ),
         )
         val mgr = SessionManager(
@@ -58,6 +59,7 @@ class SessionManagerCredentialsTest {
             service = "hcaptcha",
             rqdata = "RQDATA_BLOB",
             rqtoken = "RQTOKEN",
+            sessionId = "SID-1",
         )
         storage.get(SessionManager.TOKEN_KEY) shouldBe null
         mgr.activeSession.value shouldBe null
@@ -75,6 +77,7 @@ class SessionManagerCredentialsTest {
                 service = "hcaptcha",
                 rqdata = "RQDATA_BLOB",
                 rqtoken = "RQTOKEN",
+                sessionId = "SID-1",
             ),
             captchaRetryResult = CredentialsLoginResult.Success("token-after-captcha"),
         )
@@ -90,10 +93,12 @@ class SessionManagerCredentialsTest {
             "pw",
             captchaKey = "tok",
             captchaRqtoken = "rqt",
+            captchaSessionId = "sid",
         )
         result.getOrThrow() shouldBe LoginOutcome.Success
         login.lastCaptchaKey shouldBe "tok"
         login.lastCaptchaRqtoken shouldBe "rqt"
+        login.lastCaptchaSessionId shouldBe "sid"
         storage.get(SessionManager.TOKEN_KEY) shouldBe "token-after-captcha"
         parent.cancel()
     }
@@ -155,15 +160,18 @@ private class FakeCredentialsLogin(
 ) : CredentialsLogin {
     var lastCaptchaKey: String? = null
     var lastCaptchaRqtoken: String? = null
+    var lastCaptchaSessionId: String? = null
 
     override suspend fun login(
         loginIdentifier: String,
         password: String,
         captchaKey: String?,
         captchaRqtoken: String?,
+        captchaSessionId: String?,
     ): CredentialsLoginResult {
         lastCaptchaKey = captchaKey
         lastCaptchaRqtoken = captchaRqtoken
+        lastCaptchaSessionId = captchaSessionId
         return if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else firstResult
     }
 

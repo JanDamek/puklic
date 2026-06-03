@@ -119,22 +119,35 @@ replaced by an in-app, **user-solved** hCaptcha WebView (`CaptchaWebView`, per-p
 The user solves the challenge themselves — this is not a programmatic captcha solver and stays
 within the "behave like a real user" rule; Puklic never automates the solve.
 
-Discord's login captcha is **hCaptcha Enterprise**. The `captcha_key` response additionally
-carries `captcha_rqdata` (the enterprise challenge blob) and `captcha_rqtoken`. The widget MUST be
-rendered with `rqdata`, and the retry `POST /auth/login` MUST echo `captcha_rqtoken` in the body —
-otherwise the solved hCaptcha token is rejected and the challenge re-appears (the captcha loop fixed
-in issue #92).
+Discord's login captcha is **hCaptcha Enterprise**. The captcha-required response carries
+`captcha_sitekey`, `captcha_service`, `captcha_rqdata` (the enterprise challenge blob),
+`captcha_rqtoken` and `captcha_session_id`. The widget MUST be rendered with `rqdata`, and — per
+[docs.discord.food/topics/captcha-handling](https://docs.discord.food/topics/captcha-handling) —
+the solution on the retry `POST /auth/login` MUST be sent in **HTTP headers** (the JSON body is
+deprecated and ignored):
 
-Threading (every layer carries both values):
+- `X-Captcha-Key` = the solved hCaptcha token
+- `X-Captcha-Rqtoken` = the response's `captcha_rqtoken` (when present)
+- `X-Captcha-Session-Id` = the response's `captcha_session_id` (when present)
 
-- `DiscordLoginClient`: `LoginResponse.CaptchaRequired(sitekey, service, rqdata, rqtoken)`;
-  `loginWithCredentials(..., captchaRqtoken)` serializes `captcha_rqtoken` into the request body.
+The first attempt (1.2.16) sent `captcha_rqtoken` in the JSON body, which Discord ignored, so the
+challenge looped. 1.2.17 moves to the header contract and threads `session_id` through.
+
+Threading (every layer carries rqdata / rqtoken / sessionId):
+
+- `DiscordLoginClient`: `LoginResponse.CaptchaRequired(sitekey, service, rqdata, rqtoken, sessionId)`;
+  `loginWithCredentials(..., captchaKey, captchaRqtoken, captchaSessionId)` sets the three
+  `X-Captcha-*` headers (only when non-blank). The request body no longer carries captcha fields.
 - `:shared:session`: `CredentialsLoginResult.CaptchaRequired` / `LoginOutcome.CaptchaRequired` carry
-  `rqdata` + `rqtoken`; `CredentialsLogin.login(..., captchaRqtoken)` and
-  `SessionManager.startSessionWithCredentials(..., captchaRqtoken)` forward it.
-- `LoginViewModel`: `LoginState.captchaRqdata` / `captchaRqtoken`; `onCaptchaSolved` re-submits with
-  the stored `captchaRqtoken`.
+  `rqdata` + `rqtoken` + `sessionId`; `CredentialsLogin.login(..., captchaRqtoken, captchaSessionId)`
+  and `SessionManager.startSessionWithCredentials(..., captchaRqtoken, captchaSessionId)` forward them.
+- `LoginViewModel`: `LoginState.captchaRqdata` / `captchaRqtoken` / `captchaSessionId`;
+  `onCaptchaSolved` re-submits with the stored rqtoken + sessionId.
 - `CaptchaWebView.ios.kt`: renders `data-rqdata="<rqdata>"` on the `.h-captcha` div when present.
+
+A solution can still be rejected if the hCaptcha bot-score is too high (the iOS NSURLSession TLS
+fingerprint is the suspected cause); that is a separate concern from the header contract and is NOT
+addressed by detection-evasion (forbidden by `CLAUDE.md`).
 
 ## Related
 

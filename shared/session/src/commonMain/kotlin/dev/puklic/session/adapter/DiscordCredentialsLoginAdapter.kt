@@ -19,8 +19,9 @@ public class DiscordCredentialsLoginAdapter(
         password: String,
         captchaKey: String?,
         captchaRqtoken: String?,
+        captchaSessionId: String?,
     ): CredentialsLoginResult =
-        client.loginWithCredentials(loginIdentifier, password, captchaKey, captchaRqtoken).toResult()
+        client.loginWithCredentials(loginIdentifier, password, captchaKey, captchaRqtoken, captchaSessionId).toResult()
 
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult =
         client.loginWithMfa(ticket, code).toResult()
@@ -36,6 +37,7 @@ public class DiscordCredentialsLoginAdapter(
                         service = response.service,
                         rqdata = response.rqdata,
                         rqtoken = response.rqtoken,
+                        sessionId = response.sessionId,
                     )
                 is LoginResponse.Error -> CredentialsLoginResult.Error(response.message)
             }

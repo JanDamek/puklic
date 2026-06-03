@@ -17,6 +17,7 @@ public sealed interface LoginOutcome {
         val service: String,
         val rqdata: String,
         val rqtoken: String,
+        val sessionId: String,
     ) : LoginOutcome
 }
 
@@ -32,6 +33,7 @@ public sealed interface CredentialsLoginResult {
         val service: String,
         val rqdata: String,
         val rqtoken: String,
+        val sessionId: String,
     ) : CredentialsLoginResult
     public data class Error(val message: String) : CredentialsLoginResult
     public data class Transport(val message: String) : CredentialsLoginResult
@@ -52,6 +54,7 @@ public interface CredentialsLogin {
         password: String,
         captchaKey: String? = null,
         captchaRqtoken: String? = null,
+        captchaSessionId: String? = null,
     ): CredentialsLoginResult
 
     public suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult

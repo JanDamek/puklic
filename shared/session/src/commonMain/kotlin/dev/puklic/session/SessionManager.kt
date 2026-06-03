@@ -78,10 +78,11 @@ public class SessionManager(
         password: String,
         captchaKey: String? = null,
         captchaRqtoken: String? = null,
+        captchaSessionId: String? = null,
     ): Result<LoginOutcome> {
         val collaborator = credentialsLogin
             ?: return Result.failure(IllegalStateException("Credentials login not configured"))
-        return when (val outcome = collaborator.login(login, password, captchaKey, captchaRqtoken)) {
+        return when (val outcome = collaborator.login(login, password, captchaKey, captchaRqtoken, captchaSessionId)) {
             is CredentialsLoginResult.Success -> finalizeToken(outcome.token).map { LoginOutcome.Success }
             is CredentialsLoginResult.MfaRequired -> Result.success(LoginOutcome.MfaRequired(outcome.ticket))
             is CredentialsLoginResult.CaptchaRequired ->
@@ -91,6 +92,7 @@ public class SessionManager(
                         service = outcome.service,
                         rqdata = outcome.rqdata,
                         rqtoken = outcome.rqtoken,
+                        sessionId = outcome.sessionId,
                     ),
                 )
             is CredentialsLoginResult.Error -> Result.failure(IllegalArgumentException(outcome.message))
