@@ -66,9 +66,29 @@ already ships with the default keychain access group. iCloud Keychain sync
 works automatically as long as the user has "iCloud Keychain" enabled in
 System Settings → Apple ID → iCloud. No new entitlement is needed.
 
-For Developer ID `.dmg` builds (outside the App Store sandbox), macOS still
-honours the synchronizable flag as long as the user has iCloud Keychain
-enabled. No change to the `.dmg` entitlements file is required.
+**Correction (2026-06-03, #92):** the original claim that Developer ID `.dmg`
+builds honour the synchronizable flag without entitlement changes is **wrong**.
+macOS returns `errSecMissingEntitlement` (-34018) on a synchronizable
+`SecItemAdd` unless the process carries `com.apple.application-identifier`
+(+ `keychain-access-groups`), which a Developer ID app can only obtain from an
+**embedded provisioning profile**. Without it `MacOsSecureStorage` silently
+falls back to a LOCAL-ONLY token that never reaches iOS — observed live: the
+`.dmg` stored `discord.token` locally and the iPhone never received it.
+
+Fix shipped for the `.dmg`:
+- `dist/apple/Puklic_macApp_DeveloperID.provisionprofile` — a `MAC_APP_DIRECT`
+  (Developer ID) profile for `cz.damek.puklic.app`, signed for the shared
+  Developer ID Application cert (ASC id `W4NA748W8U`). It grants
+  `keychain-access-groups = GR74KSG8M9.*` + `application-identifier`.
+- `dist/apple/local-mac-keychain.entitlements` — JIT set + the iCloud-Keychain
+  trio, applied to `Contents/MacOS/Puklic` + the `.app` wrapper only (nested
+  dylibs keep the JIT-only `local-mac.entitlements`).
+- `dist/apple/install-local-mac.sh` embeds the profile at
+  `Contents/embedded.provisionprofile` before signing.
+
+The Mac App Store build already has `com.apple.application-identifier` from its
+own profile, so it was unaffected. No certificate was regenerated or revoked
+(HARD RULE #7) — only an additive per-app profile referencing the shared cert.
 
 ## User-visible behaviour
 

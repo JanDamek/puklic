@@ -52,6 +52,20 @@ xattr -dr com.apple.quarantine /Applications/Puklic.app 2>/dev/null || true
 
 ENT="${SCRIPT_DIR}/local-mac.entitlements"
 [ -f "$ENT" ] || { echo "[install-local-mac] missing entitlements file: $ENT" >&2; exit 1; }
+# Main-executable + bundle entitlements add the iCloud-Keychain trio
+# (application-identifier + team-identifier + keychain-access-groups) so the
+# macApp writes a SYNCHRONIZABLE discord.token that syncs to iOS via iCloud
+# Keychain (#92/#74). Authorized by the embedded Developer ID provisioning
+# profile. Nested dylibs keep the JIT-only $ENT set.
+ENT_KEYCHAIN="${SCRIPT_DIR}/local-mac-keychain.entitlements"
+[ -f "$ENT_KEYCHAIN" ] || { echo "[install-local-mac] missing entitlements file: $ENT_KEYCHAIN" >&2; exit 1; }
+PROFILE="${SCRIPT_DIR}/Puklic_macApp_DeveloperID.provisionprofile"
+[ -f "$PROFILE" ] || { echo "[install-local-mac] missing provisioning profile: $PROFILE" >&2; exit 1; }
+
+# Embed the Developer ID provisioning profile so AMFI authorizes the keychain /
+# application-identifier entitlements at launch (a Developer ID app cannot use
+# keychain-access-groups without an embedded profile).
+cp "$PROFILE" /Applications/Puklic.app/Contents/embedded.provisionprofile
 
 echo "[install-local-mac] re-signing /Applications/Puklic.app with $IDENTITY"
 # Sign nested binaries first (--deep is documented as deprecated and is known
@@ -59,15 +73,16 @@ echo "[install-local-mac] re-signing /Applications/Puklic.app with $IDENTITY"
 # then the JDK launcher helper, then the app launcher, then the bundle wrapper.
 # Entitlements MUST be applied to every Mach-O binary that runs JIT code (the
 # JVM dylibs) — applying only to the outer .app is insufficient and triggers
-# pthread_jit_write_protect_np SIGTRAP at JNI_CreateJavaVM.
+# pthread_jit_write_protect_np SIGTRAP at JNI_CreateJavaVM. Nested binaries use
+# the JIT-only set; the main launcher + bundle use the keychain set.
 find /Applications/Puklic.app -type f \( -name "*.dylib" -o -name "*.jnilib" -o -name "*.so" \) \
   -exec codesign --force --options runtime --entitlements "$ENT" \
     --sign "$IDENTITY" --timestamp=none {} \;
 codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
   /Applications/Puklic.app/Contents/runtime/Contents/Home/lib/jspawnhelper
-codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
+codesign --force --options runtime --entitlements "$ENT_KEYCHAIN" --sign "$IDENTITY" --timestamp=none \
   /Applications/Puklic.app/Contents/MacOS/Puklic
-codesign --force --options runtime --entitlements "$ENT" --sign "$IDENTITY" --timestamp=none \
+codesign --force --options runtime --entitlements "$ENT_KEYCHAIN" --sign "$IDENTITY" --timestamp=none \
   /Applications/Puklic.app
 
 codesign --verify --deep --strict /Applications/Puklic.app
