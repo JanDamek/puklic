@@ -5,6 +5,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -26,9 +28,15 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Call
 import androidx.compose.material.icons.filled.CallEnd
+import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PersonAdd
 import androidx.compose.material.icons.filled.Public
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DrawerState
+import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.ModalDrawerSheet
+import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -102,74 +110,53 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
     val state by viewModel.state.collectAsState()
     val guildHasMention by viewModel.guildHasMention.collectAsState()
     val dmUnread by viewModel.dmUnread.collectAsState()
+    val channelUnread by viewModel.channelUnread.collectAsState()
     Box(modifier = Modifier.fillMaxSize()) {
-    Row(modifier = Modifier.fillMaxSize()) {
-        GuildRail(
-            guilds = state.guilds,
-            selectedGuildId = state.selectedGuildId,
-            isDmHomeSelected = state.isDmHome,
-            guildHasMention = guildHasMention,
-            onSelectDmHome = viewModel::selectDmHome,
-            onSelectGuild = viewModel::selectGuild,
-            onOpenAddFriend = viewModel::openAddFriend,
-            onOpenJoinServer = viewModel::openJoinServer,
-            modifier = Modifier.width(56.dp).fillMaxHeight(),
-        )
-        VerticalDivider()
-        Column(modifier = Modifier.width(240.dp).fillMaxHeight()) {
-            val paneModifier = Modifier.fillMaxWidth().weight(1f)
-            if (state.isDmHome) {
-                DmListPane(
-                    dms = state.dmChannels,
-                    selectedChannelId = state.selectedChannelId,
+        BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+            val mode = windowLayoutModeFor(maxWidth.value.toInt())
+            val drawerScope = rememberCoroutineScope()
+            val drawerState = rememberDrawerState(initialValue = DrawerValue.Closed)
+            // Compact/medium select a channel through the drawer; closing it on selection mirrors
+            // Discord mobile. Expanded has no drawer, so the wrapper just forwards the raw callback.
+            val selectChannelClosingDrawer: (ChannelId) -> Unit = { channelId ->
+                viewModel.selectChannel(channelId)
+                drawerScope.launch { drawerState.close() }
+            }
+            when (mode) {
+                WindowLayoutMode.EXPANDED -> ExpandedLayout(
+                    state = state,
+                    viewModel = viewModel,
+                    guildHasMention = guildHasMention,
                     dmUnread = dmUnread,
-                    onSelectChannel = viewModel::selectChannel,
-                    onStartNewDm = viewModel::openNewDm,
-                    modifier = paneModifier,
+                    channelUnread = channelUnread,
+                    platformOpen = platformOpen,
                 )
-            } else {
-                val voiceStates by viewModel.voiceStates.collectAsState()
-                ChannelListPane(
-                    channels = state.channelsForSelectedGuild,
-                    selectedChannelId = state.selectedChannelId,
-                    onSelectChannel = viewModel::selectChannel,
-                    onJoinVoiceChannel = { guildId, channelId -> viewModel.joinVoiceChannel(guildId, channelId) },
-                    voiceMembersByChannel = voiceStates,
-                    resolveDisplayName = viewModel::resolveDisplayName,
-                    modifier = paneModifier,
+                WindowLayoutMode.MEDIUM -> RailAndDrawerLayout(
+                    state = state,
+                    viewModel = viewModel,
+                    guildHasMention = guildHasMention,
+                    dmUnread = dmUnread,
+                    channelUnread = channelUnread,
+                    platformOpen = platformOpen,
+                    drawerState = drawerState,
+                    onSelectChannel = selectChannelClosingDrawer,
+                    onOpenDrawer = { drawerScope.launch { drawerState.open() } },
+                    showGuildRail = true,
+                )
+                WindowLayoutMode.COMPACT -> RailAndDrawerLayout(
+                    state = state,
+                    viewModel = viewModel,
+                    guildHasMention = guildHasMention,
+                    dmUnread = dmUnread,
+                    channelUnread = channelUnread,
+                    platformOpen = platformOpen,
+                    drawerState = drawerState,
+                    onSelectChannel = selectChannelClosingDrawer,
+                    onOpenDrawer = { drawerScope.launch { drawerState.open() } },
+                    showGuildRail = false,
                 )
             }
-            VoiceDock(viewModel = viewModel)
-            UserInfoRowMount(viewModel = viewModel)
         }
-        VerticalDivider()
-        val selectedChannel: Channel? = if (state.isDmHome) {
-            state.dmChannels.firstOrNull { it.id == state.selectedChannelId }
-        } else {
-            state.channelsForSelectedGuild.firstOrNull { it.id == state.selectedChannelId }
-        }
-        val displayName = when (selectedChannel) {
-            is DmChannel -> selectedChannel.recipients.firstOrNull()?.let { "@${it.globalName ?: it.username}" }
-            else -> selectedChannel?.name
-        }
-        val topic = (selectedChannel as? GuildTextChannel)?.topic
-        val voiceStateForHeader by viewModel.voiceState.collectAsState()
-        val selfUser by viewModel.selfUser.collectAsState()
-        MessagePane(
-            selectedChannelId = state.selectedChannelId,
-            selectedChannelName = displayName,
-            selectedChannelTopic = topic,
-            selectedChannel = selectedChannel,
-            messageOrchestrator = viewModel.orchestrators?.messages,
-            platformOpen = platformOpen,
-            onChannelMentionClick = viewModel::selectChannel,
-            voiceState = voiceStateForHeader,
-            onStartDmCall = viewModel::startDmCall,
-            onHangUpVoice = viewModel::hangUpVoice,
-            selfUserId = selfUser?.id,
-            modifier = Modifier.fillMaxHeight().fillMaxWidth(),
-        )
-    }
         SnackbarHostMount(viewModel = viewModel)
         IncomingCallMount(viewModel = viewModel)
         NewDmDialogMount(viewModel = viewModel)
@@ -185,6 +172,236 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
             content = { SettingsHost(category = settingsCategory, viewModel = viewModel) },
         )
     }
+}
+
+/** Guild rail fixed width (icon strip), per `docs/04_ui/adaptive-layouts.md`. */
+private val GUILD_RAIL_WIDTH = 56.dp
+
+/** Channel/DM list column width in the expanded three-pane layout. */
+private val CHANNEL_LIST_WIDTH = 240.dp
+
+/** Upper bound for the channel list inside the compact/medium drawer (doc's 280 dp drawer). */
+private val DRAWER_CHANNEL_LIST_MAX_WIDTH = 280.dp
+
+/**
+ * EXPANDED (>= 840 dp): the classic three-pane Row — guild rail (56 dp) | channel list (240 dp) |
+ * message pane (rest). Unchanged behaviour from before the adaptive refactor.
+ */
+@Composable
+private fun ExpandedLayout(
+    state: MainScreenState,
+    viewModel: MainViewModel,
+    guildHasMention: Map<GuildId, Boolean>,
+    dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    platformOpen: PlatformOpen?,
+) {
+    Row(modifier = Modifier.fillMaxSize()) {
+        MainGuildRail(
+            state = state,
+            viewModel = viewModel,
+            guildHasMention = guildHasMention,
+            modifier = Modifier.width(GUILD_RAIL_WIDTH).fillMaxHeight(),
+        )
+        VerticalDivider()
+        MainChannelColumn(
+            state = state,
+            viewModel = viewModel,
+            dmUnread = dmUnread,
+            channelUnread = channelUnread,
+            onSelectChannel = viewModel::selectChannel,
+            modifier = Modifier.width(CHANNEL_LIST_WIDTH).fillMaxHeight(),
+        )
+        VerticalDivider()
+        MainMessagePane(
+            state = state,
+            viewModel = viewModel,
+            platformOpen = platformOpen,
+            onOpenDrawer = null,
+            modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+        )
+    }
+}
+
+/**
+ * COMPACT (< 600 dp) and MEDIUM (600..839 dp): the message pane fills the available width and the
+ * channel list lives in a [ModalNavigationDrawer]. A leading menu affordance in the message header
+ * opens the drawer; selecting a channel closes it (Discord mobile, issue #95 Option A).
+ *
+ * The only difference between the two modes is [showGuildRail]: MEDIUM keeps the 56 dp guild rail
+ * permanently visible beside the drawer host (doc's Medium spec); COMPACT folds the rail into the
+ * drawer so the message pane gets the whole width.
+ */
+@Composable
+private fun RailAndDrawerLayout(
+    state: MainScreenState,
+    viewModel: MainViewModel,
+    guildHasMention: Map<GuildId, Boolean>,
+    dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    platformOpen: PlatformOpen?,
+    drawerState: DrawerState,
+    onSelectChannel: (ChannelId) -> Unit,
+    onOpenDrawer: () -> Unit,
+    showGuildRail: Boolean,
+) {
+    ModalNavigationDrawer(
+        drawerState = drawerState,
+        drawerContent = {
+            ModalDrawerSheet {
+                Row(modifier = Modifier.fillMaxHeight()) {
+                    if (!showGuildRail) {
+                        // Compact: rail folds into the drawer alongside the channel list.
+                        MainGuildRail(
+                            state = state,
+                            viewModel = viewModel,
+                            guildHasMention = guildHasMention,
+                            modifier = Modifier.width(GUILD_RAIL_WIDTH).fillMaxHeight(),
+                        )
+                        VerticalDivider()
+                    }
+                    MainChannelColumn(
+                        state = state,
+                        viewModel = viewModel,
+                        dmUnread = dmUnread,
+                        channelUnread = channelUnread,
+                        onSelectChannel = onSelectChannel,
+                        modifier = Modifier
+                            .widthIn(max = DRAWER_CHANNEL_LIST_MAX_WIDTH)
+                            .fillMaxHeight(),
+                    )
+                }
+            }
+        },
+    ) {
+        Row(modifier = Modifier.fillMaxSize()) {
+            if (showGuildRail) {
+                // Medium: rail stays visible; the drawer only carries the channel list.
+                MainGuildRail(
+                    state = state,
+                    viewModel = viewModel,
+                    guildHasMention = guildHasMention,
+                    modifier = Modifier.width(GUILD_RAIL_WIDTH).fillMaxHeight(),
+                )
+                VerticalDivider()
+            }
+            MainMessagePane(
+                state = state,
+                viewModel = viewModel,
+                platformOpen = platformOpen,
+                onOpenDrawer = onOpenDrawer,
+                modifier = Modifier.fillMaxHeight().fillMaxWidth(),
+            )
+        }
+    }
+}
+
+/** Reusable guild rail region — feeds the existing [GuildRail] from VM state. */
+@Composable
+private fun MainGuildRail(
+    state: MainScreenState,
+    viewModel: MainViewModel,
+    guildHasMention: Map<GuildId, Boolean>,
+    modifier: Modifier = Modifier,
+) {
+    GuildRail(
+        guilds = state.guilds,
+        selectedGuildId = state.selectedGuildId,
+        isDmHomeSelected = state.isDmHome,
+        guildHasMention = guildHasMention,
+        onSelectDmHome = viewModel::selectDmHome,
+        onSelectGuild = viewModel::selectGuild,
+        onOpenAddFriend = viewModel::openAddFriend,
+        onOpenJoinServer = viewModel::openJoinServer,
+        modifier = modifier,
+    )
+}
+
+/**
+ * Reusable channel/DM list column region (channel list or DM list + VoiceDock + UserInfoRow). The
+ * [onSelectChannel] hook lets the adaptive wrapper close the drawer on selection in compact/medium.
+ */
+@Composable
+private fun MainChannelColumn(
+    state: MainScreenState,
+    viewModel: MainViewModel,
+    dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    onSelectChannel: (ChannelId) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
+        val paneModifier = Modifier.fillMaxWidth().weight(1f)
+        if (state.isDmHome) {
+            DmListPane(
+                dms = state.dmChannels,
+                selectedChannelId = state.selectedChannelId,
+                dmUnread = dmUnread,
+                onSelectChannel = onSelectChannel,
+                onStartNewDm = viewModel::openNewDm,
+                modifier = paneModifier,
+            )
+        } else {
+            val voiceStates by viewModel.voiceStates.collectAsState()
+            ChannelListPane(
+                channels = state.channelsForSelectedGuild,
+                selectedChannelId = state.selectedChannelId,
+                channelUnread = channelUnread,
+                onSelectChannel = onSelectChannel,
+                onJoinVoiceChannel = { guildId, channelId -> viewModel.joinVoiceChannel(guildId, channelId) },
+                voiceMembersByChannel = voiceStates,
+                resolveDisplayName = viewModel::resolveDisplayName,
+                modifier = paneModifier,
+            )
+        }
+        VoiceDock(viewModel = viewModel)
+        UserInfoRowMount(viewModel = viewModel)
+    }
+}
+
+/**
+ * Reusable message-pane region. [onOpenDrawer] is non-null only in compact/medium, where it wires
+ * the leading menu affordance in the channel header to the channel-list drawer.
+ */
+@Composable
+private fun MainMessagePane(
+    state: MainScreenState,
+    viewModel: MainViewModel,
+    platformOpen: PlatformOpen?,
+    onOpenDrawer: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    val selectedChannel: Channel? = if (state.isDmHome) {
+        state.dmChannels.firstOrNull { it.id == state.selectedChannelId }
+    } else {
+        state.channelsForSelectedGuild.firstOrNull { it.id == state.selectedChannelId }
+    }
+    val displayName = when (selectedChannel) {
+        is DmChannel -> selectedChannel.recipients.firstOrNull()?.let { "@${it.globalName ?: it.username}" }
+        else -> selectedChannel?.name
+    }
+    val topic = (selectedChannel as? GuildTextChannel)?.topic
+    val voiceStateForHeader by viewModel.voiceState.collectAsState()
+    val selfUser by viewModel.selfUser.collectAsState()
+    val readStateByChannel by (viewModel.orchestrators?.readState?.byChannel
+        ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
+    val lastReadMessageId = state.selectedChannelId?.let { readStateByChannel[it]?.lastReadMessageId }
+    MessagePane(
+        selectedChannelId = state.selectedChannelId,
+        selectedChannelName = displayName,
+        selectedChannelTopic = topic,
+        selectedChannel = selectedChannel,
+        messageOrchestrator = viewModel.orchestrators?.messages,
+        lastReadMessageId = lastReadMessageId,
+        platformOpen = platformOpen,
+        onChannelMentionClick = viewModel::selectChannel,
+        voiceState = voiceStateForHeader,
+        onStartDmCall = viewModel::startDmCall,
+        onHangUpVoice = viewModel::hangUpVoice,
+        selfUserId = selfUser?.id,
+        onOpenDrawer = onOpenDrawer,
+        modifier = modifier,
+    )
 }
 
 /**
@@ -502,6 +719,7 @@ private fun DmRow(
 private fun ChannelListPane(
     channels: List<Channel>,
     selectedChannelId: ChannelId?,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView> = emptyMap(),
     onSelectChannel: (ChannelId) -> Unit,
     onJoinVoiceChannel: (GuildId, ChannelId) -> Unit,
     voiceMembersByChannel: Map<ChannelId, List<VoiceMember>> = emptyMap(),
@@ -576,9 +794,12 @@ private fun ChannelListPane(
             LazyColumn {
                 if (orphanText.isNotEmpty()) {
                     items(orphanText, key = { "txt-${it.id.value}" }) { ch ->
+                        val unread = channelUnread[ch.id]
                         ChannelListItem(
                             channel = ch,
                             isSelected = ch.id == selectedChannelId,
+                            unreadCount = if (unread?.hasUnread == true) 1 else 0,
+                            mentionCount = unread?.mentionCount ?: 0,
                             onClick = { onSelectChannel(ch.id) },
                         )
                     }
@@ -610,9 +831,12 @@ private fun ChannelListPane(
                             .filter { it.parentId == cat.id }
                             .sortedBy { it.position }
                         items(underText, key = { "txt-${it.id.value}" }) { ch ->
+                            val unread = channelUnread[ch.id]
                             ChannelListItem(
                                 channel = ch,
                                 isSelected = ch.id == selectedChannelId,
+                                unreadCount = if (unread?.hasUnread == true) 1 else 0,
+                                mentionCount = unread?.mentionCount ?: 0,
                                 onClick = { onSelectChannel(ch.id) },
                             )
                         }
@@ -664,23 +888,28 @@ private fun MessagePane(
     onStartDmCall: (ChannelId) -> Unit = {},
     onHangUpVoice: () -> Unit = {},
     selfUserId: UserId? = null,
+    onOpenDrawer: (() -> Unit)? = null,
+    lastReadMessageId: dev.puklic.ids.MessageId? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
     Box(modifier = modifier.background(MaterialTheme.colorScheme.background)) {
         val nonTextEmptyState = selectedChannel?.let { nonTextChannelEmptyState(it.type) }
         when {
-            selectedChannelId == null -> EmptyState(
+            selectedChannelId == null -> EmptyMessagePane(
                 title = "Select a channel to start chatting",
                 body = "Channels appear here once you join a server.",
+                onOpenDrawer = onOpenDrawer,
             )
-            messageOrchestrator == null -> EmptyState(
+            messageOrchestrator == null -> EmptyMessagePane(
                 title = "No active session",
                 body = "Sign in to start receiving messages.",
+                onOpenDrawer = onOpenDrawer,
             )
-            nonTextEmptyState != null -> EmptyState(
+            nonTextEmptyState != null -> EmptyMessagePane(
                 title = nonTextEmptyState.first,
                 body = nonTextEmptyState.second,
+                onOpenDrawer = onOpenDrawer,
             )
             else -> ChannelMessages(
                 channelId = selectedChannelId,
@@ -695,8 +924,39 @@ private fun MessagePane(
                 onStartDmCall = onStartDmCall,
                 onHangUpVoice = onHangUpVoice,
                 selfUserId = selfUserId,
+                onOpenDrawer = onOpenDrawer,
+                lastReadMessageId = lastReadMessageId,
             )
         }
+    }
+}
+
+/**
+ * Empty-state body for the message pane that still surfaces the drawer menu affordance in
+ * compact/medium — otherwise a user with no channel selected would have no way to open the drawer.
+ */
+@Composable
+private fun EmptyMessagePane(title: String, body: String, onOpenDrawer: (() -> Unit)?) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        if (onOpenDrawer != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                DrawerMenuButton(onOpenDrawer)
+            }
+        }
+        Box(modifier = Modifier.fillMaxWidth().weight(1f)) {
+            EmptyState(title = title, body = body)
+        }
+    }
+}
+
+/** Leading hamburger affordance that opens the channel-list drawer (compact/medium only). */
+@Composable
+private fun DrawerMenuButton(onOpenDrawer: () -> Unit) {
+    IconButton(onClick = onOpenDrawer) {
+        Icon(imageVector = Icons.Filled.Menu, contentDescription = "Open channels")
     }
 }
 
@@ -737,15 +997,23 @@ private fun ChannelMessages(
     onStartDmCall: (ChannelId) -> Unit = {},
     onHangUpVoice: () -> Unit = {},
     selfUserId: UserId? = null,
+    onOpenDrawer: (() -> Unit)? = null,
+    lastReadMessageId: dev.puklic.ids.MessageId? = null,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
-    // resumed for the lifetime of this composition and destroyed in onDispose.
+    // resumed for the lifetime of this composition and destroyed in onDispose. The read marker is
+    // captured at construction time so the NOVÉ snapshot reflects the unread state on channel open.
     val viewModel = remember(channelId, orchestrator) {
         val lifecycle = LifecycleRegistry()
         val ctx = DefaultComponentContext(lifecycle = lifecycle)
         lifecycle.resume()
         ChannelMessagesHolder(
-            viewModel = MessageListViewModel(ctx, orchestrator, channelId),
+            viewModel = MessageListViewModel(
+                ctx,
+                orchestrator,
+                channelId,
+                lastReadMessageId = lastReadMessageId,
+            ),
             lifecycle = lifecycle,
         )
     }
@@ -776,6 +1044,10 @@ private fun ChannelMessages(
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            if (onOpenDrawer != null) {
+                DrawerMenuButton(onOpenDrawer)
+                Spacer(Modifier.width(8.dp))
+            }
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     if (isDm) displayName else "#$displayName",
@@ -829,6 +1101,7 @@ private fun ChannelMessages(
                     uiScope.launch { opener.openUrl(att.url) }
                 },
                 onChannelMentionClick = onChannelMentionClick,
+                firstUnreadId = (state as? MessageListState.Loaded)?.firstUnreadId,
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)

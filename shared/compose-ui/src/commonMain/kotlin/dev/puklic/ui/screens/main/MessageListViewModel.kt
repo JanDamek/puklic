@@ -26,6 +26,11 @@ public sealed interface MessageListState {
         val isLoadingOlder: Boolean = false,
         val hasMoreOlder: Boolean = true,
         val loadOlderError: String? = null,
+        /**
+         * Anchor for the NOVÉ divider: the first unread message (oldest-first order) snapshotted
+         * once when the channel first opens, so acking while the view is open does not erase it.
+         */
+        val firstUnreadId: MessageId? = null,
     ) : MessageListState
     public data object Empty : MessageListState
     public data class Error(val message: String) : MessageListState
@@ -40,6 +45,7 @@ public class MessageListViewModel(
     private val orchestrator: MessageOrchestrator,
     public val channelId: ChannelId,
     externalScope: CoroutineScope? = null,
+    private val lastReadMessageId: MessageId? = null,
 ) : ComponentContext by componentContext {
 
     public val scope: CoroutineScope = externalScope ?: lifecycleCoroutineScope(Dispatchers.Main.immediate)
@@ -49,6 +55,11 @@ public class MessageListViewModel(
 
     private var observerJob: Job? = null
     private var initialFetchTriggered: Boolean = false
+
+    // Computed once, on the first non-empty load for this channel, then held stable so subsequent
+    // emissions (e.g. after a MESSAGE_ACK) do not move or clear the NOVÉ divider mid-view.
+    private var firstUnreadSnapshot: MessageId? = null
+    private var firstUnreadComputed: Boolean = false
 
     init {
         orchestrator.setActiveChannel(channelId)
@@ -68,7 +79,14 @@ public class MessageListViewModel(
                     }
                 } else {
                     initialFetchTriggered = true
-                    _state.value = MessageListState.Loaded(messages = messages)
+                    if (!firstUnreadComputed) {
+                        firstUnreadComputed = true
+                        firstUnreadSnapshot = firstUnreadMessageId(messages.map { it.id }, lastReadMessageId)
+                    }
+                    _state.value = MessageListState.Loaded(
+                        messages = messages,
+                        firstUnreadId = firstUnreadSnapshot,
+                    )
                 }
             }
         }
@@ -142,6 +160,7 @@ public class MessageListViewModel(
 
     public fun loadOlder() {
         val loaded = _state.value as? MessageListState.Loaded ?: return
+        if (loaded.isLoadingOlder || !loaded.hasMoreOlder) return
         val oldest = loaded.messages.firstOrNull() ?: return
         scope.launch {
             _state.value = loaded.copy(isLoadingOlder = true, loadOlderError = null)

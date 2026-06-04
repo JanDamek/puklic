@@ -28,7 +28,7 @@ class LoginViewModelTest {
 
     @Test
     fun `onTokenChange trims and clears error`() = runTest {
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized())
         vm.selectMode(LoginMode.TOKEN)
         vm.onTokenChange("  abc  ")
         vm.state.value.token shouldBe "abc"
@@ -37,7 +37,7 @@ class LoginViewModelTest {
 
     @Test
     fun `submit with invalid token populates error`() = runTest {
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized())
         vm.selectMode(LoginMode.TOKEN)
         vm.onTokenChange("bad")
         vm.submit()
@@ -48,7 +48,7 @@ class LoginViewModelTest {
 
     @Test
     fun `submit with empty token is a no-op`() = runTest {
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized())
         vm.selectMode(LoginMode.TOKEN)
         vm.submit()
         advanceUntilIdle()
@@ -58,14 +58,14 @@ class LoginViewModelTest {
 
     @Test
     fun `default mode is credentials per issue 90`() = runTest {
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized())
         vm.state.value.mode shouldBe LoginMode.CREDENTIALS
     }
 
     @Test
     fun `save password persists credentials on submit and unchecking wipes them`() = runTest {
         val storage = InMemoryStorage()
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized, storage = storage)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized(), storage = storage)
         vm.onLoginFieldChange("user@example.com")
         vm.onPasswordChange("hunter2")
         vm.onSavePasswordChange(true)
@@ -88,7 +88,7 @@ class LoginViewModelTest {
         val storage = InMemoryStorage()
         storage.put(LoginViewModel.LOGIN_FIELD_KEY, "saved@example.com")
         storage.put(LoginViewModel.PASSWORD_KEY, "savedpwd")
-        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized, storage = storage)
+        val (vm, _) = newViewModel(this, validation = TokenValidation.Unauthorized(), storage = storage)
         advanceUntilIdle()
         vm.state.value.loginField shouldBe "saved@example.com"
         vm.state.value.password shouldBe "savedpwd"

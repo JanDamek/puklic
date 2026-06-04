@@ -41,6 +41,9 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.kermit)
             implementation(libs.ktor.client.core)
+            // Darwin (NSURLSession) is the only Ktor engine with working TLS on iOS/Native —
+            // the CIO engine links but cannot complete the TLS handshake at runtime ("Cannot
+            // reach Discord"). #92 token-rejection diagnosis continues via response logging.
             implementation(libs.ktor.client.darwin)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)

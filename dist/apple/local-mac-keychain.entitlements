@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+    Main-executable + bundle entitlements for the Developer ID .dmg re-sign.
+
+    Extends local-mac.entitlements (JIT set) with the iCloud-Keychain trio so the
+    macApp can write a SYNCHRONIZABLE `discord.token` (kSecAttrSynchronizable) that
+    syncs to the user's iOS Puklic via iCloud Keychain (issue #92 / #74). Without
+    `com.apple.application-identifier` macOS returns errSecMissingEntitlement
+    (-34018) on synced writes and MacOsSecureStorage falls back to a LOCAL-ONLY
+    token that never reaches iOS.
+
+    These are authorized by the embedded Developer ID provisioning profile
+    (dist/apple/Puklic_macApp_DeveloperID.provisionprofile, profile grants
+    keychain-access-groups GR74KSG8M9.* + application-identifier). Applied ONLY to
+    Contents/MacOS/Puklic + the .app wrapper — nested dylibs keep the JIT-only set
+    (application-identifier must not leak into nested Mach-O libraries).
+
+    The keychain-access-group GR74KSG8M9.cz.damek.puklic.app matches the iOS app's
+    default group ($(AppIdentifierPrefix)cz.damek.puklic.app) so both platforms
+    read/write the same synced slot.
+    -->
+    <key>com.apple.security.cs.allow-jit</key><true/>
+    <key>com.apple.security.cs.allow-unsigned-executable-memory</key><true/>
+    <key>com.apple.security.cs.disable-library-validation</key><true/>
+    <key>com.apple.security.cs.allow-dyld-environment-variables</key><true/>
+    <key>com.apple.application-identifier</key><string>GR74KSG8M9.cz.damek.puklic.app</string>
+    <key>com.apple.developer.team-identifier</key><string>GR74KSG8M9</string>
+    <key>keychain-access-groups</key>
+    <array><string>GR74KSG8M9.cz.damek.puklic.app</string></array>
+</dict>
+</plist>

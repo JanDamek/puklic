@@ -18,8 +18,10 @@ public class DiscordCredentialsLoginAdapter(
         loginIdentifier: String,
         password: String,
         captchaKey: String?,
+        captchaRqtoken: String?,
+        captchaSessionId: String?,
     ): CredentialsLoginResult =
-        client.loginWithCredentials(loginIdentifier, password, captchaKey).toResult()
+        client.loginWithCredentials(loginIdentifier, password, captchaKey, captchaRqtoken, captchaSessionId).toResult()
 
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult =
         client.loginWithMfa(ticket, code).toResult()
@@ -30,7 +32,13 @@ public class DiscordCredentialsLoginAdapter(
                 is LoginResponse.Success -> CredentialsLoginResult.Success(response.token)
                 is LoginResponse.MfaRequired -> CredentialsLoginResult.MfaRequired(response.ticket)
                 is LoginResponse.CaptchaRequired ->
-                    CredentialsLoginResult.CaptchaRequired(sitekey = response.sitekey, service = response.service)
+                    CredentialsLoginResult.CaptchaRequired(
+                        sitekey = response.sitekey,
+                        service = response.service,
+                        rqdata = response.rqdata,
+                        rqtoken = response.rqtoken,
+                        sessionId = response.sessionId,
+                    )
                 is LoginResponse.Error -> CredentialsLoginResult.Error(response.message)
             }
         },

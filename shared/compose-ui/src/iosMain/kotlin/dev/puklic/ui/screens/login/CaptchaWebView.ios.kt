@@ -34,6 +34,7 @@ private const val BRIDGE_NAME = "captcha"
 public actual fun CaptchaWebView(
     sitekey: String,
     service: String,
+    rqdata: String?,
     onSolved: (token: String) -> Unit,
     modifier: Modifier,
 ) {
@@ -69,7 +70,7 @@ public actual fun CaptchaWebView(
                         "Version/17.0 Mobile/15E148 Safari/604.1"
             }
             web.loadHTMLString(
-                captchaHtml(service = service, sitekey = sitekey),
+                captchaHtml(service = service, sitekey = sitekey, rqdata = rqdata),
                 baseURL = NSURL.URLWithString("https://discord.com/"),
             )
             web
@@ -132,8 +133,15 @@ private class CaptchaMessageHandler(
  * extremely rarely (and only on already-flagged accounts), so the hCaptcha path covers
  * effectively every challenge a normal sign-in encounters.
  */
-private fun captchaHtml(service: String, sitekey: String): String =
-    """
+private fun captchaHtml(service: String, sitekey: String, rqdata: String?): String {
+    // hCaptcha Enterprise challenge: Discord's rqdata is an enterprise-only ("sentry") parameter
+    // that is NOT supported via the implicit `data-rqdata` attribute — it must be supplied to
+    // `hcaptcha.render(node, { rqdata })` in an EXPLICIT render. Without it the user solves a
+    // non-enterprise challenge that Discord's enterprise endpoint rejects, so hCaptcha keeps
+    // re-issuing the puzzle ("are you human?" loop). We therefore load the API with
+    // `render=explicit&onload=…` and render the widget ourselves, injecting rqdata when present.
+    val rqdataLine = rqdata?.takeIf { it.isNotBlank() }?.let { "\n        rqdata: \"$it\"," }.orEmpty()
+    return """
 <!DOCTYPE html>
 <html>
 <head>
@@ -143,9 +151,8 @@ private fun captchaHtml(service: String, sitekey: String): String =
            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
            display: flex; flex-direction: column; align-items: center; }
     .service { font-size: 11px; opacity: 0.6; margin-top: 8px; }
-    .h-captcha { margin-top: 4px; }
+    #h-captcha { margin-top: 4px; }
   </style>
-  <script src="https://js.hcaptcha.com/1/api.js" async defer></script>
   <script>
     function onCaptcha(token) {
       if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.$BRIDGE_NAME) {
@@ -157,15 +164,23 @@ private fun captchaHtml(service: String, sitekey: String): String =
         window.webkit.messageHandlers.$BRIDGE_NAME.postMessage('__error:' + err);
       }
     }
+    function onHcaptchaLoad() {
+      hcaptcha.render("h-captcha", {
+        sitekey: "$sitekey",$rqdataLine
+        theme: "dark",
+        callback: onCaptcha,
+        "error-callback": onCaptchaError,
+        "chalexpired-callback": onCaptchaError,
+        "expired-callback": onCaptchaError
+      });
+    }
   </script>
+  <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcaptchaLoad" async defer></script>
 </head>
 <body>
-  <div class="h-captcha"
-       data-sitekey="$sitekey"
-       data-callback="onCaptcha"
-       data-error-callback="onCaptchaError"
-       data-theme="dark"></div>
+  <div id="h-captcha"></div>
   <div class="service">via ${service.ifBlank { "hcaptcha" }}</div>
 </body>
 </html>
     """.trimIndent()
+}

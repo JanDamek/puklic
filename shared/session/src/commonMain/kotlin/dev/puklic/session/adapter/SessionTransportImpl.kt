@@ -1,11 +1,13 @@
 package dev.puklic.session.adapter
 
+import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordSessionBridge
 import dev.puklic.protocol.discord.gateway.GatewayConnection
 import dev.puklic.protocol.discord.gateway.GatewayState
 import dev.puklic.session.GatewayLifecycleEvent
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import dev.puklic.session.SessionTransport
 import dev.puklic.session.TokenValidation
 import kotlinx.coroutines.CoroutineScope
@@ -50,8 +52,9 @@ public class SessionTransportImpl(
             onSuccess = { TokenValidation.Ok(it) },
             onFailure = { cause ->
                 val msg = cause.message.orEmpty()
-                if (cause::class.simpleName == "TokenInvalid" || msg.contains("401")) {
-                    TokenValidation.Unauthorized
+                val tokenInvalid = cause as? DiscordError.TokenInvalid
+                if (tokenInvalid != null || msg.contains("401")) {
+                    TokenValidation.Unauthorized(tokenInvalid?.detail.orEmpty().ifBlank { msg })
                 } else {
                     TokenValidation.TransportError(msg.ifBlank { cause::class.simpleName.orEmpty() })
                 }
@@ -69,6 +72,10 @@ public class SessionTransportImpl(
 
     override suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
         gateway.lazyRequestGuild(guildId, channelIds)
+    }
+
+    override suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId) {
+        bridge.markChannelRead(channelId, messageId)
     }
 
     private fun mapGatewayState(state: GatewayState): GatewayLifecycleEvent? = when (state) {

@@ -11,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,8 +23,13 @@ import dev.puklic.ids.EmojiId
 import dev.puklic.ids.UserId
 import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 private const val GROUPING_WINDOW_SECONDS: Long = 300L // 5 minutes per docs/04_ui/screens.md MessagePane
+
+// Trigger an older-page fetch once the user scrolls within this many items of the oldest (top) end.
+private const val LOAD_OLDER_THRESHOLD: Int = 5
 
 /** Aggregated action surface for [MessageList]. */
 public sealed interface MessageAction {
@@ -35,7 +42,7 @@ public sealed interface MessageAction {
 @Composable
 public fun MessageList(
     state: MessageListState,
-    @Suppress("UnusedParameter") onLoadOlder: () -> Unit,
+    onLoadOlder: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
     modifier: Modifier = Modifier,
     selfUserId: UserId? = null,
@@ -43,6 +50,7 @@ public fun MessageList(
     onAttachmentClick: (Attachment) -> Unit = {},
     onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
     onUserMentionClick: ((dev.puklic.ids.UserId) -> Unit)? = null,
+    firstUnreadId: dev.puklic.ids.MessageId? = null,
 ) {
     val spacing = LocalPuklicSpacing.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -82,6 +90,20 @@ public fun MessageList(
                         listState.scrollToItem(0)
                     }
                 }
+                // With reverseLayout=true and newest-first list, the oldest message sits at the
+                // largest index. Scrolling up toward older messages pushes the last visible index
+                // toward totalItemsCount-1; fire onLoadOlder once we're within the threshold.
+                val shouldLoadOlder by remember(listState) {
+                    derivedStateOf {
+                        val lastVisible =
+                            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        val total = listState.layoutInfo.totalItemsCount
+                        total > 0 && lastVisible >= total - LOAD_OLDER_THRESHOLD
+                    }
+                }
+                LaunchedEffect(shouldLoadOlder) {
+                    if (shouldLoadOlder) onLoadOlder()
+                }
                 LazyColumn(state = listState, reverseLayout = true) {
                     items(msgs.size, key = { idx -> msgs[idx].id.value }) { idx ->
                         // With reverseLayout=true and newest-first list, the message
@@ -93,18 +115,33 @@ public fun MessageList(
                                 msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
                             ) <= GROUPING_WINDOW_SECONDS
                         val msg = msgs[idx]
-                        MessageRow(
-                            message = msg,
-                            groupedWithPrevious = grouped,
-                            isOwnMessage = selfUserId != null && msg.author.id == selfUserId,
-                            onReact = { emoji -> onReact(msg, emoji) },
-                            onAttachmentClick = onAttachmentClick,
-                            onChannelMentionClick = onChannelMentionClick,
-                            onUserMentionClick = onUserMentionClick,
-                            onDelete = { onMessageAction(MessageAction.Delete(msg)) },
-                            onEdit = { onMessageAction(MessageAction.Edit(msg, msg.rawContent)) },
-                            onCopyLink = { onMessageAction(MessageAction.CopyLink(msg)) },
+                        val zone = TimeZone.currentSystemDefault()
+                        val newDay = isNewDay(
+                            current = msg.timestamp,
+                            previousOlder = prev?.timestamp,
+                            zone = zone,
                         )
+                        val isFirstUnread = firstUnreadId != null && msg.id == firstUnreadId
+                        Column {
+                            if (newDay) {
+                                DateSeparator(czechLongDate(msg.timestamp.toLocalDateTime(zone).date))
+                            }
+                            if (isFirstUnread) {
+                                UnreadDivider()
+                            }
+                            MessageRow(
+                                message = msg,
+                                groupedWithPrevious = grouped,
+                                isOwnMessage = selfUserId != null && msg.author.id == selfUserId,
+                                onReact = { emoji -> onReact(msg, emoji) },
+                                onAttachmentClick = onAttachmentClick,
+                                onChannelMentionClick = onChannelMentionClick,
+                                onUserMentionClick = onUserMentionClick,
+                                onDelete = { onMessageAction(MessageAction.Delete(msg)) },
+                                onEdit = { onMessageAction(MessageAction.Edit(msg, msg.rawContent)) },
+                                onCopyLink = { onMessageAction(MessageAction.CopyLink(msg)) },
+                            )
+                        }
                     }
                     if (state.isLoadingOlder) {
                         item { CircularProgressIndicator() }

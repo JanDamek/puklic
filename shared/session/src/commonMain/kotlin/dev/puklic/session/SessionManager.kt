@@ -38,7 +38,8 @@ public class SessionManager(
         session.connect()
         return when (val s = session.state.value) {
             is SessionState.TokenInvalid -> {
-                Result.failure(IllegalArgumentException("Token rejected by Discord (401)"))
+                val suffix = if (s.detail.isNotBlank()) ": ${s.detail}" else ""
+                Result.failure(IllegalArgumentException("Token rejected by Discord (401)$suffix"))
             }
             is SessionState.Failed -> {
                 Result.failure(IllegalStateException("Session failed: ${s.reason}"))
@@ -77,14 +78,24 @@ public class SessionManager(
         login: String,
         password: String,
         captchaKey: String? = null,
+        captchaRqtoken: String? = null,
+        captchaSessionId: String? = null,
     ): Result<LoginOutcome> {
         val collaborator = credentialsLogin
             ?: return Result.failure(IllegalStateException("Credentials login not configured"))
-        return when (val outcome = collaborator.login(login, password, captchaKey)) {
+        return when (val outcome = collaborator.login(login, password, captchaKey, captchaRqtoken, captchaSessionId)) {
             is CredentialsLoginResult.Success -> finalizeToken(outcome.token).map { LoginOutcome.Success }
             is CredentialsLoginResult.MfaRequired -> Result.success(LoginOutcome.MfaRequired(outcome.ticket))
             is CredentialsLoginResult.CaptchaRequired ->
-                Result.success(LoginOutcome.CaptchaRequired(sitekey = outcome.sitekey, service = outcome.service))
+                Result.success(
+                    LoginOutcome.CaptchaRequired(
+                        sitekey = outcome.sitekey,
+                        service = outcome.service,
+                        rqdata = outcome.rqdata,
+                        rqtoken = outcome.rqtoken,
+                        sessionId = outcome.sessionId,
+                    ),
+                )
             is CredentialsLoginResult.Error -> Result.failure(IllegalArgumentException(outcome.message))
             is CredentialsLoginResult.Transport -> Result.failure(IllegalStateException(outcome.message))
         }

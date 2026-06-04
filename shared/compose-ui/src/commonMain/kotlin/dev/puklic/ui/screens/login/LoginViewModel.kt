@@ -52,6 +52,9 @@ public data class LoginState(
      */
     val captchaSitekey: String? = null,
     val captchaService: String? = null,
+    val captchaRqdata: String? = null,
+    val captchaRqtoken: String? = null,
+    val captchaSessionId: String? = null,
     val error: String? = null,
 ) {
     public val canSubmitToken: Boolean get() = token.isNotBlank() && !submitting
@@ -116,6 +119,9 @@ public class LoginViewModel(
                 mfaCode = "",
                 captchaSitekey = null,
                 captchaService = null,
+                captchaRqdata = null,
+                captchaRqtoken = null,
+                captchaSessionId = null,
             )
         }
     }
@@ -125,7 +131,16 @@ public class LoginViewModel(
      * re-appears. The user may then retry submit or switch to the Token tab.
      */
     public fun cancelCaptcha() {
-        _state.update { it.copy(captchaSitekey = null, captchaService = null, error = null) }
+        _state.update {
+            it.copy(
+                captchaSitekey = null,
+                captchaService = null,
+                captchaRqdata = null,
+                captchaRqtoken = null,
+                captchaSessionId = null,
+                error = null,
+            )
+        }
     }
 
     public fun onTokenChange(token: String) {
@@ -173,7 +188,13 @@ public class LoginViewModel(
     private fun submitCredentials(current: LoginState) {
         if (!current.canSubmitCredentials) return
         persistCredentialPreference(current)
-        runCredentials(current.loginField, current.password, captchaKey = null)
+        runCredentials(
+            current.loginField,
+            current.password,
+            captchaKey = null,
+            captchaRqtoken = null,
+            captchaSessionId = null,
+        )
     }
 
     /**
@@ -212,20 +233,47 @@ public class LoginViewModel(
                 it.copy(
                     captchaSitekey = null,
                     captchaService = null,
+                    captchaRqdata = null,
+                    captchaRqtoken = null,
+                    captchaSessionId = null,
                     error = "Captcha resolved without an active login attempt.",
                 )
             }
             return
         }
-        _state.update { it.copy(captchaSitekey = null, captchaService = null) }
-        runCredentials(current.loginField, current.password, captchaKey = captchaToken)
+        // Capture the Enterprise rqtoken before clearing captcha state — the retry
+        // `/auth/login` must echo it back alongside the solved captcha_key.
+        val rqtoken = current.captchaRqtoken
+        val sessionId = current.captchaSessionId
+        _state.update {
+            it.copy(
+                captchaSitekey = null,
+                captchaService = null,
+                captchaRqdata = null,
+                captchaRqtoken = null,
+                captchaSessionId = null,
+            )
+        }
+        runCredentials(
+            current.loginField,
+            current.password,
+            captchaKey = captchaToken,
+            captchaRqtoken = rqtoken,
+            captchaSessionId = sessionId,
+        )
     }
 
-    private fun runCredentials(login: String, password: String, captchaKey: String?) {
+    private fun runCredentials(
+        login: String,
+        password: String,
+        captchaKey: String?,
+        captchaRqtoken: String?,
+        captchaSessionId: String?,
+    ) {
         _state.update { it.copy(submitting = true, error = null) }
         scope.launch {
             val result = runCatching {
-                sessionManager.startSessionWithCredentials(login, password, captchaKey)
+                sessionManager.startSessionWithCredentials(login, password, captchaKey, captchaRqtoken, captchaSessionId)
             }.getOrElse { Result.failure(it) }
             result.fold(
                 onSuccess = { outcome ->
@@ -247,6 +295,9 @@ public class LoginViewModel(
                                     submitting = false,
                                     captchaSitekey = outcome.sitekey,
                                     captchaService = outcome.service,
+                                    captchaRqdata = outcome.rqdata,
+                                    captchaRqtoken = outcome.rqtoken,
+                                    captchaSessionId = outcome.sessionId,
                                     error = null,
                                 )
                             }
@@ -282,7 +333,8 @@ public class LoginViewModel(
         val msg = throwable.message.orEmpty()
         val lower = msg.lowercase()
         return when {
-            throwable is IllegalArgumentException -> "Token rejected by Discord"
+            throwable is IllegalArgumentException -> "Token rejected by Discord" +
+                msg.takeIf { it.isNotBlank() && it != "Token rejected by Discord" }?.let { " — $it" }.orEmpty()
             looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
             // Surface the transport / unknown failure detail so the user (and bug
             // reports) can see what went wrong; the previous generic "Sign in failed"

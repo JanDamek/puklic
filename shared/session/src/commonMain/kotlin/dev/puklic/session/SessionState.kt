@@ -9,6 +9,6 @@ public sealed interface SessionState {
     public data class Connecting(val attempt: Int) : SessionState
     public data class Connected(val sessionId: String, val selfUser: UserSummary) : SessionState
     public data class Reconnecting(val secondsUntilRetry: Int) : SessionState
-    public data object TokenInvalid : SessionState
+    public data class TokenInvalid(val detail: String = "") : SessionState
     public data class Failed(val reason: String) : SessionState
 }

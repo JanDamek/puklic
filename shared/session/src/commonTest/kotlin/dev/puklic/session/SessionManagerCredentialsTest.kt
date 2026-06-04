@@ -38,7 +38,13 @@ class SessionManagerCredentialsTest {
         val storage = FakeSecureStorage()
         val transport = FakeSessionTransport()
         val login = FakeCredentialsLogin(
-            firstResult = CredentialsLoginResult.CaptchaRequired(sitekey = "site-x", service = "hcaptcha"),
+            firstResult = CredentialsLoginResult.CaptchaRequired(
+                sitekey = "site-x",
+                service = "hcaptcha",
+                rqdata = "RQDATA_BLOB",
+                rqtoken = "RQTOKEN",
+                sessionId = "SID-1",
+            ),
         )
         val mgr = SessionManager(
             CoroutineScope(coroutineContext + parent),
@@ -48,9 +54,52 @@ class SessionManagerCredentialsTest {
         )
 
         val result = mgr.startSessionWithCredentials("user", "pw")
-        result.getOrThrow() shouldBe LoginOutcome.CaptchaRequired(sitekey = "site-x", service = "hcaptcha")
+        result.getOrThrow() shouldBe LoginOutcome.CaptchaRequired(
+            sitekey = "site-x",
+            service = "hcaptcha",
+            rqdata = "RQDATA_BLOB",
+            rqtoken = "RQTOKEN",
+            sessionId = "SID-1",
+        )
         storage.get(SessionManager.TOKEN_KEY) shouldBe null
         mgr.activeSession.value shouldBe null
+        parent.cancel()
+    }
+
+    @Test
+    fun credentials_captcha_retry_forwards_key_and_rqtoken() = runTest {
+        val parent = Job()
+        val storage = FakeSecureStorage()
+        val transport = FakeSessionTransport()
+        val login = FakeCredentialsLogin(
+            firstResult = CredentialsLoginResult.CaptchaRequired(
+                sitekey = "site-x",
+                service = "hcaptcha",
+                rqdata = "RQDATA_BLOB",
+                rqtoken = "RQTOKEN",
+                sessionId = "SID-1",
+            ),
+            captchaRetryResult = CredentialsLoginResult.Success("token-after-captcha"),
+        )
+        val mgr = SessionManager(
+            CoroutineScope(coroutineContext + parent),
+            storage,
+            sessionFactory = { t -> DiscordSession(CoroutineScope(coroutineContext + parent), t, transport) },
+            credentialsLogin = login,
+        )
+
+        val result = mgr.startSessionWithCredentials(
+            "user",
+            "pw",
+            captchaKey = "tok",
+            captchaRqtoken = "rqt",
+            captchaSessionId = "sid",
+        )
+        result.getOrThrow() shouldBe LoginOutcome.Success
+        login.lastCaptchaKey shouldBe "tok"
+        login.lastCaptchaRqtoken shouldBe "rqt"
+        login.lastCaptchaSessionId shouldBe "sid"
+        storage.get(SessionManager.TOKEN_KEY) shouldBe "token-after-captcha"
         parent.cancel()
     }
 
@@ -109,12 +158,22 @@ private class FakeCredentialsLogin(
     private val mfaResult: CredentialsLoginResult = CredentialsLoginResult.Error("no mfa configured"),
     private val captchaRetryResult: CredentialsLoginResult? = null,
 ) : CredentialsLogin {
+    var lastCaptchaKey: String? = null
+    var lastCaptchaRqtoken: String? = null
+    var lastCaptchaSessionId: String? = null
+
     override suspend fun login(
         loginIdentifier: String,
         password: String,
         captchaKey: String?,
-    ): CredentialsLoginResult =
-        if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else firstResult
+        captchaRqtoken: String?,
+        captchaSessionId: String?,
+    ): CredentialsLoginResult {
+        lastCaptchaKey = captchaKey
+        lastCaptchaRqtoken = captchaRqtoken
+        lastCaptchaSessionId = captchaSessionId
+        return if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else firstResult
+    }
 
     override suspend fun completeMfa(ticket: String, code: String): CredentialsLoginResult = mfaResult
 }
