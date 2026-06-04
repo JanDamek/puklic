@@ -142,6 +142,7 @@ public class MessageListViewModel(
 
     public fun loadOlder() {
         val loaded = _state.value as? MessageListState.Loaded ?: return
+        if (loaded.isLoadingOlder || !loaded.hasMoreOlder) return
         val oldest = loaded.messages.firstOrNull() ?: return
         scope.launch {
             _state.value = loaded.copy(isLoadingOlder = true, loadOlderError = null)

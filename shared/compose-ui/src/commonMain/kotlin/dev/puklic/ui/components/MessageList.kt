@@ -11,6 +11,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -24,6 +26,9 @@ import dev.puklic.ui.theme.LocalPuklicSpacing
 
 private const val GROUPING_WINDOW_SECONDS: Long = 300L // 5 minutes per docs/04_ui/screens.md MessagePane
 
+// Trigger an older-page fetch once the user scrolls within this many items of the oldest (top) end.
+private const val LOAD_OLDER_THRESHOLD: Int = 5
+
 /** Aggregated action surface for [MessageList]. */
 public sealed interface MessageAction {
     public data class Edit(val message: ChatMessage, val newContent: String) : MessageAction
@@ -35,7 +40,7 @@ public sealed interface MessageAction {
 @Composable
 public fun MessageList(
     state: MessageListState,
-    @Suppress("UnusedParameter") onLoadOlder: () -> Unit,
+    onLoadOlder: () -> Unit,
     onMessageAction: (MessageAction) -> Unit,
     modifier: Modifier = Modifier,
     selfUserId: UserId? = null,
@@ -81,6 +86,20 @@ public fun MessageList(
                     if (msgs.isNotEmpty() && listState.firstVisibleItemIndex <= 1) {
                         listState.scrollToItem(0)
                     }
+                }
+                // With reverseLayout=true and newest-first list, the oldest message sits at the
+                // largest index. Scrolling up toward older messages pushes the last visible index
+                // toward totalItemsCount-1; fire onLoadOlder once we're within the threshold.
+                val shouldLoadOlder by remember(listState) {
+                    derivedStateOf {
+                        val lastVisible =
+                            listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+                        val total = listState.layoutInfo.totalItemsCount
+                        total > 0 && lastVisible >= total - LOAD_OLDER_THRESHOLD
+                    }
+                }
+                LaunchedEffect(shouldLoadOlder) {
+                    if (shouldLoadOlder) onLoadOlder()
                 }
                 LazyColumn(state = listState, reverseLayout = true) {
                     items(msgs.size, key = { idx -> msgs[idx].id.value }) { idx ->

@@ -49,7 +49,16 @@ class LoginViewModelCredentialsTest {
 
     @Test
     fun `captcha required opens inline captcha widget without surfacing error`() = runTest {
-        val vm = newViewModel(this, CredentialsLoginResult.CaptchaRequired(sitekey = "sk-1", service = "hcaptcha"))
+        val vm = newViewModel(
+            this,
+            CredentialsLoginResult.CaptchaRequired(
+                sitekey = "sk-1",
+                service = "hcaptcha",
+                rqdata = "",
+                rqtoken = "",
+                sessionId = "",
+            ),
+        )
         vm.selectMode(LoginMode.CREDENTIALS)
         vm.onLoginFieldChange("user")
         vm.onPasswordChange("pw")
@@ -68,7 +77,13 @@ class LoginViewModelCredentialsTest {
         // session transport's token validation) is not exercised; we only verify the
         // captcha state clears and the captchaKey is forwarded.
         val fake = FakeLogin(
-            CredentialsLoginResult.CaptchaRequired(sitekey = "sk-2", service = "hcaptcha"),
+            CredentialsLoginResult.CaptchaRequired(
+                sitekey = "sk-2",
+                service = "hcaptcha",
+                rqdata = "",
+                rqtoken = "",
+                sessionId = "",
+            ),
             captchaRetryResult = CredentialsLoginResult.MfaRequired("tkt-after-captcha"),
         )
         val vm = newViewModelWithFake(this, fake)
@@ -89,7 +104,16 @@ class LoginViewModelCredentialsTest {
 
     @Test
     fun `cancelCaptcha drops captcha state and returns to credentials form`() = runTest {
-        val vm = newViewModel(this, CredentialsLoginResult.CaptchaRequired(sitekey = "sk-3", service = "hcaptcha"))
+        val vm = newViewModel(
+            this,
+            CredentialsLoginResult.CaptchaRequired(
+                sitekey = "sk-3",
+                service = "hcaptcha",
+                rqdata = "",
+                rqtoken = "",
+                sessionId = "",
+            ),
+        )
         vm.selectMode(LoginMode.CREDENTIALS)
         vm.onLoginFieldChange("user")
         vm.onPasswordChange("pw")
@@ -164,6 +188,8 @@ private class FakeLogin(
         loginIdentifier: String,
         password: String,
         captchaKey: String?,
+        captchaRqtoken: String?,
+        captchaSessionId: String?,
     ): CredentialsLoginResult {
         lastCaptchaKey = captchaKey
         return if (captchaKey != null && captchaRetryResult != null) captchaRetryResult else result
