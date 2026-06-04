@@ -62,6 +62,7 @@ import io.ktor.client.engine.darwin.Darwin
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.serialization.kotlinx.json.json
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -116,7 +117,10 @@ public class IosDependencyGraph private constructor(
 
     public companion object {
         public fun create(): IosDependencyGraph {
-            val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+            val crashGuard = CoroutineExceptionHandler { _, ex ->
+                Logger.e(LOG_TAG, ex) { "Uncaught coroutine exception (suppressed to keep the app alive)" }
+            }
+            val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + crashGuard)
             val paths: PlatformPaths = IosPlatformPaths()
             val opener: PlatformOpen = IosPlatformOpen()
             val storage: SecureStorage = IosSecureStorage()
@@ -153,6 +157,7 @@ public class IosDependencyGraph private constructor(
                 buildIosSession(
                     token = token,
                     applicationScope = applicationScope,
+                    crashGuard = crashGuard,
                     httpClient = httpClient,
                     messageStore = messageStore,
                     guildStore = guildStore,
@@ -197,6 +202,7 @@ public class IosDependencyGraph private constructor(
         private fun buildIosSession(
             token: String,
             applicationScope: CoroutineScope,
+            crashGuard: CoroutineExceptionHandler,
             httpClient: HttpClient,
             messageStore: MessageRepositoryImpl,
             guildStore: GuildRepositoryImpl,
@@ -208,7 +214,7 @@ public class IosDependencyGraph private constructor(
             readStateStore: ReadStateRepositoryImpl,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
-            val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
+            val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default + crashGuard)
 
             val rest = DiscordRestClient(httpClient, token)
             val gatewayTransportFactory = ktorGatewayTransportFactory(httpClient)
