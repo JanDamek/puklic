@@ -1160,33 +1160,47 @@ public class DiscordSessionBridge(private val rest: DiscordRestClient) {
  * Issue #85. Prefers `guild_folders[*].guild_ids` (modern shape) and falls back to the legacy
  * `guild_positions` flat array.
  */
+@OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
 internal fun extractGuildPositionsFromReady(
     readyObj: kotlinx.serialization.json.JsonObject,
 ): DiscordDomainEvent.GuildPositionsUpdated? {
     val settings = readyObj["user_settings"] as? kotlinx.serialization.json.JsonObject
-        ?: return null
-    val foldersArray = settings["guild_folders"] as? kotlinx.serialization.json.JsonArray
-    if (foldersArray != null && foldersArray.isNotEmpty()) {
-        val ordered = foldersArray.flatMap { folder ->
-            val folderObj = folder as? kotlinx.serialization.json.JsonObject
-                ?: return@flatMap emptyList<GuildId>()
-            val ids = folderObj["guild_ids"] as? kotlinx.serialization.json.JsonArray
-                ?: return@flatMap emptyList<GuildId>()
-            ids.mapNotNull { el ->
-                (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
+    if (settings != null) {
+        val foldersArray = settings["guild_folders"] as? kotlinx.serialization.json.JsonArray
+        if (foldersArray != null && foldersArray.isNotEmpty()) {
+            val ordered = foldersArray.flatMap { folder ->
+                val folderObj = folder as? kotlinx.serialization.json.JsonObject
+                    ?: return@flatMap emptyList<GuildId>()
+                val ids = folderObj["guild_ids"] as? kotlinx.serialization.json.JsonArray
+                    ?: return@flatMap emptyList<GuildId>()
+                ids.mapNotNull { el ->
+                    (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
+                }
+            }
+            if (ordered.isNotEmpty()) {
+                return DiscordDomainEvent.GuildPositionsUpdated(ordered)
             }
         }
-        if (ordered.isNotEmpty()) {
-            return DiscordDomainEvent.GuildPositionsUpdated(ordered)
+        val positionsArray = settings["guild_positions"] as? kotlinx.serialization.json.JsonArray
+        if (positionsArray != null && positionsArray.isNotEmpty()) {
+            val ordered = positionsArray.mapNotNull { el ->
+                (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
+            }
+            if (ordered.isNotEmpty()) {
+                return DiscordDomainEvent.GuildPositionsUpdated(ordered)
+            }
         }
     }
-    val positionsArray = settings["guild_positions"] as? kotlinx.serialization.json.JsonArray
-    if (positionsArray != null && positionsArray.isNotEmpty()) {
-        val ordered = positionsArray.mapNotNull { el ->
-            (el as? JsonPrimitive)?.content?.toLongOrNull()?.let(::GuildId)
-        }
-        if (ordered.isNotEmpty()) {
-            return DiscordDomainEvent.GuildPositionsUpdated(ordered)
+
+    // Modern accounts store the order in the UserSettings protobuf (legacy JSON is empty).
+    val protoBase64 = (readyObj["user_settings_proto"] as? JsonPrimitive)?.content
+    if (!protoBase64.isNullOrBlank()) {
+        val decoded = runCatching { kotlin.io.encoding.Base64.decode(protoBase64) }.getOrNull()
+        if (decoded != null) {
+            val ids = parseGuildOrderFromSettingsProto(decoded)
+            if (ids.isNotEmpty()) {
+                return DiscordDomainEvent.GuildPositionsUpdated(ids.map(::GuildId))
+            }
         }
     }
     return null
