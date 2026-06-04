@@ -23,7 +23,7 @@ private class SpyTransport : SessionTransport {
     val lazyCalls = mutableListOf<Pair<GuildId, List<ChannelId>>>()
     private val _lifecycle = MutableSharedFlow<GatewayLifecycleEvent>(extraBufferCapacity = 4)
     override val lifecycle: SharedFlow<GatewayLifecycleEvent> = _lifecycle.asSharedFlow()
-    override suspend fun validateToken(token: String): TokenValidation = TokenValidation.Unauthorized
+    override suspend fun validateToken(token: String): TokenValidation = TokenValidation.Unauthorized()
     override suspend fun connectGateway(token: String) {}
     override suspend fun disconnectGateway() {}
     override suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {

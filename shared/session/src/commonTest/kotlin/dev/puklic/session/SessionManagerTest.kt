@@ -30,7 +30,7 @@ class SessionManagerTest {
     fun startSessionWithToken_401_returns_failure_and_does_not_persist() = runTest {
         val parent = Job()
         val storage = FakeSecureStorage()
-        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized)
+        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized())
         val mgr = SessionManager(
             CoroutineScope(coroutineContext + parent),
             storage,
@@ -81,7 +81,7 @@ class SessionManagerTest {
         val parent = Job()
         val storage = FakeSecureStorage()
         storage.put(SessionManager.TOKEN_KEY, "stale")
-        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized)
+        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized())
         val mgr = SessionManager(
             CoroutineScope(coroutineContext + parent),
             storage,

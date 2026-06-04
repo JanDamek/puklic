@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.SharedFlow
  */
 public sealed interface TokenValidation {
     public data class Ok(val selfUser: UserSummary) : TokenValidation
-    public data object Unauthorized : TokenValidation
+    public data class Unauthorized(val detail: String = "") : TokenValidation
     public data class TransportError(val message: String) : TokenValidation
 }
 

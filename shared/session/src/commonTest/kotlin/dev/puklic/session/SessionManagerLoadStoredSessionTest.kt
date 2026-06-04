@@ -58,7 +58,7 @@ class SessionManagerLoadStoredSessionTest {
         val parent = Job()
         val storage = FakeSecureStorage()
         storage.put(SessionManager.TOKEN_KEY, "stale")
-        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized)
+        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized())
         val mgr = SessionManager(
             CoroutineScope(coroutineContext + parent),
             storage,

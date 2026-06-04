@@ -65,7 +65,7 @@ public class DiscordSession(
                 }
                 transport.connectGateway(token)
             }
-            is TokenValidation.Unauthorized -> _state.value = SessionState.TokenInvalid
+            is TokenValidation.Unauthorized -> _state.value = SessionState.TokenInvalid(validation.detail)
             is TokenValidation.TransportError -> _state.value = SessionState.Failed(validation.message)
         }
     }
@@ -73,7 +73,7 @@ public class DiscordSession(
     private fun mapLifecycle(event: GatewayLifecycleEvent, self: UserSummary): SessionState = when (event) {
         is GatewayLifecycleEvent.Connected -> SessionState.Connected(event.sessionId, self)
         is GatewayLifecycleEvent.Disconnected -> SessionState.Disconnected
-        is GatewayLifecycleEvent.TokenInvalid -> SessionState.TokenInvalid
+        is GatewayLifecycleEvent.TokenInvalid -> SessionState.TokenInvalid()
         is GatewayLifecycleEvent.Failed -> SessionState.Failed(event.reason)
         is GatewayLifecycleEvent.Reconnecting -> SessionState.Reconnecting(event.secondsUntilRetry)
     }

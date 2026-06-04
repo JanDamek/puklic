@@ -41,11 +41,10 @@ kotlin {
             implementation(libs.kotlinx.datetime)
             implementation(libs.kermit)
             implementation(libs.ktor.client.core)
-            // CIO (pure-Kotlin) engine — NOT Darwin/NSURLSession. Discord/Cloudflare WAF
-            // fingerprints the Darwin TLS stack and rejects token validation (HTTP 401) even
-            // for a token that works on the JVM (CIO) desktop build, so iOS never connected.
-            // CIO makes the iOS network identity match the macApp desktop build (#92).
-            implementation(libs.ktor.client.cio)
+            // Darwin (NSURLSession) is the only Ktor engine with working TLS on iOS/Native —
+            // the CIO engine links but cannot complete the TLS handshake at runtime ("Cannot
+            // reach Discord"). #92 token-rejection diagnosis continues via response logging.
+            implementation(libs.ktor.client.darwin)
             implementation(libs.ktor.client.websockets)
             implementation(libs.ktor.client.content.negotiation)
             implementation(libs.ktor.serialization.kotlinx.json)

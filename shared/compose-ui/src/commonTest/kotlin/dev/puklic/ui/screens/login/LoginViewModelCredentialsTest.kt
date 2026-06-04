@@ -172,7 +172,7 @@ private class CredsInMemoryStorage : SecureStorage {
 private class CredsFakeTransport : SessionTransport {
     private val _lifecycle = MutableSharedFlow<GatewayLifecycleEvent>(replay = 0, extraBufferCapacity = 8)
     override val lifecycle: SharedFlow<GatewayLifecycleEvent> = _lifecycle.asSharedFlow()
-    override suspend fun validateToken(token: String): TokenValidation = TokenValidation.Unauthorized
+    override suspend fun validateToken(token: String): TokenValidation = TokenValidation.Unauthorized()
     override suspend fun connectGateway(token: String) {}
     override suspend fun disconnectGateway() {}
 }

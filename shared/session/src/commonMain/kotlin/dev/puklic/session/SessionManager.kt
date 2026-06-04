@@ -38,7 +38,8 @@ public class SessionManager(
         session.connect()
         return when (val s = session.state.value) {
             is SessionState.TokenInvalid -> {
-                Result.failure(IllegalArgumentException("Token rejected by Discord (401)"))
+                val suffix = if (s.detail.isNotBlank()) ": ${s.detail}" else ""
+                Result.failure(IllegalArgumentException("Token rejected by Discord (401)$suffix"))
             }
             is SessionState.Failed -> {
                 Result.failure(IllegalStateException("Session failed: ${s.reason}"))

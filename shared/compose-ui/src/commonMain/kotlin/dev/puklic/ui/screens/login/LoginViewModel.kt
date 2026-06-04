@@ -333,7 +333,8 @@ public class LoginViewModel(
         val msg = throwable.message.orEmpty()
         val lower = msg.lowercase()
         return when {
-            throwable is IllegalArgumentException -> "Token rejected by Discord"
+            throwable is IllegalArgumentException -> "Token rejected by Discord" +
+                msg.takeIf { it.isNotBlank() && it != "Token rejected by Discord" }?.let { " — $it" }.orEmpty()
             looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
             // Surface the transport / unknown failure detail so the user (and bug
             // reports) can see what went wrong; the previous generic "Sign in failed"

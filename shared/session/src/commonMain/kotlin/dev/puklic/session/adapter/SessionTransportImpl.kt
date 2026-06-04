@@ -1,5 +1,6 @@
 package dev.puklic.session.adapter
 
+import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordSessionBridge
 import dev.puklic.protocol.discord.gateway.GatewayConnection
 import dev.puklic.protocol.discord.gateway.GatewayState
@@ -50,8 +51,9 @@ public class SessionTransportImpl(
             onSuccess = { TokenValidation.Ok(it) },
             onFailure = { cause ->
                 val msg = cause.message.orEmpty()
-                if (cause::class.simpleName == "TokenInvalid" || msg.contains("401")) {
-                    TokenValidation.Unauthorized
+                val tokenInvalid = cause as? DiscordError.TokenInvalid
+                if (tokenInvalid != null || msg.contains("401")) {
+                    TokenValidation.Unauthorized(tokenInvalid?.detail.orEmpty().ifBlank { msg })
                 } else {
                     TokenValidation.TransportError(msg.ifBlank { cause::class.simpleName.orEmpty() })
                 }

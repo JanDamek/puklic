@@ -18,10 +18,10 @@ class DiscordSessionTest {
     @Test
     fun connect_with_invalid_token_emits_TokenInvalid() = runTest {
         val parent = Job()
-        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized)
+        val transport = FakeSessionTransport(validation = TokenValidation.Unauthorized())
         val session = DiscordSession(CoroutineScope(coroutineContext + parent), "bad", transport)
         session.connect()
-        session.state.value shouldBe SessionState.TokenInvalid
+        session.state.value shouldBe SessionState.TokenInvalid()
         parent.cancel()
     }
 

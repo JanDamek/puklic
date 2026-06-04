@@ -30,6 +30,7 @@ import io.ktor.client.request.setBody
 import io.ktor.http.encodeURLPathPart
 import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.request
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
@@ -546,7 +547,12 @@ public class DiscordRestClient(
     private suspend fun errorOf(response: HttpResponse): DiscordError {
         val body = response.bodyAsText()
         return when (response.status.value) {
-            HttpStatusCode.Unauthorized.value -> DiscordError.TokenInvalid
+            HttpStatusCode.Unauthorized.value -> {
+                Logger.w(REST_TAG) {
+                    "401 on ${response.request.url.encodedPath}: ${body.take(BODY_PREVIEW)}"
+                }
+                DiscordError.TokenInvalid(body.take(BODY_PREVIEW))
+            }
             HttpStatusCode.Forbidden.value -> DiscordError.Forbidden(body.take(BODY_PREVIEW))
             HttpStatusCode.NotFound.value -> DiscordError.NotFound
             else -> DiscordError.ServerError(response.status.value, body)

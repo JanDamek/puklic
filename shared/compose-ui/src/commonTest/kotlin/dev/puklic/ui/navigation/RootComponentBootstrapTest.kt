@@ -67,7 +67,7 @@ class RootComponentBootstrapTest {
         val (root, mgr) = newRoot(
             this,
             storedToken = "stale",
-            validation = TokenValidation.Unauthorized,
+            validation = TokenValidation.Unauthorized(),
         )
         mgr.loadStoredSession()
         advanceUntilIdle()

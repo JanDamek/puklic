@@ -6,7 +6,8 @@ package dev.puklic.protocol.discord
  * Tokens MUST NEVER appear in any of these fields — callers redact before constructing.
  */
 public sealed class DiscordError(message: String, cause: Throwable? = null) : Exception(message, cause) {
-    public object TokenInvalid : DiscordError("Discord token rejected (401)")
+    public data class TokenInvalid(public val detail: String = "") :
+        DiscordError("Discord token rejected (401)" + if (detail.isNotBlank()) " — $detail" else "")
     public class Forbidden(public val reason: String) : DiscordError("Forbidden: $reason")
     public object NotFound : DiscordError("Resource not found (404)")
     public class RateLimited(public val retryAfterMs: Long) :
