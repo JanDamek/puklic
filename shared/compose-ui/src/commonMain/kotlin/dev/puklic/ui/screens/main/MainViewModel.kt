@@ -12,6 +12,7 @@ import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
+import dev.puklic.persistence.repository.LastPositionCodec
 import dev.puklic.persistence.repository.UserPreferencesRepository
 import dev.puklic.domain.UserSummary
 import dev.puklic.domain.GuildChannel
@@ -89,6 +90,7 @@ public class MainViewModel(
     public val sessionTransport: SessionTransport? = null,
     externalScope: CoroutineScope? = null,
     private val preferences: UserPreferencesRepository? = null,
+    private val secureStorage: dev.puklic.platform.SecureStorage? = null,
     initialPosition: LastPosition = LastPosition.Empty,
     public val voiceClient: Any? = null,
     private val sessionManager: SessionManager? = null,
@@ -622,19 +624,22 @@ public class MainViewModel(
     }
 
     private fun persistPosition() {
-        val prefs = preferences ?: return
+        if (preferences == null && secureStorage == null) return
         val current: LastPosition = when (val s = navScope.value) {
             NavigationScope.Empty -> LastPosition.Empty
             NavigationScope.DmHome -> LastPosition.DmHome(selectedChannel.value)
             is NavigationScope.GuildSelected -> LastPosition.Guild(s.id, selectedChannel.value)
         }
         scope.launch {
-            runCatching { prefs.setLastPosition(current) }
-                .onFailure { Logger.w("MainViewModel", it) { "persistPosition failed" } }
+            runCatching { preferences?.setLastPosition(current) }
+                .onFailure { Logger.w("MainViewModel", it) { "persistPosition (local) failed" } }
+            runCatching { secureStorage?.put(LAST_POSITION_KEY, LastPositionCodec.encode(current)) }
+                .onFailure { Logger.w("MainViewModel", it) { "persistPosition (synced) failed" } }
         }
     }
 
     public companion object {
+        public const val LAST_POSITION_KEY: String = "discord.last_position"
         internal const val LAZY_SUBSCRIBE_BOOTSTRAP = 5
         const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
         const val SNACKBAR_BUFFER = 4
