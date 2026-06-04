@@ -58,7 +58,7 @@ import dev.puklic.ui.resolvers.RepositoryMentionResolver
 import dev.puklic.voice.NoOpVoiceClient
 import dev.puklic.voice.VoiceClient
 import io.ktor.client.HttpClient
-import io.ktor.client.engine.darwin.Darwin
+import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.websocket.WebSockets
 import io.ktor.serialization.kotlinx.json.json
@@ -145,7 +145,7 @@ public class IosDependencyGraph private constructor(
             val attachmentCache = AttachmentCacheIndexImpl(database, ioDispatcher)
             val userPreferences = UserPreferencesRepositoryImpl(database, ioDispatcher)
 
-            val httpClient = HttpClient(Darwin) {
+            val httpClient = HttpClient(CIO) {
                 install(ContentNegotiation) { json(discordJson()) }
                 install(WebSockets) {}
                 expectSuccess = false
