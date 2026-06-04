@@ -475,6 +475,33 @@ public class DiscordRestClient(
         serializer<DiscordMessageDto>(),
     )
 
+    /**
+     * Mark [messageId] as the last-read message in [channelId] via Discord's MESSAGE_ACK REST
+     * endpoint `POST /channels/{cid}/messages/{mid}/ack` (issue #91). The official client sends
+     * `{"token": null}` — we mirror that exactly. Discord echoes a fresh ack token in the response
+     * which we ignore (it is only needed for the deprecated cross-device sync flow). Success on any
+     * 2xx; failure surfaces as a [DiscordError] subtype.
+     */
+    internal suspend fun ackMessage(channelId: ChannelId, messageId: MessageId): Result<Unit> = runCatching {
+        executeWithRetry {
+            httpClient.post("$baseUrl/channels/${channelId.value}/messages/${messageId.value}/ack") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DiscordJson.encodeToString(
+                        JsonElement.serializer(),
+                        buildJsonObject { put("token", kotlinx.serialization.json.JsonNull) },
+                    ),
+                )
+            }
+        }
+    }.fold(
+        onSuccess = { response ->
+            if (response.status.isSuccess()) Result.success(Unit) else Result.failure(errorOf(response))
+        },
+        onFailure = { Result.failure(it) },
+    )
+
     private fun EmojiRef.toReactionPath(): String = when (this) {
         is EmojiRef.Unicode -> codepoint.encodeURLPathPart()
         is EmojiRef.Custom -> "$name:${id.value}".encodeURLPathPart()

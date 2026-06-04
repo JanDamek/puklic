@@ -25,10 +25,14 @@ private const val LOG_TAG = "ReadStateOrchestrator"
  *   `mentionCount > 0`; once the orchestrator also subscribes to `MESSAGE_CREATE` and
  *   compares the latest cached message id against [ReadState.lastMessageId] it will surface
  *   non-mention unread too.
+ * - [lastReadMessageId] = snowflake of the last message the user has read in this channel (the
+ *   server's read marker), or null when nothing has been read yet. Drives non-mention unread math
+ *   and the NOVÉ divider. (Issue #91.)
  */
 public data class ReadStateView(
     val mentionCount: Int,
     val hasUnread: Boolean,
+    val lastReadMessageId: MessageId? = null,
 )
 
 /**
@@ -69,6 +73,7 @@ public class ReadStateOrchestrator(
             state.channelId to ReadStateView(
                 mentionCount = state.mentionCount,
                 hasUnread = state.mentionCount > 0,
+                lastReadMessageId = state.lastMessageId,
             )
         }
         _byChannel.value = map
@@ -81,6 +86,7 @@ public class ReadStateOrchestrator(
             entry.channelId to ReadStateView(
                 mentionCount = entry.mentionCount,
                 hasUnread = entry.mentionCount > 0,
+                lastReadMessageId = entry.lastReadMessageId,
             )
         }
         _byChannel.value = next
@@ -102,6 +108,7 @@ public class ReadStateOrchestrator(
             channelId to ReadStateView(
                 mentionCount = mentionCount,
                 hasUnread = mentionCount > 0,
+                lastReadMessageId = lastRead,
             )
         )
         storage.persist(

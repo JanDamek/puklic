@@ -16,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
 import dev.puklic.domain.GuildVoiceChannel
@@ -25,16 +26,21 @@ import dev.puklic.ui.theme.LocalPuklicSpacing
 public fun ChannelListItem(
     channel: Channel,
     isSelected: Boolean,
-    isMuted: Boolean = false,
     unreadCount: Int = 0,
     mentionCount: Int = 0,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = LocalPuklicSpacing.current
+    val isUnread = unreadCount > 0 || mentionCount > 0
     val background = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
-    val textColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
-    val opacity = if (isMuted) 0.5f else 1f
+    // Read = muted/regular; unread = bold + full-strength onSurface (issue #91 Slice 2 UX).
+    val textColor = when {
+        isSelected -> MaterialTheme.colorScheme.primary
+        isUnread -> MaterialTheme.colorScheme.onSurface
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val fontWeight = if (isUnread) FontWeight.Bold else FontWeight.Normal
     val isVoice = channel is GuildVoiceChannel
     Row(
         modifier = modifier
@@ -57,21 +63,22 @@ public fun ChannelListItem(
                 Text(
                     text = " ${channel.name.orEmpty()}",
                     style = MaterialTheme.typography.labelMedium,
+                    fontWeight = fontWeight,
                     color = textColor,
                 )
             } else {
                 Text(
                     text = "# ${channel.name.orEmpty()}",
                     style = MaterialTheme.typography.labelMedium,
+                    fontWeight = fontWeight,
                     color = textColor,
                 )
             }
         }
         if (mentionCount > 0) {
-            Badge(containerColor = MaterialTheme.colorScheme.error) { Text(mentionCount.toString()) }
-        } else if (unreadCount > 0) {
-            Badge { Text(unreadCount.toString()) }
+            Badge(containerColor = MaterialTheme.colorScheme.error) {
+                Text(if (mentionCount > 9) "9+" else mentionCount.toString())
+            }
         }
     }
-    @Suppress("UNUSED_EXPRESSION") opacity
 }

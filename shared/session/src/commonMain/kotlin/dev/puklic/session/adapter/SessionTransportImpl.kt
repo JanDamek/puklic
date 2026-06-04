@@ -7,6 +7,7 @@ import dev.puklic.protocol.discord.gateway.GatewayState
 import dev.puklic.session.GatewayLifecycleEvent
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import dev.puklic.session.SessionTransport
 import dev.puklic.session.TokenValidation
 import kotlinx.coroutines.CoroutineScope
@@ -71,6 +72,10 @@ public class SessionTransportImpl(
 
     override suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) {
         gateway.lazyRequestGuild(guildId, channelIds)
+    }
+
+    override suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId) {
+        bridge.markChannelRead(channelId, messageId)
     }
 
     private fun mapGatewayState(state: GatewayState): GatewayLifecycleEvent? = when (state) {

@@ -1072,6 +1072,10 @@ public class DiscordMessageBridge(private val rest: DiscordRestClient) {
     public suspend fun deleteMessage(channelId: ChannelId, messageId: MessageId): Result<Unit> =
         rest.deleteMessage(channelId, messageId)
 
+    /** Mark [messageId] as read in [channelId] via Discord's MESSAGE_ACK endpoint (issue #91). */
+    public suspend fun ack(channelId: ChannelId, messageId: MessageId): Result<Unit> =
+        rest.ackMessage(channelId, messageId)
+
     public suspend fun loadOlder(
         channelId: ChannelId,
         beforeId: MessageId,
@@ -1152,6 +1156,10 @@ public class DiscordSessionBridge(private val rest: DiscordRestClient) {
      */
     public suspend fun joinServer(code: String): Result<Unit> =
         rest.acceptInvite(code).map { /* drop guild dto — gateway delivers full state */ }
+
+    /** Mark [messageId] as read in [channelId] via Discord's MESSAGE_ACK endpoint (issue #91). */
+    public suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId): Result<Unit> =
+        rest.ackMessage(channelId, messageId)
 }
 
 /**

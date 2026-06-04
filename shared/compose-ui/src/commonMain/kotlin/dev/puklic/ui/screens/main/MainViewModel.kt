@@ -10,6 +10,7 @@ import dev.puklic.domain.GuildTextChannel
 import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.LastPositionCodec
@@ -543,6 +544,15 @@ public class MainViewModel(
     }
 
     /**
+     * Issue #91 — per-channel unread / mention view for guild text channels. Passthrough of
+     * [ReadStateOrchestrator.byChannel]; the channel list looks up entries by channel id, so no
+     * per-guild filtering is needed. Empty map when there is no orchestrator (tests).
+     */
+    public val channelUnread: StateFlow<Map<ChannelId, ReadStateView>> =
+        orchestrators?.readState?.byChannel
+            ?: MutableStateFlow(emptyMap<ChannelId, ReadStateView>()).asStateFlow()
+
+    /**
      * Issue #81 — per-guild "has a mention" flag for the rail dot. True iff any of the guild's
      * channels has [ReadStateView.mentionCount] > 0. The rail dot is mention-only by design
      * (plain unread is too noisy at the top-level rail).
@@ -585,11 +595,34 @@ public class MainViewModel(
         return user?.globalName ?: user?.username ?: userId.value.toString()
     }
 
+    /** Newest message id we have already MESSAGE_ACK'd per channel — de-dups redundant acks. */
+    private val lastAcked = mutableMapOf<ChannelId, MessageId>()
+
     public fun selectChannel(id: ChannelId) {
         selectedChannel.value = id
         persistPosition()
+        ackChannel(id)
         val gid = selectedGuild.value ?: return
         lazySubscribeChannel(gid, id)
+    }
+
+    /**
+     * Mark [id] read at its newest known message (issue #91). The newest id is taken from the DM
+     * list's `lastMessageId`; guild text channels do not carry it in the domain model yet, so they
+     * are skipped here (their unread state is reconciled by the message-list layer in Slice 4).
+     * De-dups via [shouldAck] against [lastAcked] and the server read marker so each genuinely-new
+     * newest message is acked at most once.
+     */
+    private fun ackChannel(id: ChannelId) {
+        val transport = sessionTransport ?: return
+        val target = orchestrators?.dms?.dms?.value?.firstOrNull { it.id == id }?.lastMessageId ?: return
+        val lastRead = orchestrators?.readState?.byChannel?.value?.get(id)?.lastReadMessageId
+        if (!shouldAck(target, lastAcked[id], lastRead)) return
+        lastAcked[id] = target
+        scope.launch {
+            runCatching { transport.markChannelRead(id, target) }
+                .onFailure { Logger.w("MainViewModel", it) { "markChannelRead failed channel=${id.value}" } }
+        }
     }
 
     private fun lazySubscribeGuildBootstrap(id: GuildId) {

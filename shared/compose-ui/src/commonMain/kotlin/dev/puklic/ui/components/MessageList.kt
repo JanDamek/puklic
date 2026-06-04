@@ -23,6 +23,8 @@ import dev.puklic.ids.EmojiId
 import dev.puklic.ids.UserId
 import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.toLocalDateTime
 
 private const val GROUPING_WINDOW_SECONDS: Long = 300L // 5 minutes per docs/04_ui/screens.md MessagePane
 
@@ -48,6 +50,7 @@ public fun MessageList(
     onAttachmentClick: (Attachment) -> Unit = {},
     onChannelMentionClick: ((dev.puklic.ids.ChannelId) -> Unit)? = null,
     onUserMentionClick: ((dev.puklic.ids.UserId) -> Unit)? = null,
+    firstUnreadId: dev.puklic.ids.MessageId? = null,
 ) {
     val spacing = LocalPuklicSpacing.current
     Box(modifier = modifier.fillMaxSize()) {
@@ -112,18 +115,33 @@ public fun MessageList(
                                 msgs[idx].timestamp.epochSeconds - prev.timestamp.epochSeconds,
                             ) <= GROUPING_WINDOW_SECONDS
                         val msg = msgs[idx]
-                        MessageRow(
-                            message = msg,
-                            groupedWithPrevious = grouped,
-                            isOwnMessage = selfUserId != null && msg.author.id == selfUserId,
-                            onReact = { emoji -> onReact(msg, emoji) },
-                            onAttachmentClick = onAttachmentClick,
-                            onChannelMentionClick = onChannelMentionClick,
-                            onUserMentionClick = onUserMentionClick,
-                            onDelete = { onMessageAction(MessageAction.Delete(msg)) },
-                            onEdit = { onMessageAction(MessageAction.Edit(msg, msg.rawContent)) },
-                            onCopyLink = { onMessageAction(MessageAction.CopyLink(msg)) },
+                        val zone = TimeZone.currentSystemDefault()
+                        val newDay = isNewDay(
+                            current = msg.timestamp,
+                            previousOlder = prev?.timestamp,
+                            zone = zone,
                         )
+                        val isFirstUnread = firstUnreadId != null && msg.id == firstUnreadId
+                        Column {
+                            if (newDay) {
+                                DateSeparator(czechLongDate(msg.timestamp.toLocalDateTime(zone).date))
+                            }
+                            if (isFirstUnread) {
+                                UnreadDivider()
+                            }
+                            MessageRow(
+                                message = msg,
+                                groupedWithPrevious = grouped,
+                                isOwnMessage = selfUserId != null && msg.author.id == selfUserId,
+                                onReact = { emoji -> onReact(msg, emoji) },
+                                onAttachmentClick = onAttachmentClick,
+                                onChannelMentionClick = onChannelMentionClick,
+                                onUserMentionClick = onUserMentionClick,
+                                onDelete = { onMessageAction(MessageAction.Delete(msg)) },
+                                onEdit = { onMessageAction(MessageAction.Edit(msg, msg.rawContent)) },
+                                onCopyLink = { onMessageAction(MessageAction.CopyLink(msg)) },
+                            )
+                        }
                     }
                     if (state.isLoadingOlder) {
                         item { CircularProgressIndicator() }

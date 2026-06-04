@@ -3,6 +3,7 @@ package dev.puklic.session
 import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
+import dev.puklic.ids.MessageId
 import kotlinx.coroutines.flow.SharedFlow
 
 /**
@@ -50,4 +51,11 @@ public interface SessionTransport {
      * Default no-op so test/fake implementations don't need to override.
      */
     public suspend fun lazyRequestGuild(guildId: GuildId, channelIds: List<ChannelId>) { Unit }
+
+    /**
+     * Mark [messageId] as the last-read message in [channelId] (Discord MESSAGE_ACK, issue #91).
+     * Best-effort; failures are swallowed by the implementation. Default no-op so test/fake
+     * implementations don't need to override.
+     */
+    public suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId) { Unit }
 }

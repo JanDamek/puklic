@@ -94,6 +94,26 @@ internal object TimestampFormat {
         DayOfWeek.SUNDAY -> "Sunday"
     }
 
+    /**
+     * Czech genitive month name, used by date separators ("21. března 2026"). This is the one
+     * deliberately-localized string in the UI (issue #91); the rest of the surface stays English
+     * until Phase 2 L10n.
+     */
+    fun czechGenitiveMonth(m: Month): String = when (m) {
+        Month.JANUARY -> "ledna"
+        Month.FEBRUARY -> "února"
+        Month.MARCH -> "března"
+        Month.APRIL -> "dubna"
+        Month.MAY -> "května"
+        Month.JUNE -> "června"
+        Month.JULY -> "července"
+        Month.AUGUST -> "srpna"
+        Month.SEPTEMBER -> "září"
+        Month.OCTOBER -> "října"
+        Month.NOVEMBER -> "listopadu"
+        Month.DECEMBER -> "prosince"
+    }
+
     private fun monthName(m: Month): String = when (m) {
         Month.JANUARY -> "Jan"
         Month.FEBRUARY -> "Feb"

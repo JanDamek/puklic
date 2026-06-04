@@ -110,6 +110,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
     val state by viewModel.state.collectAsState()
     val guildHasMention by viewModel.guildHasMention.collectAsState()
     val dmUnread by viewModel.dmUnread.collectAsState()
+    val channelUnread by viewModel.channelUnread.collectAsState()
     Box(modifier = Modifier.fillMaxSize()) {
         BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
             val mode = windowLayoutModeFor(maxWidth.value.toInt())
@@ -127,6 +128,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     viewModel = viewModel,
                     guildHasMention = guildHasMention,
                     dmUnread = dmUnread,
+                    channelUnread = channelUnread,
                     platformOpen = platformOpen,
                 )
                 WindowLayoutMode.MEDIUM -> RailAndDrawerLayout(
@@ -134,6 +136,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     viewModel = viewModel,
                     guildHasMention = guildHasMention,
                     dmUnread = dmUnread,
+                    channelUnread = channelUnread,
                     platformOpen = platformOpen,
                     drawerState = drawerState,
                     onSelectChannel = selectChannelClosingDrawer,
@@ -145,6 +148,7 @@ public fun MainScreen(viewModel: MainViewModel, platformOpen: PlatformOpen? = nu
                     viewModel = viewModel,
                     guildHasMention = guildHasMention,
                     dmUnread = dmUnread,
+                    channelUnread = channelUnread,
                     platformOpen = platformOpen,
                     drawerState = drawerState,
                     onSelectChannel = selectChannelClosingDrawer,
@@ -189,6 +193,7 @@ private fun ExpandedLayout(
     viewModel: MainViewModel,
     guildHasMention: Map<GuildId, Boolean>,
     dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
     platformOpen: PlatformOpen?,
 ) {
     Row(modifier = Modifier.fillMaxSize()) {
@@ -203,6 +208,7 @@ private fun ExpandedLayout(
             state = state,
             viewModel = viewModel,
             dmUnread = dmUnread,
+            channelUnread = channelUnread,
             onSelectChannel = viewModel::selectChannel,
             modifier = Modifier.width(CHANNEL_LIST_WIDTH).fillMaxHeight(),
         )
@@ -232,6 +238,7 @@ private fun RailAndDrawerLayout(
     viewModel: MainViewModel,
     guildHasMention: Map<GuildId, Boolean>,
     dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
     platformOpen: PlatformOpen?,
     drawerState: DrawerState,
     onSelectChannel: (ChannelId) -> Unit,
@@ -257,6 +264,7 @@ private fun RailAndDrawerLayout(
                         state = state,
                         viewModel = viewModel,
                         dmUnread = dmUnread,
+                        channelUnread = channelUnread,
                         onSelectChannel = onSelectChannel,
                         modifier = Modifier
                             .widthIn(max = DRAWER_CHANNEL_LIST_MAX_WIDTH)
@@ -318,6 +326,7 @@ private fun MainChannelColumn(
     state: MainScreenState,
     viewModel: MainViewModel,
     dmUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView>,
     onSelectChannel: (ChannelId) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -337,6 +346,7 @@ private fun MainChannelColumn(
             ChannelListPane(
                 channels = state.channelsForSelectedGuild,
                 selectedChannelId = state.selectedChannelId,
+                channelUnread = channelUnread,
                 onSelectChannel = onSelectChannel,
                 onJoinVoiceChannel = { guildId, channelId -> viewModel.joinVoiceChannel(guildId, channelId) },
                 voiceMembersByChannel = voiceStates,
@@ -373,12 +383,16 @@ private fun MainMessagePane(
     val topic = (selectedChannel as? GuildTextChannel)?.topic
     val voiceStateForHeader by viewModel.voiceState.collectAsState()
     val selfUser by viewModel.selfUser.collectAsState()
+    val readStateByChannel by (viewModel.orchestrators?.readState?.byChannel
+        ?: kotlinx.coroutines.flow.MutableStateFlow(emptyMap())).collectAsState()
+    val lastReadMessageId = state.selectedChannelId?.let { readStateByChannel[it]?.lastReadMessageId }
     MessagePane(
         selectedChannelId = state.selectedChannelId,
         selectedChannelName = displayName,
         selectedChannelTopic = topic,
         selectedChannel = selectedChannel,
         messageOrchestrator = viewModel.orchestrators?.messages,
+        lastReadMessageId = lastReadMessageId,
         platformOpen = platformOpen,
         onChannelMentionClick = viewModel::selectChannel,
         voiceState = voiceStateForHeader,
@@ -705,6 +719,7 @@ private fun DmRow(
 private fun ChannelListPane(
     channels: List<Channel>,
     selectedChannelId: ChannelId?,
+    channelUnread: Map<ChannelId, dev.puklic.repositories.ReadStateView> = emptyMap(),
     onSelectChannel: (ChannelId) -> Unit,
     onJoinVoiceChannel: (GuildId, ChannelId) -> Unit,
     voiceMembersByChannel: Map<ChannelId, List<VoiceMember>> = emptyMap(),
@@ -779,9 +794,12 @@ private fun ChannelListPane(
             LazyColumn {
                 if (orphanText.isNotEmpty()) {
                     items(orphanText, key = { "txt-${it.id.value}" }) { ch ->
+                        val unread = channelUnread[ch.id]
                         ChannelListItem(
                             channel = ch,
                             isSelected = ch.id == selectedChannelId,
+                            unreadCount = if (unread?.hasUnread == true) 1 else 0,
+                            mentionCount = unread?.mentionCount ?: 0,
                             onClick = { onSelectChannel(ch.id) },
                         )
                     }
@@ -813,9 +831,12 @@ private fun ChannelListPane(
                             .filter { it.parentId == cat.id }
                             .sortedBy { it.position }
                         items(underText, key = { "txt-${it.id.value}" }) { ch ->
+                            val unread = channelUnread[ch.id]
                             ChannelListItem(
                                 channel = ch,
                                 isSelected = ch.id == selectedChannelId,
+                                unreadCount = if (unread?.hasUnread == true) 1 else 0,
+                                mentionCount = unread?.mentionCount ?: 0,
                                 onClick = { onSelectChannel(ch.id) },
                             )
                         }
@@ -868,6 +889,7 @@ private fun MessagePane(
     onHangUpVoice: () -> Unit = {},
     selfUserId: UserId? = null,
     onOpenDrawer: (() -> Unit)? = null,
+    lastReadMessageId: dev.puklic.ids.MessageId? = null,
     modifier: Modifier = Modifier,
 ) {
     val scope = rememberCoroutineScope()
@@ -903,6 +925,7 @@ private fun MessagePane(
                 onHangUpVoice = onHangUpVoice,
                 selfUserId = selfUserId,
                 onOpenDrawer = onOpenDrawer,
+                lastReadMessageId = lastReadMessageId,
             )
         }
     }
@@ -975,15 +998,22 @@ private fun ChannelMessages(
     onHangUpVoice: () -> Unit = {},
     selfUserId: UserId? = null,
     onOpenDrawer: (() -> Unit)? = null,
+    lastReadMessageId: dev.puklic.ids.MessageId? = null,
 ) {
     // Rebuild ViewModel whenever the selected channel changes. The VM owns a Lifecycle that is
-    // resumed for the lifetime of this composition and destroyed in onDispose.
+    // resumed for the lifetime of this composition and destroyed in onDispose. The read marker is
+    // captured at construction time so the NOVÉ snapshot reflects the unread state on channel open.
     val viewModel = remember(channelId, orchestrator) {
         val lifecycle = LifecycleRegistry()
         val ctx = DefaultComponentContext(lifecycle = lifecycle)
         lifecycle.resume()
         ChannelMessagesHolder(
-            viewModel = MessageListViewModel(ctx, orchestrator, channelId),
+            viewModel = MessageListViewModel(
+                ctx,
+                orchestrator,
+                channelId,
+                lastReadMessageId = lastReadMessageId,
+            ),
             lifecycle = lifecycle,
         )
     }
@@ -1071,6 +1101,7 @@ private fun ChannelMessages(
                     uiScope.launch { opener.openUrl(att.url) }
                 },
                 onChannelMentionClick = onChannelMentionClick,
+                firstUnreadId = (state as? MessageListState.Loaded)?.firstUnreadId,
             )
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
