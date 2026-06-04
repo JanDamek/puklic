@@ -3,13 +3,26 @@ package dev.puklic.platform.ios
 import dev.puklic.platform.PlatformFailed
 import dev.puklic.platform.SecureStorage
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
+import platform.CoreFoundation.CFBooleanRef
+import platform.CoreFoundation.CFDictionaryAddValue
+import platform.CoreFoundation.CFDictionaryCreateMutable
 import platform.CoreFoundation.CFDictionaryRef
+import platform.CoreFoundation.CFRelease
+import platform.CoreFoundation.CFTypeRef
 import platform.CoreFoundation.CFTypeRefVar
+import platform.CoreFoundation.kCFAllocatorDefault
+import platform.CoreFoundation.kCFBooleanFalse
+import platform.CoreFoundation.kCFBooleanTrue
+import platform.CoreFoundation.kCFTypeDictionaryKeyCallBacks
+import platform.CoreFoundation.kCFTypeDictionaryValueCallBacks
+import platform.Foundation.CFBridgingRelease
+import platform.Foundation.CFBridgingRetain
 import platform.Foundation.NSData
 import platform.Foundation.NSDictionary
 import platform.Foundation.NSString
@@ -59,13 +72,16 @@ class IosSecureStorage(
 
     override suspend fun put(key: String, value: String) {
         val data = value.toNSData() ?: throw PlatformFailed("Unable to encode value as UTF-8")
-        val query = addAttrs(key, data)
-        val status = SecItemAdd(query.toCF(), null)
+        val status = withSecQuery(addAttrs(key, data)) { cfDict ->
+            SecItemAdd(cfDict, null)
+        }
         when (status) {
             errSecSuccess -> Unit
             errSecDuplicateItem -> {
                 remove(key)
-                val status2 = SecItemAdd(query.toCF(), null)
+                val status2 = withSecQuery(addAttrs(key, data)) { cfDict ->
+                    SecItemAdd(cfDict, null)
+                }
                 if (status2 != errSecSuccess) {
                     throw PlatformFailed("SecItemAdd (replace) failed: $status2")
                 }
@@ -75,17 +91,18 @@ class IosSecureStorage(
     }
 
     override suspend fun get(key: String): String? {
-        val query = lookupAttrs(key) + mapOf<Any?, Any?>(
+        val entries = lookupAttrs(key) + listOf(
             kSecMatchLimit to kSecMatchLimitOne,
             kSecReturnData to true,
         )
         return memScoped {
             val out = alloc<CFTypeRefVar>()
-            val status = SecItemCopyMatching(query.toCF(), out.ptr)
+            val status = withSecQuery(entries) { cfDict ->
+                SecItemCopyMatching(cfDict, out.ptr)
+            }
             when (status) {
                 errSecSuccess -> {
-                    @Suppress("UNCHECKED_CAST")
-                    val data = out.value as? NSData
+                    val data = CFBridgingRelease(out.value) as? NSData
                     data?.toUtf8String()
                 }
                 errSecItemNotFound -> null
@@ -95,14 +112,16 @@ class IosSecureStorage(
     }
 
     override suspend fun remove(key: String) {
-        val status = SecItemDelete(lookupAttrs(key).toCF())
+        val status = withSecQuery(lookupAttrs(key)) { cfDict ->
+            SecItemDelete(cfDict)
+        }
         if (status != errSecSuccess && status != errSecItemNotFound) {
             throw PlatformFailed("SecItemDelete failed: $status")
         }
     }
 
     override suspend fun list(): List<String> {
-        val query = mapOf<Any?, Any?>(
+        val entries = listOf(
             kSecClass to kSecClassGenericPassword,
             kSecAttrService to serviceName,
             kSecAttrSynchronizable to kSecAttrSynchronizableAny,
@@ -111,18 +130,15 @@ class IosSecureStorage(
         )
         return memScoped {
             val out = alloc<CFTypeRefVar>()
-            val status = SecItemCopyMatching(query.toCF(), out.ptr)
+            val status = withSecQuery(entries) { cfDict ->
+                SecItemCopyMatching(cfDict, out.ptr)
+            }
             when (status) {
                 errSecSuccess -> {
-                    @Suppress("UNCHECKED_CAST")
-                    val items = out.value as? List<Map<Any?, Any?>>
+                    val items = CFBridgingRelease(out.value) as? List<*>
                     items.orEmpty()
-                        .mapNotNull { entry ->
-                            val acct = entry.entries.firstOrNull { (k, _) ->
-                                (k as? NSString)?.toString() == "acct" || (k as? String) == "acct"
-                            }?.value
-                            acct as? String
-                        }
+                        .mapNotNull { it as? NSDictionary }
+                        .mapNotNull { dict -> dict.objectForKey(ACCOUNT_ATTR_KEY) as? String }
                         .distinct()
                 }
                 errSecItemNotFound -> emptyList()
@@ -136,7 +152,7 @@ class IosSecureStorage(
      * with `kSecAttrSynchronizable = true`. The added value bytes go in
      * `kSecValueData`.
      */
-    internal fun addAttrs(key: String, value: NSData): Map<Any?, Any?> = mapOf(
+    internal fun addAttrs(key: String, value: NSData): List<Pair<CFTypeRef?, Any?>> = listOf(
         kSecClass to kSecClassGenericPassword,
         kSecAttrService to serviceName,
         kSecAttrAccount to key,
@@ -150,7 +166,7 @@ class IosSecureStorage(
      * and any pre-existing non-synced rows are matched (avoids leaking a
      * pre-#74 local-only row that would otherwise become invisible).
      */
-    internal fun lookupAttrs(key: String): Map<Any?, Any?> = mapOf(
+    internal fun lookupAttrs(key: String): List<Pair<CFTypeRef?, Any?>> = listOf(
         kSecClass to kSecClassGenericPassword,
         kSecAttrService to serviceName,
         kSecAttrAccount to key,
@@ -159,20 +175,58 @@ class IosSecureStorage(
 
     companion object {
         internal const val DEFAULT_SERVICE = "puklic-client"
+
+        /** The keychain attribute key string under which the account name is returned. */
+        private const val ACCOUNT_ATTR_KEY = "acct"
     }
 }
 
 /**
- * Build an immutable NSDictionary and toll-free-bridge it to CFDictionaryRef.
- * Kotlin/Native's Apple binding accepts NSDictionary where CFDictionaryRef is
- * expected via reinterpret cast — this is the documented K/N pattern (toll-free
- * bridging between NS and CF collection types).
+ * Builds a real CoreFoundation dictionary from the given attribute [entries],
+ * runs [block] with it, and releases the dictionary plus every CFTypeRef
+ * created for value bridging afterwards.
+ *
+ * Keys are the `kSec*` constants (already `CFStringRef` pointers). Values are
+ * bridged per type:
+ *  - a `kSec*` CFType constant → passed directly (already a CFTypeRef pointer)
+ *  - [Boolean] → `kCFBooleanTrue` / `kCFBooleanFalse`
+ *  - [String] → `CFBridgingRetain(s as NSString)` (released in `finally`)
+ *  - [NSData] → `CFBridgingRetain(data)` (released in `finally`)
+ *
+ * The dictionary retains its own +1 on each inserted value, so the bridged
+ * CFTypeRefs we created can be released once the SecItem call has returned.
  */
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
-@Suppress("UNCHECKED_CAST")
-private fun Map<Any?, Any?>.toCF(): CFDictionaryRef {
-    return (this as NSDictionary) as CFDictionaryRef
+private fun <R> withSecQuery(
+    entries: List<Pair<CFTypeRef?, Any?>>,
+    block: (CFDictionaryRef?) -> R,
+): R {
+    val dict = CFDictionaryCreateMutable(
+        kCFAllocatorDefault,
+        entries.size.toLong(),
+        kCFTypeDictionaryKeyCallBacks.ptr,
+        kCFTypeDictionaryValueCallBacks.ptr,
+    )
+    val owned = mutableListOf<CFTypeRef>()
+    try {
+        for ((key, raw) in entries) {
+            val cfValue: CFTypeRef? = when (raw) {
+                is Boolean -> if (raw) kCFBooleanTrue.toCFType() else kCFBooleanFalse.toCFType()
+                is String -> CFBridgingRetain(raw as NSString).also { it?.let(owned::add) }
+                is NSData -> CFBridgingRetain(raw).also { it?.let(owned::add) }
+                else -> @Suppress("UNCHECKED_CAST") (raw as? CFTypeRef)
+            }
+            CFDictionaryAddValue(dict, key, cfValue)
+        }
+        return block(dict)
+    } finally {
+        owned.forEach { CFRelease(it) }
+        CFRelease(dict)
+    }
 }
+
+@OptIn(ExperimentalForeignApi::class)
+private fun CFBooleanRef?.toCFType(): CFTypeRef? = this
 
 @OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private fun String.toNSData(): NSData? =
