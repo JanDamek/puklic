@@ -3,10 +3,14 @@
 # (Linux + macOS + Windows installers via GitHub Actions → AUR → iOS → Mac App Store).
 #
 # HARD RULE #4 (CLAUDE.md, 2026-05-31): Apple steps run LOCALLY ONLY.
-# Linux + Windows + plain macOS .dmg are built by `.github/workflows/build-installers.yml`
-# on push of a `v*` tag; that workflow also creates the GitHub Release (as a draft) and
-# attaches every installer. We just push the tag, wait for the workflow, publish the
-# release (which fires the AUR publish workflow), then run the Apple steps locally.
+# Linux (.deb + .AppImage) and Windows (.exe + .msi) are built by
+# `.github/workflows/build-installers.yml` on push of a `v*` tag; that workflow also
+# creates the GitHub Release (as a draft) and attaches those installers. The macOS
+# arm64 .dmg is NOT built by CI (a CI .dmg would be unsigned). It is built + signed +
+# notarized + uploaded LOCALLY on a developer Mac via dist/apple/release-mac-dmg.sh
+# (a manual local step, NOT part of the CI fan-out). We push the tag, wait for the
+# workflow, publish the release (which fires the AUR publish workflow), then run the
+# Apple steps locally (incl. the signed mac .dmg).
 #
 # Version source of truth: gradle.properties `puklic.version`. Every artefact carries
 # the same number.
@@ -27,8 +31,9 @@ Usage: $(basename "$0") [--dry-run] [--skip-ios] [--skip-mac-app-store] [--skip-
 Full per-release fan-out:
   1. Read VERSION from gradle.properties (puklic.version).
   2. git tag v\$VERSION + push (triggers build-installers.yml on CI:
-     Linux .deb + .AppImage, macOS arm64 .dmg, Windows .exe + .msi.
-     The workflow's last step creates a DRAFT GitHub Release with the
+     Linux .deb + .AppImage, Windows .exe + .msi. The macOS arm64 .dmg is
+     NOT built by CI — it is signed + notarized locally, see step 7.
+     The workflow's last step creates a DRAFT GitHub Release with the CI
      artefacts attached).
   3. Poll until the build-installers workflow finishes (skippable).
   4. Publish the draft release via \`gh release edit --draft=false\`,
@@ -36,6 +41,8 @@ Full per-release fan-out:
      AUR \`puklic-bin\` PKGBUILD is updated automatically.
   5. dist/apple/release-ios.sh                (iOS .ipa → TestFlight)  [skippable]
   6. dist/apple/macappstore/release-mac.sh    (Mac .pkg → ASC macOS)   [skippable]
+  7. dist/apple/release-mac-dmg.sh --upload   (signed + notarized macOS .dmg
+     attached to the GitHub release) — run manually on a developer Mac.
 
 Aborts on first failure (set -e).
 
@@ -150,7 +157,17 @@ else
   "${SCRIPT_DIR}/apple/macappstore/release-mac.sh" ${EXTRA[@]+"${EXTRA[@]}"}
 fi
 
+# --- Signed macOS .dmg: manual local step --------------------------------
+# The macOS arm64 .dmg is NOT attached by CI (a CI build would be unsigned).
+# Build + sign + notarize + attach it to this release locally on a developer
+# Mac (HARD RULE #4) with:
+#     dist/apple/release-mac-dmg.sh --upload
+# It is intentionally NOT invoked from this fan-out so it never blocks the
+# Linux/Windows/AUR/iOS/Mac-App-Store flow (notarization is long-running).
+
 # --- Step 6: final summary -----------------------------------------------
 echo "[release-all] step 6/6: done — version ${VERSION} published"
+echo "  NOTE: build + attach the signed macOS .dmg locally:"
+echo "        dist/apple/release-mac-dmg.sh --upload"
 echo "  AUR: https://aur.archlinux.org/packages/puklic-bin"
 echo "  GitHub Release: $(gh release view "$TAG" --json url --jq .url 2>/dev/null || echo "https://github.com/JanDamek/puklic/releases/tag/$TAG")"

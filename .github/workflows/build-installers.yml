@@ -34,8 +34,12 @@ concurrency:
 
 # Scope (FP-10 2026-05-29, issue #50, HARD RULE #2 — no half-shipping):
 #   - Linux x86_64 = officially shipped (.deb + .AppImage attached to releases).
-#   - macOS arm64  = officially shipped (.dmg attached to releases).
 #   - Windows x86_64 = officially shipped (.exe + .msi attached to releases).
+#   - macOS arm64 = officially shipped, but built LOCALLY ONLY. The CI runner
+#     has no Apple signing identity, so a CI-built .dmg would be unsigned and
+#     un-notarized — forbidden to ship (HARD RULE #4, CLAUDE.md). The signed +
+#     notarized macOS .dmg is produced on a developer Mac via
+#     dist/apple/release-mac-dmg.sh and attached to the release separately.
 #   - macOS x86_64 = officially out of scope. Not built.
 jobs:
   build:
@@ -48,10 +52,9 @@ jobs:
             artifact-glob: |
               desktop/app/build/compose/binaries/main/deb/*.deb
               desktop/app/build/appimage/*.AppImage
-          - os: macos-14
-            target: macos-arm64
-            artifact-glob: |
-              desktop/app/build/compose/binaries/main/dmg/*.dmg
+          # macOS arm64 .dmg is intentionally NOT built here. It is built,
+          # signed, notarized and attached to the release locally via
+          # dist/apple/release-mac-dmg.sh (HARD RULE #4 — Apple builds local-only).
           - os: windows-2022
             target: windows-x86_64
             artifact-glob: |
@@ -151,18 +154,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      # Both officially shipped platforms attach to GitHub Releases:
-      # Linux x86_64 (.deb + .AppImage) and macOS arm64 (.dmg).
+      # CI attaches the Linux x86_64 (.deb + .AppImage) and Windows x86_64
+      # (.exe + .msi) installers. The macOS arm64 .dmg is signed + notarized +
+      # attached separately by a developer Mac (dist/apple/release-mac-dmg.sh,
+      # HARD RULE #4) — CI never produces or uploads a macOS .dmg.
       - name: Download Linux installer
         uses: actions/download-artifact@v8
         with:
           name: puklic-linux-x86_64
-          path: dist
-
-      - name: Download macOS installer
-        uses: actions/download-artifact@v8
-        with:
-          name: puklic-macos-arm64
           path: dist
 
       - name: Download Windows installer
@@ -183,9 +182,13 @@ jobs:
           body: |
             Puklic installers built by GitHub Actions.
 
-            **Platforms shipped:** Linux x86_64 (.deb + .AppImage), macOS
-            arm64 (.dmg), and Windows x86_64 (.exe + .msi). macOS x86_64
-            is out of scope — see `docs/07_roadmap/phases.md` §Platforms.
+            **Platforms shipped:** Linux x86_64 (.deb + .AppImage) and
+            Windows x86_64 (.exe + .msi). The macOS arm64 .dmg is signed +
+            notarized on a developer Mac and attached to this release
+            separately (local build via `dist/apple/release-mac-dmg.sh`,
+            HARD RULE #4 — Apple builds are local-only and never run on CI).
+            macOS x86_64 is out of scope — see `docs/07_roadmap/phases.md`
+            §Platforms.
 
             **Distribution licensing**: these binaries bundle FFmpeg with libx264
             (GPL-2.0). Puklic source code remains Apache-2.0. The combined
