@@ -43,6 +43,41 @@ Options:
 EOF
 }
 
+# Sign macOS native libraries (Mach-O .dylib / .jnilib) packaged INSIDE the .jar
+# files under <app_dir>/Contents/app. Notarization rejects unsigned Mach-O binaries
+# even when they are nested in archives (jffi, sqlite-jdbc, jna, ffmpeg, skiko,
+# core-crypto, voice-dave). Each jar is unpacked, its Mach-O libs are signed with a
+# hardened runtime + secure timestamp (no entitlements), then repacked in place.
+sign_native_libs_in_jars() {
+  local app_dir="$1"
+  local jar tmp f rel ftype
+  local signed_paths
+  for jar in "${app_dir}"/Contents/app/*.jar; do
+    [ -f "$jar" ] || continue
+    tmp="$(mktemp -d)"
+    ( cd "$tmp" && unzip -q "$jar" )
+    signed_paths=()
+    # Sign EVERY Mach-O binary regardless of name — native libs (.dylib/.jnilib)
+    # AND extension-less executables bundled by some deps (e.g. bytedeco ffmpeg
+    # ships `ffmpeg`/`ffprobe`). Detect Mach-O via a captured `file -b` (NOT a
+    # `file | grep` pipe: under `set -o pipefail`, grep -q's early exit SIGPIPEs
+    # `file`, making the pipeline fail and silently skipping the binary).
+    while IFS= read -r f; do
+      ftype="$(file -b "$f" 2>/dev/null || true)"
+      case "$ftype" in *Mach-O*) ;; *) continue ;; esac
+      codesign --force --options runtime --timestamp --sign "$IDENTITY" "$f" >/dev/null 2>&1 \
+        || { echo "[release-mac-dmg]   FAIL sign ${f#"${tmp}/"}"; continue; }
+      rel="${f#"${tmp}/"}"
+      signed_paths+=("$rel")
+    done < <(find "$tmp" -type f)
+    if [ "${#signed_paths[@]}" -gt 0 ]; then
+      ( cd "$tmp" && zip -q -X "$jar" "${signed_paths[@]}" )
+      echo "[release-mac-dmg]   signed $(basename "$jar"): ${#signed_paths[@]} Mach-O binar(ies)"
+    fi
+    rm -rf "$tmp"
+  done
+}
+
 for arg in "$@"; do
   case "$arg" in
     --skip-notarize) SKIP_NOTARIZE=1 ;;
@@ -87,7 +122,8 @@ rm -rf "${HOME}/.android" && mkdir -p "${HOME}/.android"
 
 echo "[release-mac-dmg] building unsigned .dmg (:desktop:app:packageDmg)"
 ( cd "$REPO_ROOT" && ./gradlew --init-script /tmp/init-maven-central.gradle \
-    :desktop:app:packageDmg --no-daemon )
+    :desktop:app:packageDmg --no-daemon --no-configuration-cache \
+    -Pcompose.desktop.packaging.checkJdkVendor=false )
 
 DMG_UNSIGNED="${REPO_ROOT}/desktop/app/build/compose/binaries/main/dmg/Puklic-${VERSION}.dmg"
 [ -f "$DMG_UNSIGNED" ] || {
@@ -115,6 +151,10 @@ xattr -dr com.apple.quarantine "$APP" 2>/dev/null || true
 # Embed the Developer ID provisioning profile so AMFI authorizes the keychain /
 # application-identifier entitlements at launch.
 cp "$PROFILE" "${APP}/Contents/embedded.provisionprofile"
+
+# Sign Mach-O native libs bundled inside app jars BEFORE sealing the outer bundle.
+echo "[release-mac-dmg] signing macOS native libraries inside app jars"
+sign_native_libs_in_jars "$APP"
 
 echo "[release-mac-dmg] re-signing $APP with $IDENTITY (secure timestamp)"
 # Nested binaries that run JIT (JVM dylibs) get the JIT-only entitlements; the
