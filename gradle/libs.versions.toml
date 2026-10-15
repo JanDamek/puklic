@@ -52,7 +52,7 @@ gradle-versions-plugin = "0.51.0"
 jlleitschuh-ktlint-gradle = "12.1.2"
 
 # Platform-specific (desktop)
-jna = "5.16.0"
+jna = "5.19.0"
 dbus-java = "5.1.1"
 
 # Native multimedia (JavaCPP bundled libavcodec / FFmpeg GPL build incl. libopus, libx264)
