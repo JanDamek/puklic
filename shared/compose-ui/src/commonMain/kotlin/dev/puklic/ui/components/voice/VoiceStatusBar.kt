@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.StopScreenShare
 import androidx.compose.material.icons.filled.CallEnd
 import androidx.compose.material.icons.filled.Headset
 import androidx.compose.material.icons.filled.HeadsetOff
@@ -18,7 +19,6 @@ import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.outlined.PresentToAll
-import androidx.compose.material.icons.outlined.StopScreenShare
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -175,7 +175,7 @@ private fun ConnectedBar(
             }
             IconButton(onClick = if (sharing) onScreenShareStop else onScreenSharePick) {
                 Icon(
-                    imageVector = if (sharing) Icons.Outlined.StopScreenShare
+                    imageVector = if (sharing) Icons.AutoMirrored.Outlined.StopScreenShare
                     else Icons.Outlined.PresentToAll,
                     contentDescription = if (sharing) "Stop screen share" else "Share screen",
                     tint = if (sharing) MaterialTheme.colorScheme.error
