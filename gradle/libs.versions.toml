@@ -13,10 +13,11 @@ ios-deployment-target = "14.0"
 kotlinx-coroutines = "1.10.1"
 kotlinx-serialization = "1.8.0"
 kotlinx-datetime = "0.6.2"
-# Aligned with the version internally bundled by kotlinx-coroutines-core 1.10.1 so we never
-# end up with two atomicfu artefact versions on the classpath. Officially compatible with
-# Kotlin 2.1.x (incl. 2.1.21). Apache-2.0.
-kotlinx-atomicfu = "0.27.0"
+# Applied as the atomicfu Gradle+compiler plugin in :shared:voice-codec, so this single version
+# is what resolves on the classpath (it overrides the older atomicfu transitively brought in by
+# kotlinx-coroutines-core 1.10.1 — no dual-version skew). Verified to compile under Kotlin 2.1.21.
+# Apache-2.0.
+kotlinx-atomicfu = "0.33.0"
 
 # Networking
 ktor = "3.1.3"
@@ -35,7 +36,7 @@ compose-material3-adaptive = "1.1.0"
 koin = "4.1.0"
 
 # Logging
-kermit = "2.0.5"
+kermit = "2.1.0"
 slf4j = "2.0.13"
 logback = "1.5.6"
 
@@ -44,15 +45,15 @@ kotest = "5.9.1"
 
 # Build tooling
 detekt = "1.23.8"
-detekt-compose-rules = "0.4.22"
+detekt-compose-rules = "0.5.9"
 ktlint = "1.3.1"
-ktlint-compose-rules = "0.4.22"
-kover = "0.9.1"
+ktlint-compose-rules = "0.5.9"
+kover = "0.9.8"
 gradle-versions-plugin = "0.51.0"
 jlleitschuh-ktlint-gradle = "12.1.2"
 
 # Platform-specific (desktop)
-jna = "5.16.0"
+jna = "5.19.0"
 dbus-java = "5.1.1"
 
 # Native multimedia (JavaCPP bundled libavcodec / FFmpeg GPL build incl. libopus, libx264)
