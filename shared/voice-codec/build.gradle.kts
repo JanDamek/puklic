@@ -98,6 +98,7 @@ kotlin {
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotest.assertions.core)
+            implementation(libs.kotlinx.coroutines.test)
         }
         jvmMain.dependencies {
             // Opus codec JVM actual: libavcodec/libopus via JavaCPP FFmpeg GPL bundle.
