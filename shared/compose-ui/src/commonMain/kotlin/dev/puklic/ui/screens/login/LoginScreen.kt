@@ -29,10 +29,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.puklic.ui.resolvers.LocalPlatformClipboard
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -124,8 +126,9 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
     // Explicit Paste affordance — Compose Multiplatform 1.8 iOS does not surface
     // the system long-press paste menu on text fields with PasswordVisualTransformation,
     // so we render a trailing IconButton that reads the system clipboard via
-    // LocalClipboardManager and forwards the value to the view model.
-    val clipboard = LocalClipboardManager.current
+    // LocalPlatformClipboard and forwards the value to the view model.
+    val clipboard = LocalPlatformClipboard.current
+    val scope = rememberCoroutineScope()
     OutlinedTextField(
         value = state.token,
         onValueChange = viewModel::onTokenChange,
@@ -150,7 +153,9 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
             IconButton(
                 enabled = !state.submitting,
                 onClick = {
-                    clipboard.getText()?.text?.takeIf { it.isNotBlank() }?.let(viewModel::onTokenChange)
+                    scope.launch {
+                        clipboard.getText()?.takeIf { it.isNotBlank() }?.let(viewModel::onTokenChange)
+                    }
                 },
             ) {
                 Icon(Icons.Outlined.ContentPaste, contentDescription = "Paste token")

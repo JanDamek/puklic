@@ -25,12 +25,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import dev.puklic.ui.resolvers.LocalPlatformClipboard
+import kotlinx.coroutines.launch
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -92,12 +93,13 @@ public fun MessageRow(
     }
 
     var menuOpen by remember { mutableStateOf(false) }
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalPlatformClipboard.current
+    val scope = rememberCoroutineScope()
     val onCopyText: () -> Unit = {
         val text = message.rawContent.ifBlank {
             message.parsedContent.blocks.joinToString("\n") { it.toString() }
         }
-        if (text.isNotEmpty()) clipboard.setText(AnnotatedString(text))
+        if (text.isNotEmpty()) scope.launch { clipboard.setText(text) }
     }
     val gestureModifier = Modifier
         .pointerInput(message.id.value) {

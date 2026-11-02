@@ -7,6 +7,7 @@ import dev.puklic.domain.Channel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
+import dev.puklic.platform.PlatformClipboard
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -72,3 +73,13 @@ public object CdnEmojiResolver : EmojiResolver {
 
 public val LocalEmojiResolver: androidx.compose.runtime.ProvidableCompositionLocal<EmojiResolver> =
     staticCompositionLocalOf { NoopEmojiResolver }
+
+/** [PlatformClipboard] that stores nothing and reads nothing; the default until a platform provides one. */
+public object NoopPlatformClipboard : PlatformClipboard {
+    override suspend fun setText(text: String) = Unit
+    override suspend fun getText(): String? = null
+    override suspend fun setImage(bytes: ByteArray, mimeType: String) = Unit
+}
+
+public val LocalPlatformClipboard: androidx.compose.runtime.ProvidableCompositionLocal<PlatformClipboard> =
+    staticCompositionLocalOf { NoopPlatformClipboard }

@@ -16,18 +16,22 @@ import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
 import dev.puklic.platform.NotificationService
+import dev.puklic.platform.PlatformClipboard
 import dev.puklic.platform.PlatformOpen
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
 import dev.puklic.platform.linux.LinuxNotificationService
+import dev.puklic.platform.linux.LinuxPlatformClipboard
 import dev.puklic.platform.linux.LinuxPlatformOpen
 import dev.puklic.platform.linux.LinuxPlatformPaths
 import dev.puklic.platform.linux.LinuxSecureStorage
 import dev.puklic.platform.macos.MacOsNotificationService
+import dev.puklic.platform.macos.MacOsPlatformClipboard
 import dev.puklic.platform.macos.MacOsPlatformOpen
 import dev.puklic.platform.macos.MacOsPlatformPaths
 import dev.puklic.platform.macos.MacOsSecureStorage
 import dev.puklic.platform.windows.WindowsNotificationService
+import dev.puklic.platform.windows.WindowsPlatformClipboard
 import dev.puklic.platform.windows.WindowsPlatformOpen
 import dev.puklic.platform.windows.WindowsPlatformPaths
 import dev.puklic.platform.windows.WindowsSecureStorage
@@ -104,6 +108,7 @@ public class DependencyGraph private constructor(
     public val applicationScope: CoroutineScope,
     public val platformPaths: PlatformPaths,
     public val platformOpen: PlatformOpen,
+    public val platformClipboard: PlatformClipboard,
     public val secureStorage: SecureStorage,
     public val sessionManager: SessionManager,
     public val rootComponent: RootComponent,
@@ -127,6 +132,11 @@ public class DependencyGraph private constructor(
                 DesktopOs.MacOs -> MacOsPlatformOpen()
                 DesktopOs.Windows -> WindowsPlatformOpen()
                 DesktopOs.Linux -> LinuxPlatformOpen()
+            }
+            val clipboard: PlatformClipboard = when (os) {
+                DesktopOs.MacOs -> MacOsPlatformClipboard()
+                DesktopOs.Windows -> WindowsPlatformClipboard()
+                DesktopOs.Linux -> LinuxPlatformClipboard()
             }
             val storage: SecureStorage = when (os) {
                 DesktopOs.MacOs -> MacOsSecureStorage()
@@ -245,6 +255,7 @@ public class DependencyGraph private constructor(
                 applicationScope = applicationScope,
                 platformPaths = paths,
                 platformOpen = opener,
+                platformClipboard = clipboard,
                 secureStorage = storage,
                 sessionManager = sessionManager,
                 rootComponent = root,

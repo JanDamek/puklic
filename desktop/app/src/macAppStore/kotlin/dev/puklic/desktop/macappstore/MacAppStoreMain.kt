@@ -30,10 +30,12 @@ import dev.puklic.persistence.sqldelight.OutboundQueueImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
 import dev.puklic.platform.NotificationService
+import dev.puklic.platform.PlatformClipboard
 import dev.puklic.platform.PlatformOpen
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
 import dev.puklic.platform.macos.MacOsNotificationService
+import dev.puklic.platform.macos.MacOsPlatformClipboard
 import dev.puklic.platform.macos.MacOsPlatformOpen
 import dev.puklic.platform.macos.MacOsPlatformPaths
 import dev.puklic.platform.macos.MacOsSecureStorage
@@ -146,6 +148,7 @@ public fun main(): Unit = application {
                 mentionResolver = graph.mentionResolver,
                 emojiResolver = graph.emojiResolver,
                 platformOpen = graph.platformOpen,
+                platformClipboard = graph.platformClipboard,
             )
         }
     }
@@ -199,6 +202,7 @@ public class MacAppStoreDependencyGraph private constructor(
     public val applicationScope: CoroutineScope,
     public val platformPaths: PlatformPaths,
     public val platformOpen: PlatformOpen,
+    public val platformClipboard: PlatformClipboard,
     public val secureStorage: SecureStorage,
     public val sessionManager: SessionManager,
     public val rootComponent: RootComponent,
@@ -211,6 +215,7 @@ public class MacAppStoreDependencyGraph private constructor(
             val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             val paths: PlatformPaths = MacOsPlatformPaths()
             val opener: PlatformOpen = MacOsPlatformOpen()
+            val clipboard: PlatformClipboard = MacOsPlatformClipboard()
             val storage: SecureStorage = MacOsSecureStorage()
             val notifications: NotificationService = MacOsNotificationService()
 
@@ -279,6 +284,7 @@ public class MacAppStoreDependencyGraph private constructor(
                 applicationScope = applicationScope,
                 platformPaths = paths,
                 platformOpen = opener,
+                platformClipboard = clipboard,
                 secureStorage = storage,
                 sessionManager = sessionManager,
                 rootComponent = root,

@@ -82,6 +82,7 @@ public fun main(): Unit = application {
                 mentionResolver = graph.mentionResolver,
                 emojiResolver = graph.emojiResolver,
                 platformOpen = graph.platformOpen,
+                platformClipboard = graph.platformClipboard,
             )
         }
     }

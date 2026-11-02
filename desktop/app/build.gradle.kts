@@ -325,11 +325,13 @@ val generateVersionKt = tasks.register("generateVersionKt") {
     description = "Generates dev/puklic/desktop/update/Version.kt from puklic.version property."
     group = "build"
 
-    inputs.property("puklicVersion", puklicVersion)
-    outputs.dir(generatedVersionDir)
+    val versionString = puklicVersion
+    val versionDir = generatedVersionDir
+    inputs.property("puklicVersion", versionString)
+    outputs.dir(versionDir)
 
     doLast {
-        val outDir = generatedVersionDir.get().asFile.resolve("dev/puklic/desktop/update")
+        val outDir = versionDir.get().asFile.resolve("dev/puklic/desktop/update")
         outDir.mkdirs()
         val file = outDir.resolve("Version.kt")
         file.writeText(
@@ -344,7 +346,7 @@ val generateVersionKt = tasks.register("generateVersionKt") {
              * To bump the version, edit `gradle.properties` (single source of truth).
              */
             public object Version {
-                public const val CURRENT: String = "$puklicVersion"
+                public const val CURRENT: String = "$versionString"
             }
 
             """.trimIndent(),

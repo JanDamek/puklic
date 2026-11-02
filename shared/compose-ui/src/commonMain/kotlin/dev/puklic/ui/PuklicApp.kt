@@ -25,7 +25,10 @@ import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.navigation.RouterState
 import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.LocalEmojiResolver
+import dev.puklic.platform.PlatformClipboard
 import dev.puklic.ui.resolvers.LocalMentionResolver
+import dev.puklic.ui.resolvers.LocalPlatformClipboard
+import dev.puklic.ui.resolvers.NoopPlatformClipboard
 import dev.puklic.ui.resolvers.MentionResolver
 import dev.puklic.ui.resolvers.NoopEmojiResolver
 import dev.puklic.ui.resolvers.NoopMentionResolver
@@ -46,12 +49,14 @@ public fun PuklicApp(
     mentionResolver: MentionResolver = NoopMentionResolver,
     emojiResolver: EmojiResolver = NoopEmojiResolver,
     platformOpen: PlatformOpen? = null,
+    platformClipboard: PlatformClipboard = NoopPlatformClipboard,
 ) {
     val routerState by root.routerState.subscribeAsState()
     PuklicTheme {
         CompositionLocalProvider(
             LocalMentionResolver provides mentionResolver,
             LocalEmojiResolver provides emojiResolver,
+            LocalPlatformClipboard provides platformClipboard,
         ) {
             // Full-bleed background; content is inset to the platform safe area so
             // interactive elements (the compact-layout drawer hamburger, headers) never sit

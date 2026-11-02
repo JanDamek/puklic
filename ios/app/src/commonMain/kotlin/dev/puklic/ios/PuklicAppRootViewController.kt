@@ -6,6 +6,7 @@ import com.arkivanov.decompose.DefaultComponentContext
 import com.arkivanov.essenty.lifecycle.LifecycleRegistry
 import com.arkivanov.essenty.lifecycle.resume
 import dev.puklic.persistence.repository.UserPreferencesRepository
+import dev.puklic.platform.PlatformClipboard
 import dev.puklic.platform.PlatformOpen
 import dev.puklic.session.SessionManager
 import dev.puklic.ui.PuklicApp
@@ -14,6 +15,7 @@ import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.MentionResolver
 import dev.puklic.ui.resolvers.NoopEmojiResolver
 import dev.puklic.ui.resolvers.NoopMentionResolver
+import dev.puklic.ui.resolvers.NoopPlatformClipboard
 import platform.UIKit.UIViewController
 
 /**
@@ -33,6 +35,7 @@ public fun puklicAppRootViewController(
     mentionResolver: MentionResolver = NoopMentionResolver,
     emojiResolver: EmojiResolver = NoopEmojiResolver,
     platformOpen: PlatformOpen? = null,
+    platformClipboard: PlatformClipboard = NoopPlatformClipboard,
 ): UIViewController {
     val lifecycle = LifecycleRegistry()
     val componentContext = DefaultComponentContext(lifecycle = lifecycle)
@@ -54,6 +57,7 @@ public fun puklicAppRootViewController(
             mentionResolver = mentionResolver,
             emojiResolver = emojiResolver,
             platformOpen = platformOpen,
+            platformClipboard = platformClipboard,
         )
     }
 }

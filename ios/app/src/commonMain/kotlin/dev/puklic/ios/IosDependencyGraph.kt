@@ -15,10 +15,12 @@ import dev.puklic.persistence.sqldelight.ReadStateRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserPreferencesRepositoryImpl
 import dev.puklic.persistence.sqldelight.UserRepositoryImpl
 import dev.puklic.platform.NotificationService
+import dev.puklic.platform.PlatformClipboard
 import dev.puklic.platform.PlatformOpen
 import dev.puklic.platform.PlatformPaths
 import dev.puklic.platform.SecureStorage
 import dev.puklic.platform.ios.IosNotificationService
+import dev.puklic.platform.ios.IosPlatformClipboard
 import dev.puklic.platform.ios.IosPlatformOpen
 import dev.puklic.platform.ios.IosPlatformPaths
 import dev.puklic.platform.ios.IosSecureStorage
@@ -94,6 +96,7 @@ public class IosDependencyGraph private constructor(
     public val applicationScope: CoroutineScope,
     public val platformPaths: PlatformPaths,
     public val platformOpen: PlatformOpen,
+    public val platformClipboard: PlatformClipboard,
     public val secureStorage: SecureStorage,
     public val sessionManager: SessionManager,
     public val httpClient: HttpClient,
@@ -113,6 +116,7 @@ public class IosDependencyGraph private constructor(
             mentionResolver = mentionResolver,
             emojiResolver = emojiResolver,
             platformOpen = platformOpen,
+            platformClipboard = platformClipboard,
         )
 
     public companion object {
@@ -123,6 +127,7 @@ public class IosDependencyGraph private constructor(
             val applicationScope = CoroutineScope(SupervisorJob() + Dispatchers.Default + crashGuard)
             val paths: PlatformPaths = IosPlatformPaths()
             val opener: PlatformOpen = IosPlatformOpen()
+            val clipboard: PlatformClipboard = IosPlatformClipboard()
             val storage: SecureStorage = IosSecureStorage()
             val notifications: NotificationService = IosNotificationService()
 
@@ -188,6 +193,7 @@ public class IosDependencyGraph private constructor(
                 applicationScope = applicationScope,
                 platformPaths = paths,
                 platformOpen = opener,
+                platformClipboard = clipboard,
                 secureStorage = storage,
                 sessionManager = sessionManager,
                 httpClient = httpClient,
