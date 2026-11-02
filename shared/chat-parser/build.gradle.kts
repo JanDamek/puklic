@@ -20,6 +20,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.chatparser"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.chatparser"
+    }
 }

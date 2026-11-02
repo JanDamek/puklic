@@ -17,6 +17,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.platformapi"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.platformapi"
+    }
 }

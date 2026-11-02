@@ -24,6 +24,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.repositories"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.repositories"
+    }
 }

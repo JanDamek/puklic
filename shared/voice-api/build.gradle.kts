@@ -37,6 +37,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.voiceapi"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.voiceapi"
+    }
 }

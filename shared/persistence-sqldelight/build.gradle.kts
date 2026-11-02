@@ -46,6 +46,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.persistencesqldelight"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.persistencesqldelight"
+    }
 }

@@ -26,6 +26,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.session"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.session"
+    }
 }

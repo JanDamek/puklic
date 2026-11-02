@@ -20,6 +20,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.domain"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.domain"
+    }
 }

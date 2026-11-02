@@ -38,7 +38,7 @@ dependencies {
     implementation("org.jetbrains.compose:compose-gradle-plugin:$composeMpVersion")
 
     // Android Gradle Plugin — must be on build-logic classpath alongside KMP plugins
-    // to avoid ClassLoader isolation issues in Gradle 8.12
+    // to avoid ClassLoader isolation issues
     implementation("com.android.tools.build:gradle:$agpVersion")
 
     // SQLDelight

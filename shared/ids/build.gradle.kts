@@ -17,6 +17,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.ids"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.ids"
+    }
 }

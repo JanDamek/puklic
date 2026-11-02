@@ -41,6 +41,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.protocoldiscord"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.protocoldiscord"
+    }
 }

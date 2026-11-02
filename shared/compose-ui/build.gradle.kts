@@ -51,6 +51,8 @@ kotlin {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.composeui"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.composeui"
+    }
 }

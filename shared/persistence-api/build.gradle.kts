@@ -32,6 +32,8 @@ sqldelight {
     }
 }
 
-android {
-    namespace = "dev.puklic.shared.persistenceapi"
+kotlin {
+    android {
+        namespace = "dev.puklic.shared.persistenceapi"
+    }
 }
