@@ -112,3 +112,11 @@ Tips:
 - **Convention plugins:** `buildSrc/` vs `build-logic/` included build. Recommendation: `build-logic/` (easier versioning, no implicit classpath sharing).
 - **KMP hierarchy template:** use default (`hierarchyTemplate { default {} }`) or custom for Apple targets.
 - **Compose desktop distribution:** `jpackage` vs `Conveyor` — evaluate after MVP ship.
+
+## Toolchain baseline (2026-11)
+
+Gradle 9.8.2, Kotlin 2.4.21, Compose Multiplatform 1.12.2, AGP 9.5.0 (Android KMP libraries use
+`com.android.kotlin.multiplatform.library`; Android app/library modules use AGP built-in Kotlin).
+iOS targets are `iosArm64` and `iosSimulatorArm64` only — Compose Multiplatform 1.12 no longer
+publishes `iosX64` (Intel simulator); this matches the Apple-Silicon-only policy.
+Dates and clocks use `kotlin.time.Clock` / `kotlin.time.Instant` (kotlinx-datetime 0.8).
