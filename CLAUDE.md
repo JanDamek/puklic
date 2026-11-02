@@ -4,6 +4,16 @@ This file **extends** the global `~/.claude/CLAUDE.md`. Global rules (HARD RULE 
 
 ---
 
+## HARD RULE — MCP issues = JEN budoucí práce; KB = aktuální stav (NE evidence práce) (2026-06-23)
+
+**User explicit 2026-06-23 (napříč všemi projekty):** "issues není pro evidenci práce ale pro evidenci toho co se má ještě udělat. Ani komentáře tam nepiš pokud to není něco do budoucna k issues. není to evidence práce." + "Stav zapisuješ do KB jako aktuální stav, co je aktuálně pravda, také ne jako evidence práce."
+
+- **MCP issues = JEN budoucí plánovaná práce** (TODO/backlog/bug k vyřešení). NIKDY evidence hotové práce. Komentář jen pro budoucí TODO / upřesnění zadání — NE work-log.
+- **KB = SSOT pro aktuální stav** (co je teď pravda). Hotový stav / topologie / jak co funguje → `kb_store` jako aktuální pravda, NE jako deník práce.
+- Detail v globálním `~/.claude/CLAUDE.md` HARD RULE #2.
+
+---
+
 ## HARD RULE — Bug triage: low-friction reporting, request details via comments (2026-06-01)
 
 User explicit 2026-06-01: **"Github formulář pro hlášení chyb optimalizuj na mnohem jednoduchší verzi. povinný jen title a description. verze defaul last předvplň. pak to teprve doplníme, takto to potřebujeme co nejjedoduchší pro zadavání chyb."** + *"pokud pak nebudeš vědět doplníš koment, request o informace."*
