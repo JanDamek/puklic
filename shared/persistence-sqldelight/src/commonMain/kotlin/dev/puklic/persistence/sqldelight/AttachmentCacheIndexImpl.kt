@@ -6,7 +6,7 @@ import dev.puklic.persistence.repository.AttachmentCacheEntry
 import dev.puklic.persistence.repository.AttachmentCacheIndex
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import dev.puklic.db.Attachment_cache_index as Row
 
 class AttachmentCacheIndexImpl(

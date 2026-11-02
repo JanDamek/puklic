@@ -595,7 +595,7 @@ public class DiscordGatewayBridge(
         val channelId = ChannelId(obj.getValue("channel_id").jsonPrimitive.content.toLong())
         val content = obj["content"]?.jsonPrimitive?.contentOrNull
         val editedTs = obj["edited_timestamp"]?.jsonPrimitive?.contentOrNull
-            ?.let { runCatching { kotlinx.datetime.Instant.parse(it).toEpochMilliseconds() }.getOrNull() }
+            ?.let { runCatching { kotlin.time.Instant.parse(it).toEpochMilliseconds() }.getOrNull() }
         val flags = obj["flags"]?.jsonPrimitive?.content?.toIntOrNull()
         val pinned = obj["pinned"]?.jsonPrimitive?.content?.toBooleanStrictOrNull()
         val embeds = (obj["embeds"] as? kotlinx.serialization.json.JsonArray)?.mapNotNull { el ->

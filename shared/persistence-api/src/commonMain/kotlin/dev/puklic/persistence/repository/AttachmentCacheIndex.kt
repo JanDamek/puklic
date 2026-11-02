@@ -1,7 +1,7 @@
 package dev.puklic.persistence.repository
 
 import dev.puklic.ids.AttachmentId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class AttachmentCacheEntry(
     val attachmentId: AttachmentId,

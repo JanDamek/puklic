@@ -1,7 +1,7 @@
 package dev.puklic.ids
 
 import io.kotest.matchers.shouldBe
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Spec: docs/02_domain/discord-protocol.md — "Snowflake parsing"

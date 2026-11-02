@@ -13,7 +13,7 @@ import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 internal fun newInMemoryDatabase(): PuklicDatabase {
     val driver = JvmDriverFactory(JvmDriverFactory.DbPath.InMemory).createDriver()

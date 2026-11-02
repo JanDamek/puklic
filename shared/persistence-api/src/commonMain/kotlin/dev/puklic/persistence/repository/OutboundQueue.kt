@@ -3,7 +3,7 @@ package dev.puklic.persistence.repository
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /** State of an outbound message in the local send-queue. */
 enum class OutboundState { PENDING, SENDING, FAILED }

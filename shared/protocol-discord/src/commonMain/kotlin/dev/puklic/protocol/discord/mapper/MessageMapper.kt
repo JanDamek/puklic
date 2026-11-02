@@ -30,7 +30,7 @@ import dev.puklic.protocol.discord.dto.DiscordEmojiRefDto
 import dev.puklic.protocol.discord.dto.DiscordMessageDto
 import dev.puklic.protocol.discord.dto.DiscordMessageReferenceDto
 import dev.puklic.protocol.discord.dto.DiscordReactionDto
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 private const val FLAG_SUPPRESS_EMBEDS = 1 shl 2
 private const val FLAG_EPHEMERAL = 1 shl 6

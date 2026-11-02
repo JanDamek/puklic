@@ -3,7 +3,7 @@ package dev.puklic.domain
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class ChatMessage(
     val id: MessageId,

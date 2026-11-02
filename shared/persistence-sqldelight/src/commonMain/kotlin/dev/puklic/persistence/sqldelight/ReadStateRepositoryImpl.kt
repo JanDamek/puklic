@@ -7,7 +7,7 @@ import dev.puklic.persistence.repository.ReadState
 import dev.puklic.persistence.repository.ReadStateRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import dev.puklic.db.Read_state as ReadStateRow
 
 class ReadStateRepositoryImpl(

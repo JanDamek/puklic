@@ -6,7 +6,7 @@ import dev.puklic.persistence.repository.LocalDraft
 import dev.puklic.persistence.repository.LocalDraftRepository
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 class LocalDraftRepositoryImpl(
     private val db: PuklicDatabase,

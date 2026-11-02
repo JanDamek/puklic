@@ -13,12 +13,12 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 class MessageRepositoryImpl(
     private val db: PuklicDatabase,
     private val dispatcher: CoroutineDispatcher,
-    private val nowEpochMs: () -> Long = { kotlinx.datetime.Clock.System.now().toEpochMilliseconds() },
+    private val nowEpochMs: () -> Long = { kotlin.time.Clock.System.now().toEpochMilliseconds() },
 ) : MessageRepository {
 
     override fun observe(channelId: ChannelId, limit: Int): Flow<List<ChatMessage>> =

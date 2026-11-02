@@ -438,7 +438,7 @@ private fun tryParseAngleExt(input: String, start: Int): Pair<RichTextInline, In
         if (unix < 0) return null
         val style = timestampStyleOf(styleChar) ?: return null
         return RichTextInline.Timestamp(
-            instant = kotlinx.datetime.Instant.fromEpochSeconds(unix),
+            instant = kotlin.time.Instant.fromEpochSeconds(unix),
             style = style,
         ) to consumed
     }

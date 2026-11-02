@@ -172,7 +172,7 @@ private fun InlineSurrogate.toDomain(): RichTextInline = when (this) {
     is InlineSurrogate.Emoji -> RichTextInline.Emoji(ref.toDomain())
     is InlineSurrogate.Spoiler -> RichTextInline.Spoiler(content.map { it.toDomain() })
     is InlineSurrogate.Timestamp -> RichTextInline.Timestamp(
-        kotlinx.datetime.Instant.fromEpochSeconds(epochSeconds),
+        kotlin.time.Instant.fromEpochSeconds(epochSeconds),
         style,
     )
     is InlineSurrogate.LineBreak -> RichTextInline.LineBreak(soft)

@@ -13,7 +13,7 @@ import kotlin.test.assertTrue
  * 1 kHz sine, encodes, then decodes; asserts decoded sample count matches
  * input and RMS is within ~3 dB of input (Opus is lossy; tolerance suffices).
  *
- * Runs on iosSimulatorArm64 / iosX64 test targets when a simulator is
+ * Runs on iosSimulatorArm64 test target when a simulator is
  * available. On compile-only CI the build phase still validates cinterop
  * symbol resolution.
  */

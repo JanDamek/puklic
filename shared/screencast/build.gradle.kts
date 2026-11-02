@@ -5,7 +5,7 @@
 // GPL desktop build without pulling :shared:voice's FFmpeg-GPL / libx264 / libvpx
 // transitives.
 //
-// Targets explicitly: jvm + iosArm64 + iosX64 + iosSimulatorArm64. NOT using the
+// Targets explicitly: jvm + iosArm64 + iosSimulatorArm64. NOT using the
 // puklic.kmp-library convention plugin because it always declares an Android
 // target, which we cannot satisfy honestly here (Android screen capture would
 // require MediaProjection bindings that are non-shipping scaffolding per
@@ -50,7 +50,6 @@ plugins {
 kotlin {
     jvm()
     iosArm64()
-    iosX64()
     iosSimulatorArm64()
 
     jvmToolchain(21)

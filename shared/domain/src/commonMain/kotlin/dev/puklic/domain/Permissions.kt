@@ -3,7 +3,7 @@ package dev.puklic.domain
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * A Discord role within a single guild.

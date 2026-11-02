@@ -2,7 +2,7 @@ package dev.puklic.persistence.repository
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class ReadState(
     val channelId: ChannelId,

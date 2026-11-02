@@ -14,7 +14,7 @@ import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import dev.puklic.db.Message as MessageRow

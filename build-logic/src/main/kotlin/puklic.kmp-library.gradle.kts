@@ -1,5 +1,5 @@
 // puklic.kmp-library — convention plugin for all :shared:* KMP library modules
-// Targets: JVM + Android + iosArm64 + iosX64 + iosSimulatorArm64
+// Targets: JVM + Android + iosArm64 + iosSimulatorArm64
 //
 // Design: convention plugins configure toolchain, targets, and test runner — NOT library versions.
 // Library coordinates stay in each module's build.gradle.kts + gradle/libs.versions.toml.
@@ -27,7 +27,6 @@ kotlin {
         }
     }
     iosArm64()
-    iosX64()
     iosSimulatorArm64()
 
     jvmToolchain(21)

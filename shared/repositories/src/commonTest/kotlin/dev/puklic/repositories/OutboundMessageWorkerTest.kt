@@ -5,7 +5,7 @@ import dev.puklic.ids.MessageId
 import dev.puklic.persistence.repository.OutboundState
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 
 class OutboundMessageWorkerTest {

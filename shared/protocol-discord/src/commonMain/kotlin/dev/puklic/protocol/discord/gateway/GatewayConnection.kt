@@ -12,7 +12,7 @@ import dev.puklic.protocol.discord.dto.GatewayResume
 import dev.puklic.protocol.discord.dto.Opcode
 import dev.puklic.protocol.discord.dto.ReadyEvent
 import co.touchlab.kermit.Logger
-import kotlinx.datetime.Clock
+import kotlin.time.Clock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancelAndJoin

@@ -12,7 +12,7 @@ import dev.puklic.domain.Reaction
 import dev.puklic.domain.ReactionCountDetails
 import dev.puklic.ids.AttachmentId
 import dev.puklic.ids.EmojiId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlinx.serialization.Serializable
 
 /**

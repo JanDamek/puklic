@@ -1,6 +1,6 @@
 package dev.puklic.domain
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class MessageEmbed(
     val title: String?,

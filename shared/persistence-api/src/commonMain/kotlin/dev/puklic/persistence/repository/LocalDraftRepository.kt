@@ -1,7 +1,7 @@
 package dev.puklic.persistence.repository
 
 import dev.puklic.ids.ChannelId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 data class LocalDraft(
     val channelId: ChannelId,

@@ -22,7 +22,7 @@ import dev.puklic.protocol.discord.dto.DiscordGuildDto
 import dev.puklic.protocol.discord.dto.DiscordMemberDto
 import dev.puklic.protocol.discord.dto.DiscordRoleDto
 import dev.puklic.protocol.discord.dto.PermissionOverwriteDto
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 private const val CHANNEL_TYPE_GUILD_TEXT = 0
 private const val CHANNEL_TYPE_DM = 1

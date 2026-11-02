@@ -5,7 +5,7 @@
 # linked into the Kotlin/Native binary at final link time.
 #
 # Per-target libraryPath / compilerOpts are injected from build.gradle.kts so the same
-# .def serves all three iOS Kotlin/Native targets (iosArm64, iosSimulatorArm64, iosX64).
+# .def serves all two iOS Kotlin/Native targets (iosArm64, iosSimulatorArm64).
 #
 # See architect report
 #   docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2c-implementation.md §3.

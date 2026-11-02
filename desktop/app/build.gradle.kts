@@ -46,8 +46,8 @@ dependencies {
     implementation(libs.ktor.client.content.negotiation)
     implementation(libs.ktor.serialization.kotlinx.json)
     implementation(compose.desktop.currentOs)
-    implementation(compose.material3)
-    implementation(compose.materialIconsExtended)
+    implementation(libs.compose.material3)
+    implementation(libs.compose.material.icons.extended)
     implementation(libs.coil)
     implementation(libs.coil.core)
     implementation(libs.coil.network.ktor3)
@@ -195,6 +195,11 @@ val debRuntimeDependencies = listOf(
     "libsecret-tools",
 )
 
+fun runProcess(workingDir: File, vararg command: String) {
+    val exitCode = ProcessBuilder(*command).directory(workingDir).inheritIO().start().waitFor()
+    check(exitCode == 0) { "${command.first()} exited with $exitCode" }
+}
+
 val patchDebPostBuild = tasks.register("patchDebPostBuild") {
     description = "Post-processes the .deb produced by packageDeb: injects Depends (#15) and FHS symlinks (#20)."
     group = "compose desktop"
@@ -221,10 +226,7 @@ val patchDebPostBuild = tasks.register("patchDebPostBuild") {
             work.deleteRecursively()
             work.mkdirs()
             // Extract full .deb (control + data) into work dir.
-            exec {
-                workingDir = work
-                commandLine("dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
-            }.assertNormalExitValue()
+            runProcess(work, "dpkg-deb", "-R", deb.absolutePath, work.absolutePath)
 
             // --- (1) Depends injection ------------------------------------
             val control = File(work, "DEBIAN/control")
@@ -302,9 +304,7 @@ val patchDebPostBuild = tasks.register("patchDebPostBuild") {
             }
 
             // Repack in place (dpkg-deb -b <dir> <file>).
-            exec {
-                commandLine("dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
-            }.assertNormalExitValue()
+            runProcess(work, "dpkg-deb", "-b", work.absolutePath, deb.absolutePath)
         }
     }
 }

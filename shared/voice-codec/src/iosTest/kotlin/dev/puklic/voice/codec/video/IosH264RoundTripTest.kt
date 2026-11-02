@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
  * Then feeds the emitted Annex-B back into the decoder one NAL at a time and verifies the
  * decoded ARGB array has the expected size.
  *
- * Runs on iosSimulatorArm64 / iosX64 simulator targets. On compile-only CI the build phase
+ * Runs on iosSimulatorArm64 simulator target. On compile-only CI the build phase
  * still validates VideoToolbox cinterop symbol resolution.
  */
 class IosH264RoundTripTest {

@@ -4,7 +4,7 @@ import dev.puklic.domain.ChatMessage
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import kotlinx.coroutines.flow.Flow
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /**
  * Repository for persisted [ChatMessage]s. Provides reactive observation of a channel's message

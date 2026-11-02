@@ -9,7 +9,7 @@ import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

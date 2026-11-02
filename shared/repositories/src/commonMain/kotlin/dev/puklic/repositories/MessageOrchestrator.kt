@@ -21,8 +21,8 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
+import kotlin.time.Clock
+import kotlin.time.Instant
 
 /**
  * High-level orchestrator that composes gateway events + storage + RAM hot/warm cache and exposes
@@ -96,7 +96,7 @@ public class MessageOrchestrator(
                             attachments = event.attachments ?: existing.attachments,
                             flags = mergedFlags,
                             editedTimestamp = event.editedTimestampEpochMs
-                                ?.let(kotlinx.datetime.Instant::fromEpochMilliseconds)
+                                ?.let(kotlin.time.Instant::fromEpochMilliseconds)
                                 ?: existing.editedTimestamp,
                         )
                         storage.persist(merged)

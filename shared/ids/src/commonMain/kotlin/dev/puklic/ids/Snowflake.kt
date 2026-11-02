@@ -1,6 +1,6 @@
 package dev.puklic.ids
 
-import kotlinx.datetime.Instant
+import kotlin.time.Instant
 
 /** Discord's custom epoch: 2015-01-01T00:00:00Z in Unix epoch milliseconds. */
 const val DISCORD_EPOCH: Long = 1_420_070_400_000L

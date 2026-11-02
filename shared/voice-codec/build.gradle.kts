@@ -5,7 +5,7 @@
 // Opus codec contract with the GPL desktop build without pulling in
 // :shared:voice's BouncyCastle / FFmpeg-GPL / libdave.
 //
-// Targets explicitly: jvm + iosArm64 + iosX64 + iosSimulatorArm64. The
+// Targets explicitly: jvm + iosArm64 + iosSimulatorArm64. The
 // puklic.kmp-library convention plugin is intentionally NOT used here for
 // the same reason as :shared:voice: it always declares an Android target,
 // which would force `expect object OpusCodecFactory` to grow an Android
@@ -65,7 +65,6 @@ plugins {
 kotlin {
     jvm()
     iosArm64()
-    iosX64()
     iosSimulatorArm64()
 
     jvmToolchain(21)
@@ -170,12 +169,6 @@ kotlin {
             "arm64-apple-ios14.0-simulator",
             "iphonesimulator",
         ),
-        IosSliceSpec(
-            "CryptoBridgeIosX64",
-            "ios-x86_64-simulator",
-            "x86_64-apple-ios14.0-simulator",
-            "iphonesimulator",
-        ),
     )
 
     val cryptoBridgeTasks = cryptoBridgeSlices.associate { slice ->
@@ -244,15 +237,6 @@ kotlin {
         compilations.getByName("main").cinterops {
             create("libopus") { configureLibopus(xcfRoot.dir("ios-arm64_x86_64-simulator")) }
             val (compileTask, outDir) = cryptoBridgeTasks.getValue("ios-arm64-simulator")
-            create("puklic_crypto") {
-                configureCryptoBridge(outDir)
-            }.also { tasks.named(it.interopProcessingTaskName).configure { dependsOn(compileTask) } }
-        }
-    }
-    iosX64 {
-        compilations.getByName("main").cinterops {
-            create("libopus") { configureLibopus(xcfRoot.dir("ios-arm64_x86_64-simulator")) }
-            val (compileTask, outDir) = cryptoBridgeTasks.getValue("ios-x86_64-simulator")
             create("puklic_crypto") {
                 configureCryptoBridge(outDir)
             }.also { tasks.named(it.interopProcessingTaskName).configure { dependsOn(compileTask) } }
