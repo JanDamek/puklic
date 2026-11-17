@@ -15,22 +15,25 @@ import PuklicShared
 @main
 final class AppDelegate: UIResponder, UIApplicationDelegate {
 
-    var window: UIWindow?
     /// Retained for the app's lifetime — owns the application coroutine scope, the SQLite
     /// connection, the HTTP client and the Discord session manager.
-    private var graph: IosDependencyGraph?
+    private(set) var graph: IosDependencyGraph?
 
     func application(
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
     ) -> Bool {
-        let graph = IosDependencyGraph.companion.create()
-        self.graph = graph
-
-        let window = UIWindow(frame: UIScreen.main.bounds)
-        window.rootViewController = graph.puklicAppRootViewController()
-        window.makeKeyAndVisible()
-        self.window = window
+        graph = IosDependencyGraph.companion.create()
         return true
+    }
+
+    func application(
+        _ application: UIApplication,
+        configurationForConnecting connectingSceneSession: UISceneSession,
+        options: UIScene.ConnectionOptions
+    ) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: "Default Configuration", sessionRole: connectingSceneSession.role)
+        configuration.delegateClass = SceneDelegate.self
+        return configuration
     }
 }
