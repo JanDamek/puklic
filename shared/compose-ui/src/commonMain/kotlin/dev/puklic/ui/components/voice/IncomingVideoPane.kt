@@ -9,6 +9,7 @@ import dev.puklic.voice.IncomingVideoFrame
  * primitives:
  *  - JVM (`IncomingVideoPane.jvm.kt`) — `java.awt.image.BufferedImage` + `toComposeImageBitmap()`.
  *  - iOS (`IncomingVideoPane.ios.kt`) — `org.jetbrains.skia.Image.makeRaster(...)`.
+ *  - Android (`IncomingVideoPane.android.kt`) — `android.graphics.Bitmap` + `asImageBitmap()`.
  *
  * Per architect report `docs/03_infrastructure/architect-reports/2026-05-23-voice.md` §12 +
  * `docs/03_infrastructure/architect-reports/2026-05-29-fp12-ios-screencast-impl.md` §2.
