@@ -214,10 +214,12 @@ These targets apply to Phase 1 MVP. Voice/screenshare may push RAM higher — to
 | Windows x86_64 desktop | Compose Desktop | .exe / .msi (GitHub Releases) | ✅ WASAPI + libopus | ✅ Desktop Duplication + libx264 (GPL) | ✅ libdave (GPL) |
 | iOS / iPadOS arm64 | Compose iOS via KMP framework | App Store (also runs on Apple Silicon Mac via Designed for iPad) | ⚠ FP-4..FP-6 codec primitives present (libopus + VideoToolbox + Network.framework UDP); voice **ships as `NoOpVoiceClient` until FP-14h** wires `AppleNativeVoiceClient` | ⚠ FP-11 + FP-12 ReplayKit Broadcast Extension + VideoToolbox primitives present, no client wired until FP-14h | ❌ ship without DAVE (Discord fallback) |
 
+**In scope, not yet shipping:**
+- Android — in scope since 2026-11-24 (Jan, PUKLIC-19): package `cz.damek.puklic.app` (same as iOS), published on the company Google Play account Mazlušek s.r.o. via internal testing; full implementation follows FP-14h. Builds and Play publishing run only from Jenkins/local, never GitHub Actions with Apple credentials.
+
 **Out of scope:**
 - macOS x86_64 (Intel Mac) — Apple-Silicon-only Mac shipping; Intel users use the Compose Desktop .dmg if needed.
 - Browser / web.
-- Android — separate roadmap phase after iOS slices stabilise.
 
 **App Store distribution rule:** any module reachable from `:ios:app` or the `:desktop:app` `macAppStore` source set MUST be Apache-2.0 / MIT / BSD (enforced by `verifyIosNoGplDeps` / `verifyMacAppStoreNoGplDeps`). GPL deps (libx264, libdave, FFmpeg) live in `:shared:voice` JVM-only impl; App Store builds use Apple-native equivalents (VideoToolbox, AudioToolbox, Network.framework, ScreenCaptureKit) — JNA-bridged in `:desktop:platform-macos-appstore` (FP-14c) and Kotlin/Native cinterop in `:shared:voice-codec` iosMain (FP-4..FP-6). **FP-14h follow-up** wires `AppleNativeVoiceClient` into both DI graphs; until then App Store builds ship `NoOpVoiceClient` and the codec primitives are dead code.
 

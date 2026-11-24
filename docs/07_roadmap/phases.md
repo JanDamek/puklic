@@ -188,6 +188,6 @@ user "všechny platformy stejně":
   / %LOCALAPPDATA% paths); FP-9 `WindowsScreenCaptureFactory` wired into
   `DependencyGraph` for DXGI screen + WASAPI loopback capture.
 - macOS x86_64 (Intel): **out of scope**
-- Android: future mobile phase (KMP scaffolding ready, not actively shipping)
+- Android: in scope since 2026-11-24 — applicationId `cz.damek.puklic.app`, company Google Play account, internal test track first (PUKLIC-19); functional implementation after FP-14h
 - iOS (App Store, chat-only, Designed for iPad on Mac): **planned Phase 6** —
   architect report 2026-05-28, see Phase 6 above.
