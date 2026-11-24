@@ -12,11 +12,11 @@ val millisPerMinute = 60_000L
 val uploadKeystorePath = providers.environmentVariable("ANDROID_KEYSTORE_PATH")
 
 android {
-    compileSdk = 35
+    compileSdk = 37
     defaultConfig {
         applicationId = "cz.damek.puklic.app"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 36
         versionCode = providers.environmentVariable("ANDROID_VERSION_CODE").orNull?.toInt()
             ?: (System.currentTimeMillis() / millisPerMinute).toInt()
         // Sourced from root `gradle.properties` puklic.version — the single source

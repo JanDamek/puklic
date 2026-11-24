@@ -5,8 +5,8 @@ Secondary platform. Target: Phase 2 ship.
 ## Targets
 
 - **minSdk:** 26 (Android 8.0 Oreo) — ~98 % of active devices in 2026
-- **targetSdk:** latest stable (35+ in 2026)
-- **compileSdk:** same as target
+- **targetSdk:** 36 (Play requirement)
+- **compileSdk:** 37 (required by current AndroidX/Coil AAR metadata; checked by `checkReleaseAarMetadata`)
 - **NDK:** if native code is needed (Opus, libwebrtc) — Phase 3+
 
 ## Key platform integrations

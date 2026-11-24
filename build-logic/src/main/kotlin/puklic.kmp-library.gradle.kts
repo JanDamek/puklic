@@ -18,7 +18,7 @@ kotlin {
     // Default hierarchy template auto-applied by Kotlin 2.x — no explicit call needed
     jvm()
     android {
-        compileSdk = 35
+        compileSdk = 37
         minSdk = 26
     }
     iosArm64()
