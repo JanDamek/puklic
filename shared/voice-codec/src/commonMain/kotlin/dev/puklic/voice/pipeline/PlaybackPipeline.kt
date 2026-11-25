@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package dev.puklic.voice.pipeline
 
 import dev.puklic.voice.AudioConstants
@@ -7,7 +9,8 @@ import dev.puklic.voice.codec.PuklicVoiceCodec
 import dev.puklic.voice.codec.transport.VoiceUdpTransport
 import dev.puklic.voice.transport.RtpPacket
 import dev.puklic.voice.transport.VoicePacketCodec
-import kotlinx.atomicfu.atomic
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -34,7 +37,7 @@ import kotlin.time.TimeSource
  * concurrency primitives are replaced with KMP-portable equivalents:
  * `ConcurrentHashMap` → [MutableMap] guarded by [Mutex]; `ConcurrentLinkedQueue` →
  * `ArrayDeque` guarded by the same mutex; `java.util.concurrent.atomic` →
- * `kotlinx.atomicfu`; `System.nanoTime()` → [TimeSource.Monotonic]. Behaviour is
+ * `kotlin.concurrent.atomics`; `System.nanoTime()` → [TimeSource.Monotonic]. Behaviour is
  * preserved: the receive coroutine is the sole writer to a stream's queue, the mixer
  * coroutine is the sole reader, and the mutex serialises map structural changes.
  */
@@ -115,7 +118,7 @@ public class PlaybackPipeline(
         val stream = mutex.withLock {
             streams.getOrPut(ssrc) { SsrcStream(decoderFactory(), JitterBuffer()) }
         }
-        stream.lastPacketNanos.value = monotonicNanos()
+        stream.lastPacketNanos.store(monotonicNanos())
         // DAVE: strip the per-frame ciphertext layer (if any) BEFORE we hand
         // bytes to the jitter buffer + Opus decoder. Pass-through on null hook;
         // drop the frame on integrity failure (null return) when a hook is set.
@@ -160,7 +163,7 @@ public class PlaybackPipeline(
             val it = streams.entries.iterator()
             while (it.hasNext()) {
                 val (_, stream) = it.next()
-                if (now - stream.lastPacketNanos.value > SSRC_IDLE_TIMEOUT_NS) {
+                if (now - stream.lastPacketNanos.load() > SSRC_IDLE_TIMEOUT_NS) {
                     stream.decoder.close()
                     it.remove()
                 }
@@ -203,7 +206,7 @@ private class SsrcStream(
     val decoder: OpusDecoder,
     val buffer: JitterBuffer,
 ) {
-    val lastPacketNanos = atomic(PlaybackPipeline.monotonicNanos())
+    val lastPacketNanos = AtomicLong(PlaybackPipeline.monotonicNanos())
     private val queueMutex = Mutex()
     private val pending: ArrayDeque<ShortArray> = ArrayDeque()
 
