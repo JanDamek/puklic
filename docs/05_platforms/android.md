@@ -1,6 +1,6 @@
 # Android
 
-Secondary platform. Target: Phase 2 ship.
+Shipping platform (in scope since 2026-11-24): package `cz.damek.puklic.app`, company Google Play account, internal testing track first. The app is implemented independently of FP-14h (PUKLIC-123); the voice media engine is the one remaining follow-up.
 
 ## Targets
 
@@ -11,33 +11,45 @@ Secondary platform. Target: Phase 2 ship.
 
 ## Key platform integrations
 
+Actuals live in `:android:platform` (`dev.puklic.platform.android`); the wiring is `AndroidDependencyGraph` in `:android:app`, the manual-DI analogue of the desktop and iOS graphs.
+
 | Capability | Implementation |
 |---|---|
-| Secure storage | `EncryptedSharedPreferences` (Jetpack Security) + Android Keystore master key |
-| Notifications | `NotificationManagerCompat` with channels per importance |
-| Background work | Foreground service to maintain gateway connection (microphone permission for voice, Phase 3) |
-| File picker | Storage Access Framework (`ACTION_OPEN_DOCUMENT`) |
-| Audio capture | `AudioRecord` / Oboe (Phase 3) |
-| Push notifications | FCM (Firebase Cloud Messaging) — **NOT for Phase 2**, gateway works when app is running |
+| Secure storage | `AndroidSecureStorage`: AES-256-GCM with a non-exportable Android Keystore key (`KeystoreAesGcm`), ciphertext in private `SharedPreferences`, entry key bound as AAD. `androidx.security:security-crypto` is not used (deprecated). Auto Backup is off (`allowBackup=false`) because Keystore keys are not restored elsewhere. An undecryptable entry is dropped and reads as absent, which sends the user to sign-in |
+| Paths | `AndroidPlatformPaths`: `filesDir`, `cacheDir`, `filesDir/config`, `noBackupFilesDir/crashes`, `getDatabasePath("puklic.db")` |
+| Database | `AndroidDriverFactory` (`AndroidSqliteDriver`, WAL + foreign keys + the same tuning pragmas as JVM/iOS) |
+| Clipboard | `AndroidPlatformClipboard`: `ClipboardManager`; images via `FileProvider` content URI. Needed for pasting the Discord token |
+| Open URL / file | `AndroidPlatformOpen`: `ACTION_VIEW` (http, https, mailto), files through `FileProvider` with a read grant. `openInFolder` is `PlatformUnavailable` (no such Android action) |
+| Notifications | `AndroidNotificationService`: `NotificationManagerCompat`, channels `puklic.messages` / `puklic.mentions` (urgent) / `puklic.voice`; `POST_NOTIFICATIONS` requested on the first notification. No actions/images advertised (no way to deliver an action tap back) |
+| Presence | `AndroidPlatformPresence`: away = screen off (`PowerManager.isInteractive`), DND = interruption filter, kept current by system broadcasts |
+| Auto start | Not supported by design (`supported = false`, `PlatformUnavailable`), same as iOS; Android 14+ forbids a microphone foreground service from `BOOT_COMPLETED` |
+| Tray | None on Android; `AndroidTrayService` raises `PlatformUnavailable` and is not wired into the graph (no shared code consumes a tray) |
+| hCaptcha login | `CaptchaWebView.android.kt`: `android.webkit.WebView` in `AndroidView`, the shared `captchaHtml` page (hCaptcha Enterprise explicit render with `rqdata`, ADR 0002) and a `captcha` JavaScript interface that posts the token back; the shared login screen is reused unchanged |
+| Runtime permissions | `RuntimePermissions`: requested only on first need (`RECORD_AUDIO` + notifications on the first voice join, notifications on the first notification), never at startup; the started `MainActivity` attaches the launcher |
+| Voice session | `PermissionGatedVoiceClient` (permission gate around any `VoiceClient`) + `VoiceServiceController` runs `VoiceForegroundService` (type `microphone`, one low-importance notification with a "Disconnect" action) exactly while the voice state is connecting, ringing or connected |
+| File picker | Storage Access Framework (`ACTION_OPEN_DOCUMENT`), not wired yet |
+| Audio capture | `AudioRecord` / Oboe — the voice media engine is a separate follow-up; until then the engine behind the gate is `NoOpVoiceClient` |
+| Push notifications | FCM (Firebase Cloud Messaging) — **not wired**, gateway works when app is running |
 
 ## Process / lifecycle
 
-Discord gateway = persistent WebSocket. Android aggressively kills background apps. Strategy:
-- **Foreground service** with a persistent "Puklic running" notification when the app is in the background
-- User toggle "Background mode" in Settings (default: on)
-- Without foreground service: app suspends → gateway disconnects → reconnects on return
+Discord gateway = persistent WebSocket. Android aggressively kills background apps. Current behaviour:
+- Without a voice session the app suspends in the background → gateway disconnects → reconnects on return
+- During a voice session the microphone foreground service keeps the process alive
+- A background gateway service with a "Background mode" toggle is a possible later addition
 
 ## Permissions
 
-| Permission | Purpose | Phase |
+| Permission | Purpose | Requested |
 |---|---|---|
-| `INTERNET` | Network | 2 |
-| `ACCESS_NETWORK_STATE` | Connectivity changes | 2 |
-| `POST_NOTIFICATIONS` | Notifications (Android 13+) | 2 |
-| `FOREGROUND_SERVICE` | Persistent gateway | 2 |
-| `FOREGROUND_SERVICE_MEDIA_PLAYBACK` | Voice (Android 14+) | 3 |
-| `RECORD_AUDIO` | Voice | 3 |
-| `MODIFY_AUDIO_SETTINGS` | Voice | 3 |
+| `INTERNET` | Network | install time |
+| `ACCESS_NETWORK_STATE` | Connectivity changes | install time |
+| `RECORD_AUDIO` | Voice | runtime, first voice join |
+| `POST_NOTIFICATIONS` | Notifications and the voice notification (Android 13+) | runtime, first voice join or first notification |
+| `FOREGROUND_SERVICE` | Voice session service | install time |
+| `FOREGROUND_SERVICE_MICROPHONE` | Voice session service type (Android 14+) | install time |
+
+The microphone hardware feature is declared `required=false` so Play does not filter out devices.
 
 ## UI considerations
 
@@ -57,15 +69,7 @@ Discord ToS violation risk is higher on Google Play — Play may remove the app 
 
 ## Foreground service notification
 
-```kotlin
-NotificationChannel("puklic.gateway", "Puklic background", NotificationManager.IMPORTANCE_LOW).apply {
-    description = "Keeps Puklic connected to Discord while in the background"
-    setShowBadge(false)
-    setSound(null, null)
-}
-```
-
-User-facing text: "Puklic is connected to Discord" + tap action returns to app.
+The only foreground service is the voice one (`VoiceForegroundService`, channel `puklic.voice`, `IMPORTANCE_LOW`): ongoing notification "Puklic / Connected to voice", tap returns to the app, action "Disconnect" ends the voice session through `VoiceDisconnectHandler` (implemented by `PuklicApp`). It is started only while a voice session is in progress. There is no background gateway service: the gateway runs while the app process is alive.
 
 ## Differences from Desktop
 
