@@ -5,14 +5,15 @@
 // Opus codec contract with the GPL desktop build without pulling in
 // :shared:voice's BouncyCastle / FFmpeg-GPL / libdave.
 //
-// Targets explicitly: jvm + iosArm64 + iosSimulatorArm64. The
-// puklic.kmp-library convention plugin is intentionally NOT used here for
-// the same reason as :shared:voice: it always declares an Android target,
-// which would force `expect object OpusCodecFactory` to grow an Android
-// `actual` that we cannot satisfy honestly (FFmpeg-GPL JavaCPP has no
-// Android natives; Android is non-shipping scaffolding per CLAUDE.md).
-// When an Android codec backend lands, this module adds the target
-// alongside the real platform sources.
+// Targets (from the puklic.kmp-library convention plugin): jvm + android + iosArm64 +
+// iosSimulatorArm64. The FFmpeg-GPL JavaCPP dependencies below stay confined to the jvm
+// compilation; Kotlin/Native and Android compilations never see them.
+//
+// Android voice engine (PUKLIC-124): androidMain ships a DAVE-free engine — Opus via the
+// pure-Java Concentus (BSD, no NDK), AudioRecord / AudioTrack for audio. XChaCha20-Poly1305
+// (BouncyCastle) and the UDP transport (java.net.DatagramSocket) are plain Java and compiled
+// once from src/javaMain/kotlin into BOTH the jvm and the android compilation, so there is a
+// single implementation of each. The engine itself is SharedVoiceClient in commonMain.
 //
 // commonMain contents:
 //   - AeadCipher interface (the pluggable cipher contract)
@@ -50,7 +51,7 @@
 // See docs/03_infrastructure/dep-policy.md
 
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
+    id("puklic.kmp-library")
     // FP-14h-2e (issue #69): kotlinx-serialization plugin needed by VoiceGatewayPayload
     // (`@Serializable` data classes) moved from :shared:voice/commonMain.
     alias(libs.plugins.kotlin.serialization)
@@ -59,15 +60,12 @@ plugins {
     // (VideoRtpSender / PlaybackPipeline / IncomingVideoPipeline) land in this module.
     // See docs/03_infrastructure/architect-reports/2026-05-29-fp14h-2d-implementation.md.
     alias(libs.plugins.kotlinx.atomicfu)
-    id("org.jetbrains.kotlinx.kover")
 }
 
 kotlin {
-    jvm()
-    iosArm64()
-    iosSimulatorArm64()
-
-    jvmToolchain(21)
+    android {
+        namespace = "dev.puklic.shared.voicecodec"
+    }
 
     // FP-14h-2a opt-in: types marked @PuklicVoiceCodec inside this module (IpDiscovery,
     // JitterBuffer in commonMain) are referenced by sibling commonMain/jvmMain files
@@ -94,11 +92,23 @@ kotlin {
             api(libs.ktor.client.core)
             api(libs.ktor.client.websockets)
             api(libs.kermit)
+            implementation(projects.shared.ids)
         }
         commonTest.dependencies {
             implementation(kotlin("test"))
             implementation(libs.kotest.assertions.core)
             implementation(libs.kotlinx.coroutines.test)
+        }
+        val javaSharedSources = layout.projectDirectory.dir("src/javaMain/kotlin")
+        jvmMain { kotlin.srcDir(javaSharedSources) }
+        androidMain {
+            kotlin.srcDir(javaSharedSources)
+            dependencies {
+                // Pure-Java Opus encoder/decoder (BSD-3-Clause): no NDK, no per-ABI natives.
+                implementation(libs.concentus)
+                // XChaCha20-Poly1305 backend shared with the jvm compilation (src/javaMain).
+                implementation(libs.bouncycastle.bcprov)
+            }
         }
         jvmMain.dependencies {
             // Opus codec JVM actual: libavcodec/libopus via JavaCPP FFmpeg GPL bundle.

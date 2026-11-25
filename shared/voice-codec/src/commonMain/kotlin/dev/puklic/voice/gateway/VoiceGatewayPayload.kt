@@ -32,8 +32,12 @@ public data class VoiceIdentify(
     @SerialName("user_id") val userId: String,
     @SerialName("session_id") val sessionId: String,
     val token: String,
-    @SerialName("max_dave_protocol_version") val maxDaveProtocolVersion: Int = 1,
-)
+    @SerialName("max_dave_protocol_version") val maxDaveProtocolVersion: Int = DEFAULT_MAX_DAVE_PROTOCOL_VERSION,
+) {
+    public companion object {
+        public const val DEFAULT_MAX_DAVE_PROTOCOL_VERSION: Int = 1
+    }
+}
 
 @Serializable
 @PuklicVoiceCodec

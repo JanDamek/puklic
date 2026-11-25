@@ -110,6 +110,8 @@ public interface VoiceGatewayConnection {
  *
  * @param maxMissedAcks two missed heartbeat acks → reconnect, per architect report §5.
  * @param maxReconnectAttempts exponential backoff caps at 5 (1/2/4/8/16 s) per §5.
+ * @param maxDaveProtocolVersion highest DAVE version announced in Identify; `0` for clients that do
+ *  not implement DAVE end-to-end encryption, so the server never negotiates it.
  */
 @PuklicVoiceCodec
 public class DefaultVoiceGatewayConnection(
@@ -119,6 +121,7 @@ public class DefaultVoiceGatewayConnection(
     private val now: () -> Long = { 0L },
     private val maxMissedAcks: Int = DEFAULT_MAX_MISSED_ACKS,
     private val maxReconnectAttempts: Int = DEFAULT_MAX_RECONNECT_ATTEMPTS,
+    private val maxDaveProtocolVersion: Int = VoiceIdentify.DEFAULT_MAX_DAVE_PROTOCOL_VERSION,
 ) : VoiceGatewayConnection {
 
     private val _state = MutableStateFlow<VoiceGatewayState>(VoiceGatewayState.Idle)
@@ -428,6 +431,7 @@ public class DefaultVoiceGatewayConnection(
                         userId = userId,
                         sessionId = sessionId,
                         token = token,
+                        maxDaveProtocolVersion = maxDaveProtocolVersion,
                     ),
                 ),
             )

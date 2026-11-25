@@ -75,6 +75,8 @@ ffmpeg = "8.1.2-1.5.14"
 # JNA to system libopus.{dylib,so,dll} is portable, < 100 lines, and requires only a
 # package install. See shared/voice/src/jvmMain/kotlin/dev/puklic/voice/codec/LibOpus.kt.
 bouncycastle = "1.86"
+# Pure-Java Opus (BSD-3-Clause, Maven Central) used by the Android voice engine: no NDK, no natives.
+concentus = "1.0.2"
 
 # DAVE (Phase 3.1b, jvm-only)
 # Wire core-crypto: MLS (RFC 9420) over Rust JNI native. GPL-3.0-or-later.
@@ -170,6 +172,7 @@ ffmpeg-platform-gpl = { group = "org.bytedeco", name = "ffmpeg-platform-gpl", ve
 
 # Voice (Phase 3, jvm-only)
 bouncycastle-bcprov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+concentus = { module = "io.github.jaredmdobson:concentus", version.ref = "concentus" }
 
 # DAVE / MLS (jvm-only). See architect report 2026-05-23-dave-e2ee.md + ADR-0007.
 wire-core-crypto-jvm = { group = "com.wire", name = "core-crypto-jvm", version.ref = "wire-core-crypto" }
