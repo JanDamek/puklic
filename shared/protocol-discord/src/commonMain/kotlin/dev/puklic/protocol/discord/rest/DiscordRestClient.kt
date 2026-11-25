@@ -74,6 +74,34 @@ public class DiscordRestClient(
     internal suspend fun getSelfUser(): Result<DiscordUserDto> =
         request("$baseUrl/users/@me", serializer<DiscordUserDto>())
 
+    /**
+     * `GET /users/@me/settings-proto/1` — the account's full `UserSettings` protobuf as base64.
+     */
+    internal suspend fun getSettingsProto(): Result<String> =
+        request("$baseUrl/users/@me/settings-proto/1", serializer<SettingsProtoDto>()).map { it.settings }
+
+    /**
+     * `PATCH /users/@me/settings-proto/1` with a partial `UserSettings` protobuf (base64). Returns
+     * the full settings protobuf after the server applied the update.
+     */
+    internal suspend fun patchSettingsProto(settingsBase64: String): Result<String> = runCatching {
+        executeWithRetry {
+            httpClient.patch("$baseUrl/users/@me/settings-proto/1") {
+                applyAuth()
+                contentType(ContentType.Application.Json)
+                setBody(
+                    DiscordJson.encodeToString(
+                        JsonElement.serializer(),
+                        buildJsonObject { put("settings", settingsBase64) },
+                    ),
+                )
+            }
+        }
+    }.fold(
+        onSuccess = { response -> decodeOrError(response, serializer<SettingsProtoDto>()).map { it.settings } },
+        onFailure = { Result.failure(it) },
+    )
+
     internal suspend fun getGuilds(): Result<List<DiscordGuildDto>> =
         request("$baseUrl/users/@me/guilds", ListSerializer(serializer<DiscordGuildDto>()))
 
@@ -650,3 +678,6 @@ public class DiscordRestClient(
         internal const val MILLIS_IN_SECOND = 1000.0
     }
 }
+
+@kotlinx.serialization.Serializable
+internal data class SettingsProtoDto(val settings: String)

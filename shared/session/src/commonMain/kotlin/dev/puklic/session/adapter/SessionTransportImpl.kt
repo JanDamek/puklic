@@ -78,6 +78,9 @@ public class SessionTransportImpl(
         bridge.markChannelRead(channelId, messageId)
     }
 
+    override suspend fun reorderGuilds(order: List<GuildId>): Result<List<GuildId>> =
+        bridge.reorderGuilds(order)
+
     private fun mapGatewayState(state: GatewayState): GatewayLifecycleEvent? = when (state) {
         is GatewayState.Ready -> GatewayLifecycleEvent.Connected(state.sessionId)
         is GatewayState.Disconnected -> GatewayLifecycleEvent.Disconnected

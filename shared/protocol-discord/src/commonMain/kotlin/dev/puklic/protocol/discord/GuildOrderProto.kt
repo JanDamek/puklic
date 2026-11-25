@@ -19,19 +19,25 @@ package dev.puklic.protocol.discord
 internal fun parseGuildOrderFromSettingsProto(bytes: ByteArray): List<Long> =
     runCatching { ProtoReader(bytes).readGuildOrder() }.getOrDefault(emptyList())
 
-private const val WT_VARINT = 0
-private const val WT_FIXED64 = 1
-private const val WT_LEN = 2
-private const val WT_FIXED32 = 5
+internal const val WT_VARINT = 0
+internal const val WT_FIXED64 = 1
+internal const val WT_LEN = 2
+internal const val WT_FIXED32 = 5
 
-private const val FIELD_GUILD_FOLDER_SETTINGS = 3
-private const val FIELD_FOLDER_OR_GUILD_ID = 1
+internal const val FIELD_GUILD_FOLDER_SETTINGS = 3
+internal const val FIELD_FOLDER_OR_GUILD_ID = 1
 
-private const val FIXED64_BYTES = 8
+internal const val FIXED64_BYTES = 8
 private const val FIXED32_BYTES = 4
 
-private class ProtoReader(private val bytes: ByteArray) {
+internal class ProtoReader(private val bytes: ByteArray) {
     private var pos = 0
+
+    val position: Int get() = pos
+
+    val hasRemaining: Boolean get() = pos < bytes.size
+
+    fun sliceFrom(start: Int): ByteArray = bytes.copyOfRange(start, pos)
 
     fun readGuildOrder(): List<Long> {
         val ids = mutableListOf<Long>()
@@ -73,18 +79,18 @@ private class ProtoReader(private val bytes: ByteArray) {
         }
     }
 
-    private fun readPackedFixed64(): List<Long> {
+    fun readPackedFixed64(): List<Long> {
         val ids = mutableListOf<Long>()
         while (pos < bytes.size) ids.add(readFixed64())
         return ids
     }
 
-    private fun readTag(): Pair<Int, Int> {
+    fun readTag(): Pair<Int, Int> {
         val tag = readVarint()
         return (tag ushr 3).toInt() to (tag and 0x7L).toInt()
     }
 
-    private fun readVarint(): Long {
+    fun readVarint(): Long {
         var result = 0L
         var shift = 0
         while (true) {
@@ -97,7 +103,7 @@ private class ProtoReader(private val bytes: ByteArray) {
         }
     }
 
-    private fun readFixed64(): Long {
+    fun readFixed64(): Long {
         require(pos + FIXED64_BYTES <= bytes.size) { "fixed64 truncated" }
         var result = 0L
         for (i in 0 until FIXED64_BYTES) {
@@ -107,7 +113,7 @@ private class ProtoReader(private val bytes: ByteArray) {
         return result
     }
 
-    private fun readLengthDelimited(): ByteArray {
+    fun readLengthDelimited(): ByteArray {
         val len = readVarint().toInt()
         require(len >= 0 && pos + len <= bytes.size) { "length-delimited truncated" }
         val slice = bytes.copyOfRange(pos, pos + len)
@@ -115,7 +121,7 @@ private class ProtoReader(private val bytes: ByteArray) {
         return slice
     }
 
-    private fun skipField(wireType: Int) {
+    fun skipField(wireType: Int) {
         when (wireType) {
             WT_VARINT -> readVarint()
             WT_FIXED64 -> advance(FIXED64_BYTES)

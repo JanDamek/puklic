@@ -54,6 +54,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * Snapshot of the main screen's guild + channel state. Backed by the live orchestrators
@@ -174,6 +176,31 @@ public class MainViewModel(
         }
     }
 
+
+    private val reorderMutex = Mutex()
+
+    /**
+     * Applies the dragged guild [order] locally at once, then writes it to Discord. On failure the
+     * previous order is restored and a snackbar explains it. Writes are serialised so concurrent
+     * drops reach Discord in drop order.
+     */
+    public fun reorderGuilds(order: List<GuildId>) {
+        val guildOrchestrator = orchestrators?.guild ?: return
+        val transport = sessionTransport ?: return
+        val previous = guildOrchestrator.guildPositions.value
+        guildOrchestrator.setGuildPositions(order)
+        scope.launch {
+            reorderMutex.withLock {
+                transport.reorderGuilds(order)
+                    .onSuccess { confirmed -> guildOrchestrator.setGuildPositions(confirmed) }
+                    .onFailure { t ->
+                        Logger.w("MainViewModel", t) { "reorderGuilds failed" }
+                        guildOrchestrator.setGuildPositions(previous)
+                        _snackbarMessage.emit(SNACKBAR_REORDER_GUILDS_FAILED)
+                    }
+            }
+        }
+    }
 
     // ----- Add-friend + join-server dialogs (issue #80) -----
 
@@ -677,6 +704,7 @@ public class MainViewModel(
         const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
         const val SNACKBAR_BUFFER = 4
         const val SNACKBAR_LEAVE_CURRENT_CALL = "Leave current call first"
+        const val SNACKBAR_REORDER_GUILDS_FAILED = "Could not save the server order. Please try again."
         const val SNACKBAR_NEW_DM_FAILED = "Could not start the DM. Please try again."
         public const val ADD_FRIEND_UNAVAILABLE: String = "Add-friend is not available in this session."
         public const val ADD_FRIEND_EMPTY: String = "Enter a username, name#1234 or user id."

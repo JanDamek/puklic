@@ -58,4 +58,11 @@ public interface SessionTransport {
      * implementations don't need to override.
      */
     public suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId) { Unit }
+
+    /**
+     * Persist the user's guild order to Discord and return the order Discord now holds. Default
+     * fails so fake implementations without a backend surface an error instead of faking success.
+     */
+    public suspend fun reorderGuilds(order: List<GuildId>): Result<List<GuildId>> =
+        Result.failure(UnsupportedOperationException("guild reordering is not supported by this transport"))
 }

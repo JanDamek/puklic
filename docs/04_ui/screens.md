@@ -91,7 +91,9 @@ No global top ribbon. Channel name + actions are in the `MessagePane` header.
 Vertical icon list. Items:
 - **Home / DMs** (top, fixed) — aggregates DMs across all guilds
 - **Per guild icon** (32 dp, round) with a presence dot if it has unread
-- **+ Add server** (bottom, fixed) — disabled in MVP (read-only Discord server creation)
+- **Add friend / Join server** (below the list, fixed, never draggable) — the guild list scrolls above them
+
+Reordering (PUKLIC-21): guild icons are reordered by dragging — mouse press and drag on desktop, long press then drag on touch. Dragging near the top or bottom edge scrolls the list. The new order is applied locally at once and written to Discord on drop (`MainViewModel.reorderGuilds`); on failure the previous order is restored and a snackbar is shown. The Home entry and the action buttons are not part of the draggable list. A guild stays in its folder: inside a folder it moves among the folder members, and folders themselves are ordered by their best-ranked member.
 
 States per guild item:
 - Default — icon at 80 % opacity

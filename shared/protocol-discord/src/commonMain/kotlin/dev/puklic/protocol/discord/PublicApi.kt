@@ -1157,6 +1157,21 @@ public class DiscordSessionBridge(private val rest: DiscordRestClient) {
     public suspend fun joinServer(code: String): Result<Unit> =
         rest.acceptInvite(code).map { /* drop guild dto — gateway delivers full state */ }
 
+    /**
+     * Writes the user's guild order back to Discord (`PATCH /users/@me/settings-proto/1`). The
+     * current settings protobuf is fetched first so folders and every other setting survive; only
+     * the guild-folder part is sent. Returns the guild order Discord holds after the update, which
+     * can differ from [order] because guilds keep their folder membership.
+     */
+    @OptIn(kotlin.io.encoding.ExperimentalEncodingApi::class)
+    public suspend fun reorderGuilds(order: List<GuildId>): Result<List<GuildId>> = runCatching {
+        val current = kotlin.io.encoding.Base64.decode(rest.getSettingsProto().getOrThrow())
+        val rewritten = rewriteGuildOrderInSettingsProto(current, order.map { it.value })
+        val update = kotlin.io.encoding.Base64.encode(extractGuildFolderSettingsField(rewritten))
+        rest.patchSettingsProto(update).getOrThrow()
+        parseGuildOrderFromSettingsProto(rewritten).map(::GuildId)
+    }
+
     /** Mark [messageId] as read in [channelId] via Discord's MESSAGE_ACK endpoint (issue #91). */
     public suspend fun markChannelRead(channelId: ChannelId, messageId: MessageId): Result<Unit> =
         rest.ackMessage(channelId, messageId)

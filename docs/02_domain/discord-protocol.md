@@ -20,6 +20,10 @@ Reference document for `:shared:protocol-discord`. Goal: summarize what Puklic u
 | `POST /channels/{id}/messages` | Send a message |
 | `PATCH /channels/{id}/messages/{mid}` | Edit |
 | `DELETE /channels/{id}/messages/{mid}` | Delete |
+| `GET /users/@me/settings-proto/1` | Full `UserSettings` protobuf (`{"settings": base64}`) |
+| `PATCH /users/@me/settings-proto/1` | Partial `UserSettings` update; Puklic sends only field 3 (`GuildFolderSettings`) to write the guild order (PUKLIC-21) |
+
+Guild order write-back (`DiscordSessionBridge.reorderGuilds`): GET the current settings, `rewriteGuildOrderInSettingsProto` re-sorts guild ids while copying every unknown field, folder id/name/colour and all non-guild settings verbatim (folder membership is preserved), then only the rewritten `GuildFolderSettings` field is PATCHed. The bridge returns the order read back from the rewritten proto so the UI shows what Discord holds.
 
 ### Key endpoints Phase 2
 

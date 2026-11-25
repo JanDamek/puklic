@@ -53,6 +53,11 @@ public class GuildOrchestrator(
      */
     public val guilds: StateFlow<List<Guild>> get() = orderedGuilds
 
+    /** Replaces the user ordering immediately (optimistic local reorder, or its revert). */
+    public fun setGuildPositions(positions: List<GuildId>) {
+        _guildPositions.value = positions
+    }
+
     public val all: Flow<List<Guild>> get() = storage.observeAll()
 
     init {

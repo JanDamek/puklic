@@ -87,7 +87,7 @@ import dev.puklic.ui.components.CategoryHeader
 import dev.puklic.ui.components.ChannelListItem
 import dev.puklic.ui.components.VoiceMemberRow
 import dev.puklic.ui.components.EmptyState
-import dev.puklic.ui.components.GuildRailItem
+import dev.puklic.ui.components.GuildRail
 import dev.puklic.ui.components.PuklicAvatar
 import dev.puklic.ui.components.UserInfoRow
 import dev.puklic.ui.components.UserInfoRowState
@@ -313,6 +313,7 @@ private fun MainGuildRail(
         onSelectGuild = viewModel::selectGuild,
         onOpenAddFriend = viewModel::openAddFriend,
         onOpenJoinServer = viewModel::openJoinServer,
+        onReorderGuilds = viewModel::reorderGuilds,
         modifier = modifier,
     )
 }
@@ -518,109 +519,6 @@ private fun VerticalDivider() {
             .fillMaxHeight()
             .background(MaterialTheme.colorScheme.outlineVariant),
     )
-}
-
-@Composable
-private fun GuildRail(
-    guilds: List<Guild>,
-    selectedGuildId: GuildId?,
-    isDmHomeSelected: Boolean,
-    guildHasMention: Map<GuildId, Boolean>,
-    onSelectDmHome: () -> Unit,
-    onSelectGuild: (GuildId) -> Unit,
-    onOpenAddFriend: () -> Unit,
-    onOpenJoinServer: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    // Issue #79: guild rail must scroll when guilds overflow the viewport. LazyColumn provides
-    // built-in vertical scrolling AND lazy item rendering, which keeps memory bounded under the
-    // architectural "Cache is always bounded" rule.
-    LazyColumn(
-        modifier = modifier.background(MaterialTheme.colorScheme.background).padding(vertical = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        state = rememberLazyListState(),
-    ) {
-        item(key = "rail-home") {
-            HomeRailItem(isSelected = isDmHomeSelected, onClick = onSelectDmHome)
-        }
-        item(key = "rail-divider") {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.width(32.dp),
-            )
-        }
-        items(guilds, key = { "rail-guild-${it.id.value}" }) { g ->
-            GuildRailItem(
-                guild = g,
-                isSelected = g.id == selectedGuildId,
-                hasUnread = guildHasMention[g.id] == true,
-                mentionCount = 0,
-                onClick = { onSelectGuild(g.id) },
-            )
-        }
-        item(key = "rail-action-divider") {
-            HorizontalDivider(
-                color = MaterialTheme.colorScheme.outlineVariant,
-                modifier = Modifier.width(32.dp),
-            )
-        }
-        // Issue #80 — Add Friend and Join Server affordances at rail bottom (below the guild
-        // list). Discord's web client places these in a separate top-level Friends route; in
-        // Puklic's reduced surface they live in the rail to stay one-click reachable.
-        item(key = "rail-add-friend") {
-            RailActionItem(
-                icon = Icons.Filled.PersonAdd,
-                description = "Add friend",
-                onClick = onOpenAddFriend,
-            )
-        }
-        item(key = "rail-join-server") {
-            RailActionItem(
-                icon = Icons.Filled.Public,
-                description = "Join server",
-                onClick = onOpenJoinServer,
-            )
-        }
-    }
-}
-
-@Composable
-private fun RailActionItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    description: String,
-    onClick: () -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .width(40.dp)
-            .height(40.dp)
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-@Composable
-private fun HomeRailItem(isSelected: Boolean, onClick: () -> Unit) {
-    val bg = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
-    val fg = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
-    Box(
-        modifier = Modifier
-            .width(40.dp)
-            .height(40.dp)
-            .background(bg, shape = CircleShape)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text("DM", style = MaterialTheme.typography.labelSmall, color = fg)
-    }
 }
 
 @Composable
