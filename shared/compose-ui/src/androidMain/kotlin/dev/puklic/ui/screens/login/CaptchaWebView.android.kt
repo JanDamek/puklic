@@ -1,20 +1,27 @@
 package dev.puklic.ui.screens.login
 
-import androidx.compose.foundation.layout.Column
+import android.annotation.SuppressLint
+import android.content.Context
+import android.webkit.JavascriptInterface
+import android.webkit.WebView
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
+import co.touchlab.kermit.Logger
 
-/**
- * Android placeholder — the Android KMP target is scaffold-only today (no shipping app
- * surface). Once Android is enabled, swap this for an `AndroidView { WebView(it) }` host
- * mirroring the iOS WKWebView flow.
- */
+private const val CAPTCHA_HEIGHT_DP = 600
+private const val CAPTCHA_BASE_URL = "https://discord.com/"
+private const val HTML_MIME_TYPE = "text/html"
+private const val HTML_ENCODING = "UTF-8"
+private const val LOG_TAG = "CaptchaWebView"
+
 @Composable
 public actual fun CaptchaWebView(
     sitekey: String,
@@ -23,15 +30,50 @@ public actual fun CaptchaWebView(
     onSolved: (token: String) -> Unit,
     modifier: Modifier,
 ) {
-    Column(modifier = modifier.fillMaxWidth().height(120.dp).padding(16.dp)) {
-        Text(
-            "Captcha widget pending — Android target is not shipping yet.",
-            style = MaterialTheme.typography.bodyMedium,
+    val latestOnSolved by rememberUpdatedState(onSolved)
+    val html = remember(sitekey, service, rqdata) { captchaHtml(service = service, sitekey = sitekey, rqdata = rqdata) }
+    key(html) {
+        AndroidView(
+            factory = { context -> createCaptchaWebView(context, html) { token -> latestOnSolved(token) } },
+            modifier = modifier
+                .fillMaxWidth()
+                .height(CAPTCHA_HEIGHT_DP.dp),
+            onRelease = { web ->
+                web.removeJavascriptInterface(CAPTCHA_BRIDGE_NAME)
+                web.destroy()
+            },
         )
-        Text(
-            "site: $sitekey ($service)",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+private fun createCaptchaWebView(
+    context: Context,
+    html: String,
+    onSolved: (String) -> Unit,
+): WebView = WebView(context).apply {
+    settings.javaScriptEnabled = true
+    settings.domStorageEnabled = true
+    addJavascriptInterface(CaptchaBridge(this, onSolved), CAPTCHA_BRIDGE_NAME)
+    loadDataWithBaseURL(CAPTCHA_BASE_URL, html, HTML_MIME_TYPE, HTML_ENCODING, null)
+}
+
+/**
+ * Receives `window.captcha.postMessage(...)` calls from the captcha page. Messages prefixed with
+ * [CAPTCHA_ERROR_PREFIX] are hCaptcha error codes and are only logged so the user can retry without
+ * the widget visually clearing. Calls arrive on a WebView binder thread, the token is handed to the
+ * UI thread before it reaches the view model.
+ */
+private class CaptchaBridge(
+    private val host: WebView,
+    private val onSolved: (String) -> Unit,
+) {
+    @JavascriptInterface
+    fun postMessage(body: String) {
+        if (body.startsWith(CAPTCHA_ERROR_PREFIX)) {
+            Logger.w(LOG_TAG) { "hCaptcha widget error: ${body.removePrefix(CAPTCHA_ERROR_PREFIX)}" }
+            return
+        }
+        if (body.isNotBlank()) host.post { onSolved(body) }
     }
 }

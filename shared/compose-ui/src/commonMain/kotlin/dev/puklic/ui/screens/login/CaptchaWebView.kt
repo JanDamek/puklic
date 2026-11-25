@@ -12,8 +12,10 @@ import androidx.compose.ui.Modifier
  * Platform actuals:
  *  - iOS: WKWebView via `UIKitView`, custom HTML containing the hCaptcha JS widget plus a
  *    `window.webkit.messageHandlers.captcha` bridge that posts the token back to Kotlin.
- *  - JVM / Android: placeholder until a desktop / Android in-app web view is wired (see
- *    the platform-specific stub for the current behaviour).
+ *  - Android: `android.webkit.WebView` via `AndroidView`, loading the same HTML from
+ *    [captchaHtml] and reporting the token through an `addJavascriptInterface` bridge.
+ *  - JVM: placeholder until a desktop in-app web view is wired (see the platform-specific
+ *    stub for the current behaviour).
  *
  * The host is responsible for full sizing; the caller wraps it in a fixed-height container
  * (~400 dp) inside [LoginScreen].

@@ -28,7 +28,6 @@ import platform.darwin.NSObject
 // hCaptcha drag-puzzle challenges (Discord's most common type) need ~520-560 dp for the
 // challenge image plus the controls / Skip button row. 600 dp covers every variant.
 private const val CAPTCHA_HEIGHT_DP = 600
-private const val BRIDGE_NAME = "captcha"
 
 @Composable
 public actual fun CaptchaWebView(
@@ -46,7 +45,7 @@ public actual fun CaptchaWebView(
     UIKitView(
         factory = {
             val controller = WKUserContentController().apply {
-                addScriptMessageHandler(handler, name = BRIDGE_NAME)
+                addScriptMessageHandler(handler, name = CAPTCHA_BRIDGE_NAME)
             }
             val configuration = WKWebViewConfiguration().apply {
                 userContentController = controller
@@ -116,71 +115,12 @@ private class CaptchaMessageHandler(
         didReceiveScriptMessage: WKScriptMessage,
     ) {
         val body = didReceiveScriptMessage.body as? String ?: return
-        if (body.startsWith("__error:")) {
+        if (body.startsWith(CAPTCHA_ERROR_PREFIX)) {
             // hCaptcha widget errored (network, expired, …); leave the widget on screen
             // so the user can retry without our LoginViewModel resetting captcha state.
-            platform.Foundation.NSLog("puklic-captcha widget error: %@", body.removePrefix("__error:"))
+            platform.Foundation.NSLog("puklic-captcha widget error: %@", body.removePrefix(CAPTCHA_ERROR_PREFIX))
             return
         }
         if (body.isNotBlank()) onSolved(body)
     }
-}
-
-/**
- * Build the HTML document loaded into the WKWebView. Defaults to hCaptcha (Discord's
- * primary provider); [service] is currently accepted for future arkose_labs support but
- * the present implementation always renders the hCaptcha widget — Discord serves arkose
- * extremely rarely (and only on already-flagged accounts), so the hCaptcha path covers
- * effectively every challenge a normal sign-in encounters.
- */
-private fun captchaHtml(service: String, sitekey: String, rqdata: String?): String {
-    // hCaptcha Enterprise challenge: Discord's rqdata is an enterprise-only ("sentry") parameter
-    // that is NOT supported via the implicit `data-rqdata` attribute — it must be supplied to
-    // `hcaptcha.render(node, { rqdata })` in an EXPLICIT render. Without it the user solves a
-    // non-enterprise challenge that Discord's enterprise endpoint rejects, so hCaptcha keeps
-    // re-issuing the puzzle ("are you human?" loop). We therefore load the API with
-    // `render=explicit&onload=…` and render the widget ourselves, injecting rqdata when present.
-    val rqdataLine = rqdata?.takeIf { it.isNotBlank() }?.let { "\n        rqdata: \"$it\"," }.orEmpty()
-    return """
-<!DOCTYPE html>
-<html>
-<head>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <style>
-    body { margin: 0; padding: 8px; background: #1e1f22; color: #dbdee1;
-           font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-           display: flex; flex-direction: column; align-items: center; }
-    .service { font-size: 11px; opacity: 0.6; margin-top: 8px; }
-    #h-captcha { margin-top: 4px; }
-  </style>
-  <script>
-    function onCaptcha(token) {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.$BRIDGE_NAME) {
-        window.webkit.messageHandlers.$BRIDGE_NAME.postMessage(token);
-      }
-    }
-    function onCaptchaError(err) {
-      if (window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.$BRIDGE_NAME) {
-        window.webkit.messageHandlers.$BRIDGE_NAME.postMessage('__error:' + err);
-      }
-    }
-    function onHcaptchaLoad() {
-      hcaptcha.render("h-captcha", {
-        sitekey: "$sitekey",$rqdataLine
-        theme: "dark",
-        callback: onCaptcha,
-        "error-callback": onCaptchaError,
-        "chalexpired-callback": onCaptchaError,
-        "expired-callback": onCaptchaError
-      });
-    }
-  </script>
-  <script src="https://js.hcaptcha.com/1/api.js?render=explicit&onload=onHcaptchaLoad" async defer></script>
-</head>
-<body>
-  <div id="h-captcha"></div>
-  <div class="service">via ${service.ifBlank { "hcaptcha" }}</div>
-</body>
-</html>
-    """.trimIndent()
 }
