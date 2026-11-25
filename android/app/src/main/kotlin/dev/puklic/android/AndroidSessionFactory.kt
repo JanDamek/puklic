@@ -5,8 +5,6 @@ import co.touchlab.kermit.Logger
 import dev.puklic.ids.UserId
 import dev.puklic.platform.NotificationService
 import dev.puklic.platform.android.RuntimePermissions
-import dev.puklic.platform.android.voice.PermissionGatedVoiceClient
-import dev.puklic.platform.android.voice.VoiceServiceController
 import dev.puklic.protocol.discord.DiscordDomainEvent
 import dev.puklic.protocol.discord.DiscordGatewayBridge
 import dev.puklic.protocol.discord.DiscordMessageBridge
@@ -34,8 +32,6 @@ import dev.puklic.session.ServerJoiner
 import dev.puklic.session.adapter.GatewayEventSourceAdapter
 import dev.puklic.session.adapter.MessageGatewayAdapter
 import dev.puklic.session.adapter.SessionTransportImpl
-import dev.puklic.voice.NoOpVoiceClient
-import dev.puklic.voice.VoiceClient
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -81,7 +77,8 @@ internal fun buildAndroidSession(token: String, deps: SessionDependencies): Disc
     val gatewayBridge = newGatewayBridge(gateway, sessionScope, selfUserId)
     val sessionBridge = DiscordSessionBridge(rest)
     val events = GatewayEventSourceAdapter(gatewayBridge, sessionScope)
-    val inputs = OrchestratorInputs(sessionScope, events, DiscordMessageBridge(rest), deps, selfUserId)
+    val messageBridge = DiscordMessageBridge(rest)
+    val inputs = OrchestratorInputs(sessionScope, events, messageBridge, deps, selfUserId)
     val orchestrators = buildOrchestrators(inputs)
     startNotifications(inputs, orchestrators)
     return DiscordSession(
@@ -89,7 +86,10 @@ internal fun buildAndroidSession(token: String, deps: SessionDependencies): Disc
         token = token,
         transport = SessionTransportImpl(bridge = sessionBridge, gateway = gateway, scope = sessionScope),
         orchestrators = orchestrators,
-        voiceClient = buildVoiceClient(sessionScope, deps),
+        voiceClient = buildVoiceClient(
+            VoiceWiring(sessionScope, gateway, gatewayBridge, selfUserId, rest, messageBridge),
+            deps,
+        ),
         dmCreator = DmCreator { recipientId -> sessionBridge.createOrOpenDm(recipientId) },
         friendInviter = FriendInviter { username, discriminator -> sessionBridge.addFriend(username, discriminator) },
         serverJoiner = ServerJoiner { code -> sessionBridge.joinServer(code) },
@@ -181,15 +181,4 @@ private fun startNotifications(inputs: OrchestratorInputs, orchestrators: Orches
         selfUserIdProvider = { inputs.selfUserId.value },
         visibilityCheck = orchestrators.channel,
     )
-}
-
-/**
- * Android has no voice media engine yet, so the engine is [NoOpVoiceClient]. It is wrapped so that the
- * microphone permission is requested on the first join and the foreground service follows the session
- * state; both apply unchanged to a real engine.
- */
-private fun buildVoiceClient(sessionScope: CoroutineScope, deps: SessionDependencies): VoiceClient {
-    val client = PermissionGatedVoiceClient(NoOpVoiceClient(), deps.permissions)
-    VoiceServiceController(deps.context, sessionScope).bind(client)
-    return client
 }

@@ -17,6 +17,7 @@ dependencies {
     implementation(projects.shared.platformApi)
     implementation(projects.shared.voiceApi)
     implementation(projects.shared.domain)
+    implementation(projects.shared.voiceCodec)
     implementation(projects.shared.ids)
     implementation(libs.androidx.activity.compose)
     implementation(libs.decompose)

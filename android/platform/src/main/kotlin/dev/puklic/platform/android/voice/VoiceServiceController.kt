@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
 private const val LOG_TAG = "VoiceServiceController"
 
 /**
- * Runs [VoiceForegroundService] exactly while a voice session is in progress. The service starts when
+ * Runs [VoiceForegroundService] and the communication audio route ([VoiceAudioRouting]) exactly while a
+ * voice session is in progress. The service starts when
  * the client leaves idle (connecting, ringing or connected, a transition the user triggers while the
  * app is in the foreground, which is when Android allows a foreground service to start) and stops
  * when the session ends, fails or the owning [scope] is cancelled.
@@ -23,6 +24,8 @@ class VoiceServiceController(
     private val context: Context,
     private val scope: CoroutineScope,
 ) {
+    private val audioRouting = VoiceAudioRouting(context)
+
     fun bind(client: VoiceClient): Job = scope.launch {
         try {
             client.state
@@ -40,11 +43,13 @@ class VoiceServiceController(
     }
 
     private fun start() {
+        audioRouting.acquire()
         runCatching { ContextCompat.startForegroundService(context, VoiceForegroundService.startIntent(context)) }
             .onFailure { Logger.w(LOG_TAG, it) { "Cannot start the voice foreground service" } }
     }
 
     private fun stop() {
+        audioRouting.release()
         context.stopService(VoiceForegroundService.startIntent(context))
     }
 }
