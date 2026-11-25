@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_messages">Zprávy</string>
+    <string name="channel_mentions">Zmínky a přímé zprávy</string>
+    <string name="channel_voice">Hlasové připojení</string>
+    <string name="voice_notification_title">Puklic</string>
+    <string name="voice_notification_text">Připojeno k hlasu</string>
+    <string name="voice_notification_disconnect">Odpojit</string>
+</resources>

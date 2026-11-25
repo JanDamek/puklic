@@ -9,8 +9,9 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 
 /**
- * Android has no system tray — every operation raises [PlatformUnavailable].
- * The clicks flow is exposed but will never emit.
+ * Android has no system tray, a permanent platform fact. Every mutator raises [PlatformUnavailable]
+ * and [clicks] never emits, matching the iOS implementation. The Android app does not wire a
+ * [TrayService] into its dependency graph because no shared code consumes one.
  */
 class AndroidTrayService : TrayService {
     private val noEvents = MutableSharedFlow<TrayClickEvent>()

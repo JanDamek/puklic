@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="channel_messages">Messages</string>
+    <string name="channel_mentions">Mentions and direct messages</string>
+    <string name="channel_voice">Voice connection</string>
+    <string name="voice_notification_title">Puklic</string>
+    <string name="voice_notification_text">Connected to voice</string>
+    <string name="voice_notification_disconnect">Disconnect</string>
+</resources>

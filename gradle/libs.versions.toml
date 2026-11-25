@@ -54,6 +54,10 @@ kover = "0.9.11"
 gradle-versions-plugin = "0.51.0"
 jlleitschuh-ktlint-gradle = "14.2.0"
 
+# Platform-specific (Android; androidx GA releases verified on Google Maven 2026-11-25)
+androidx-activity = "1.13.0"
+androidx-core = "1.19.1"
+
 # Platform-specific (desktop)
 jna = "5.19.0"
 dbus-java = "5.2.2"
@@ -91,6 +95,7 @@ kotlin-stdlib = { module = "org.jetbrains.kotlin:kotlin-stdlib", version.ref = "
 
 # Kotlinx ecosystem
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinx-serialization" }
@@ -147,6 +152,10 @@ kotest-runner-junit5 = { module = "io.kotest:kotest-runner-junit5", version.ref 
 # Build tooling / static analysis
 detekt-compose-rules = { module = "io.nlopez.compose.rules:detekt", version.ref = "detekt-compose-rules" }
 ktlint-compose-rules = { module = "io.nlopez.compose.rules:ktlint", version.ref = "ktlint-compose-rules" }
+
+# Platform-specific (Android)
+androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
+androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
 
 # Platform-specific (desktop)
 jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
