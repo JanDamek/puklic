@@ -58,6 +58,7 @@ import dev.puklic.repositories.UserOrchestrator
 import dev.puklic.session.DiscordSession
 import dev.puklic.session.SessionManager
 import dev.puklic.session.adapter.DiscordCredentialsLoginAdapter
+import dev.puklic.session.adapter.MainGatewayBridgeAdapter
 import dev.puklic.session.adapter.GatewayEventSourceAdapter
 import dev.puklic.session.adapter.MessageGatewayAdapter
 import dev.puklic.session.adapter.SessionTransportImpl

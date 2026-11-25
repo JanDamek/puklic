@@ -1,4 +1,4 @@
-package dev.puklic.desktop
+package dev.puklic.session.adapter
 
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
@@ -21,12 +21,12 @@ import kotlinx.coroutines.flow.onEach
 
 /**
  * Adapts the main Discord gateway (`GatewayConnection` + `DiscordGatewayBridge`) to the slim
- * [MainGatewayBridge] interface consumed by [dev.puklic.voice.DefaultVoiceClient].
+ * [MainGatewayBridge] interface consumed by voice client implementations.
  *
  * Keeps `:shared:voice` free of any direct dependency on `:shared:protocol-discord` or
  * `:shared:repositories`.
  */
-internal class MainGatewayBridgeAdapter(
+public class MainGatewayBridgeAdapter(
     private val gateway: GatewayConnection,
     bridge: DiscordGatewayBridge,
     scope: CoroutineScope,
