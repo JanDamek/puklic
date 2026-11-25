@@ -1,6 +1,6 @@
 # Android
 
-Shipping platform (in scope since 2026-11-24): package `cz.damek.puklic.app`, company Google Play account, internal testing track first. The app is implemented independently of FP-14h (PUKLIC-123); the voice media engine is the one remaining follow-up.
+Shipping platform (in scope since 2026-11-24): package `cz.damek.puklic.app`, company Google Play account, internal testing track first. The app is implemented independently of FP-14h (PUKLIC-123); the voice media engine (PUKLIC-124) is the shared DAVE-free `SharedVoiceClient`, see `docs/03_infrastructure/architect-reports/2026-11-25-android-voice-shared-orchestrator.md`.
 
 ## Targets
 
@@ -28,7 +28,11 @@ Actuals live in `:android:platform` (`dev.puklic.platform.android`); the wiring 
 | Runtime permissions | `RuntimePermissions`: requested only on first need (`RECORD_AUDIO` + notifications on the first voice join, notifications on the first notification), never at startup; the started `MainActivity` attaches the launcher |
 | Voice session | `PermissionGatedVoiceClient` (permission gate around any `VoiceClient`) + `VoiceServiceController` runs `VoiceForegroundService` (type `microphone`, one low-importance notification with a "Disconnect" action) exactly while the voice state is connecting, ringing or connected |
 | File picker | Storage Access Framework (`ACTION_OPEN_DOCUMENT`), not wired yet |
-| Audio capture | `AudioRecord` / Oboe — the voice media engine is a separate follow-up; until then the engine behind the gate is `NoOpVoiceClient` |
+| Voice engine | `SharedVoiceClient` (`:shared:voice-codec` commonMain) behind `PermissionGatedVoiceClient`, wired in `AndroidVoiceClientFactory`; announces DAVE version 0 (no end-to-end encryption), transport encryption `aead_xchacha20_poly1305_rtpsize`; no screen sharing |
+| Audio capture / playback | `AndroidAudioCapture` (`AudioRecord`, `VOICE_COMMUNICATION` source) and `AndroidAudioPlayback` (`AudioTrack`, voice-communication usage), 48 kHz mono 16-bit, 20 ms frames |
+| Opus | Concentus (pure Java, BSD-3-Clause), no NDK and no per-ABI natives |
+| Audio route | `VoiceAudioRouting`: audio focus, `MODE_IN_COMMUNICATION`, headset else loudspeaker; driven by `VoiceServiceController` together with the foreground service |
+| Voice UI | `VoiceDock` actual: one bottom row shown only while in a voice channel, "channel · server" on the left, mute, deafen and disconnect icon buttons on the right; no screen-share button, no DAVE indicator |
 | Push notifications | FCM (Firebase Cloud Messaging) — **not wired**, gateway works when app is running |
 
 ## Process / lifecycle
@@ -45,6 +49,7 @@ Discord gateway = persistent WebSocket. Android aggressively kills background ap
 | `INTERNET` | Network | install time |
 | `ACCESS_NETWORK_STATE` | Connectivity changes | install time |
 | `RECORD_AUDIO` | Voice | runtime, first voice join |
+| `MODIFY_AUDIO_SETTINGS` | Communication audio mode and route during a call | install time |
 | `POST_NOTIFICATIONS` | Notifications and the voice notification (Android 13+) | runtime, first voice join or first notification |
 | `FOREGROUND_SERVICE` | Voice session service | install time |
 | `FOREGROUND_SERVICE_MICROPHONE` | Voice session service type (Android 14+) | install time |

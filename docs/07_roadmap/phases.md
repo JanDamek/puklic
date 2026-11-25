@@ -188,6 +188,6 @@ user "všechny platformy stejně":
   / %LOCALAPPDATA% paths); FP-9 `WindowsScreenCaptureFactory` wired into
   `DependencyGraph` for DXGI screen + WASAPI loopback capture.
 - macOS x86_64 (Intel): **out of scope**
-- Android: in scope since 2026-11-24 — applicationId `cz.damek.puklic.app`, company Google Play account, internal test track first (PUKLIC-19); functional implementation (PUKLIC-123) is independent of FP-14h. The Android app hosts the shared Compose UI with real platform actuals; the Android voice media engine (audio capture/playback, Opus, RTP/UDP) is not wired yet and is a separate follow-up — Android currently runs `NoOpVoiceClient` behind the permission gate and foreground service
+- Android: in scope since 2026-11-24 — applicationId `cz.damek.puklic.app`, company Google Play account, internal test track first (PUKLIC-19); functional implementation (PUKLIC-123) is independent of FP-14h. The Android app hosts the shared Compose UI with real platform actuals; the Android voice engine (PUKLIC-124: `AudioRecord`/`AudioTrack`, Concentus Opus, RTP/UDP, per-hop XChaCha20-Poly1305) is the shared DAVE-free `SharedVoiceClient` behind the permission gate and foreground service; no DAVE and no screen sharing on Android
 - iOS (App Store, chat-only, Designed for iPad on Mac): **planned Phase 6** —
   architect report 2026-05-28, see Phase 6 above.

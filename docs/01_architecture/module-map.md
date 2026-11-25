@@ -110,6 +110,10 @@ puklic/
 - **Targets:** JVM, Android, iOS
 - **Depends on:** `:shared:protocol-discord`, `:shared:repositories`, `:shared:platform-api`
 
+### `:shared:voice-codec` voice client (PUKLIC-124)
+
+`dev.puklic.voice.client` in commonMain holds `SharedVoiceClient`, the DAVE-free `VoiceClient` used by Android (and later the App Store builds): `VoiceHandshake` (Op 4 + VOICE_STATE/SERVER_UPDATE), `VoiceMediaSession` (UDP discovery, capture and playback pipelines), `VoicePlatform` (platform UDP/WebSocket/audio factories), `ParticipantTracker`, `IncomingCallQueue`. `MainGatewayBridge` lives in `:shared:voice-api`; its adapter `MainGatewayBridgeAdapter` in `:shared:session`. The android target adds `AndroidAudioCapture/Playback` and Concentus Opus; the UDP transport and XChaCha20-Poly1305 are compiled from `src/javaMain` into both the jvm and android compilations. The desktop `DefaultVoiceClient` (with DAVE) is unchanged apart from sharing these building blocks.
+
 ### `:shared:voice` (Phase 3.0, jvm-only)
 
 - **Purpose:** Voice gateway + RTP/UDP + Opus + AEAD (jvm-only Phase 3.0). Exposes `VoiceClient` facade, `VoiceState`, `AudioDevice`, `AudioConstants` in commonMain; real audio/codec/AEAD I/O lives in jvmMain (concentus + BouncyCastle + javax.sound.sampled). Android / iOS targets are commented out until Phase 3.1+.
