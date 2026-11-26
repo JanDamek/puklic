@@ -53,9 +53,8 @@ dependencies {
     implementation(libs.coil.network.ktor3)
     implementation(libs.kermit)
     implementation(libs.slf4j.api)
-    implementation(libs.logback.classic)
+    implementation(libs.slf4j.jdk14)
     testImplementation(libs.kotest.assertions.core)
-    testImplementation(libs.logback.classic)
     testImplementation(libs.kotest.runner.junit5)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.ktor.client.mock)
@@ -67,13 +66,20 @@ compose.desktop {
         jvmArgs += listOf(
             "-XX:+UseSerialGC",
             "-XX:TieredStopAtLevel=1",
-            "-Xms32m",
+            "-Xms8m",
             "-Xmx512m",
-            "-Xmn16m",
+            "-Xmn4m",
             "-XX:MinHeapFreeRatio=10",
             "-XX:MaxHeapFreeRatio=30",
             "-XX:-UsePerfData",
         )
+        buildTypes.release.proguard {
+            version.set("7.10.0")
+            isEnabled.set(true)
+            obfuscate.set(true)
+            optimize.set(false)
+            configurationFiles.from(project.file("proguard-rules.pro"))
+        }
         nativeDistributions {
             // Linux is the primary target (per CLAUDE.md). macOS and Windows are
             // produced from their respective host runners. jpackage cross-compile is
@@ -211,23 +217,24 @@ fun runProcess(workingDir: File, vararg command: String) {
 }
 
 val patchDebPostBuild = tasks.register("patchDebPostBuild") {
-    description = "Post-processes the .deb produced by packageDeb: injects Depends (#15) and FHS symlinks (#20)."
+    description = "Post-processes the .deb produced by packageDeb / packageReleaseDeb: injects Depends (#15) and FHS symlinks (#20)."
     group = "compose desktop"
+    notCompatibleWithConfigurationCache("Calls the build-script helper runProcess from doLast")
 
-    val debDir = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val debDirs = listOf("main", "main-release").map { layout.buildDirectory.dir("compose/binaries/$it/deb") }
     val depsLine = debRuntimeDependencies.joinToString(", ")
 
     onlyIf {
         val os = System.getProperty("os.name").lowercase()
-        os.contains("linux") && debDir.get().asFile.exists()
+        os.contains("linux") && debDirs.any { it.get().asFile.exists() }
     }
 
     doLast {
-        val dir = debDir.get().asFile
-        val debs = dir.listFiles { f -> f.isFile && f.name.endsWith(".deb") }
-            ?: emptyArray()
+        val debs = debDirs.flatMap { dir ->
+            dir.get().asFile.listFiles { f -> f.isFile && f.name.endsWith(".deb") }.orEmpty().toList()
+        }
         if (debs.isEmpty()) {
-            logger.warn("patchDebPostBuild: no .deb files found in $dir; skipping")
+            logger.warn("patchDebPostBuild: no .deb files found in $debDirs; skipping")
             return@doLast
         }
         for (deb in debs) {
@@ -319,7 +326,7 @@ val patchDebPostBuild = tasks.register("patchDebPostBuild") {
     }
 }
 
-tasks.matching { it.name == "packageDeb" }.configureEach {
+tasks.matching { it.name == "packageDeb" || it.name == "packageReleaseDeb" }.configureEach {
     finalizedBy(patchDebPostBuild)
 }
 

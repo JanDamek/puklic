@@ -93,7 +93,7 @@ Developers on Apple Silicon can also run from source:
 ```bash
 ./gradlew :desktop:app:run
 # or build a local .dmg for testing
-./gradlew :desktop:app:packageDistributionForCurrentOS
+./gradlew :desktop:app:packageReleaseDistributionForCurrentOS
 ```
 
 ### Build installers from source
@@ -101,13 +101,13 @@ Developers on Apple Silicon can also run from source:
 ```bash
 # Produces the host platform's installer (.deb + app-image dir on Linux, .dmg on macOS).
 # To also produce the final .AppImage on Linux, run the wrapper script below.
-./gradlew :desktop:app:packageDistributionForCurrentOS
+./gradlew :desktop:app:packageReleaseDistributionForCurrentOS
 
 # Linux only — wrap the jpackage app-image directory into a real .AppImage.
 # Requires Linux host (uses appimagetool, x86_64).
-./gradlew :desktop:app:createDistributable
+./gradlew :desktop:app:createReleaseDistributable
 PUKLIC_VERSION="$(grep -E '^puklic\.version=' gradle.properties | cut -d= -f2)" \
-  APP_IMAGE_DIR="desktop/app/build/compose/binaries/main/app/Puklic" \
+  APP_IMAGE_DIR="desktop/app/build/compose/binaries/main-release/app/Puklic" \
   OUT_DIR="desktop/app/build/appimage" \
   ICON_PATH="icons/linux/512x512/puklic.png" \
   bash desktop/app/src/main/appimage/build-appimage.sh
@@ -116,7 +116,7 @@ PUKLIC_VERSION="$(grep -E '^puklic\.version=' gradle.properties | cut -d= -f2)" 
 Output:
 - `.deb` — `desktop/app/build/compose/binaries/main/deb/`
 - `.dmg` — `desktop/app/build/compose/binaries/main/dmg/`
-- `app/Puklic/` (jpackage app-image runtime tree, used as input to the AppImage wrapper) — `desktop/app/build/compose/binaries/main/app/Puklic/`
+- `app/Puklic/` (jpackage app-image runtime tree, used as input to the AppImage wrapper) — `desktop/app/build/compose/binaries/main-release/app/Puklic/`
 - `.AppImage` — `desktop/app/build/appimage/`
 
 Per-OS FFmpeg natives are selected automatically by `detectFfmpegClassifier()` in

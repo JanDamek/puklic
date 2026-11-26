@@ -9,10 +9,9 @@ import java.util.Locale
 
 /**
  * Initializes platform-aware logging:
- *  1. Resolves a per-OS log directory and exposes it as the `puklic.log.dir` system property
- *     so that `logback.xml` can pick it up via `${puklic.log.dir}`.
+ *  1. Resolves a per-OS log directory and installs the `java.util.logging` backend writing there.
  *  2. Bridges Kermit (used in commonMain via `co.touchlab.kermit.Logger`) into SLF4J so the
- *     same logs land in the rotating file + redacting layout configured by Logback.
+ *     same logs land in the rotating file + redacting formatter configured by [JulLogging].
  *
  * Must be called before any logger is touched (i.e. as the very first statement in `main`).
  */
@@ -24,8 +23,7 @@ public object LoggingBootstrap {
 
     public fun install() {
         logDir = resolveLogDir().also { it.mkdirs() }
-        // logback.xml reads ${puklic.log.dir} when initializing appenders.
-        System.setProperty("puklic.log.dir", logDir.absolutePath)
+        JulLogging.install(logDir)
 
         // Bridge Kermit into SLF4J. Replaces default platform writer; keeps existing
         // commonMain `Logger.i { ... }` call sites unchanged across all targets.

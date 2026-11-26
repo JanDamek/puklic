@@ -1,7 +1,7 @@
 package dev.puklic.desktop.crash
 
 import dev.puklic.desktop.logging.LoggingBootstrap
-import dev.puklic.desktop.logging.RedactingPatternLayout
+import dev.puklic.desktop.logging.RedactingFormatter
 import org.slf4j.LoggerFactory
 import java.io.File
 import java.io.PrintWriter
@@ -14,7 +14,7 @@ import java.time.format.DateTimeFormatter
  * `<logDir>/crashes/crash-YYYYMMDD-HHmmss.txt` and forwards the failure to SLF4J.
  *
  * Reports include the failing thread, JVM/OS metadata, and the full stack trace. Output
- * passes through [RedactingPatternLayout.redact] so accidental tokens in exception
+ * passes through [RedactingFormatter.redact] so accidental tokens in exception
  * messages are masked on disk.
  *
  * Upload to a remote endpoint is intentionally out of scope (v1 = local-only).
@@ -49,6 +49,6 @@ public object CrashReporter {
             appendLine("=== Stack trace ===")
             append(sw.toString())
         }
-        file.writeText(RedactingPatternLayout.redact(body))
+        file.writeText(RedactingFormatter.redact(body))
     }
 }

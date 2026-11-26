@@ -120,17 +120,17 @@ LINK_TARGET="$(readlink "${HOME}/.android" 2>/dev/null || true)"
 trap '[ -n "$LINK_TARGET" ] && { rm -rf "${HOME}/.android"; ln -s "$LINK_TARGET" "${HOME}/.android"; }' EXIT
 rm -rf "${HOME}/.android" && mkdir -p "${HOME}/.android"
 
-echo "[release-mac-dmg] building unsigned .dmg (:desktop:app:packageDmg)"
+echo "[release-mac-dmg] building unsigned .dmg (:desktop:app:packageReleaseDmg)"
 ( cd "$REPO_ROOT" && ./gradlew --init-script /tmp/init-maven-central.gradle \
-    :desktop:app:packageDmg --no-daemon --no-configuration-cache \
+    :desktop:app:packageReleaseDmg --no-daemon --no-configuration-cache \
     -Pcompose.desktop.packaging.checkJdkVendor=false )
 
-DMG_UNSIGNED="${REPO_ROOT}/desktop/app/build/compose/binaries/main/dmg/Puklic-${VERSION}.dmg"
+DMG_UNSIGNED="${REPO_ROOT}/desktop/app/build/compose/binaries/main-release/dmg/Puklic-${VERSION}.dmg"
 [ -f "$DMG_UNSIGNED" ] || {
-  DMG_UNSIGNED="$(ls -1 "${REPO_ROOT}/desktop/app/build/compose/binaries/main/dmg/"*.dmg 2>/dev/null | head -1 || true)"
+  DMG_UNSIGNED="$(ls -1 "${REPO_ROOT}/desktop/app/build/compose/binaries/main-release/dmg/"*.dmg 2>/dev/null | head -1 || true)"
 }
 [ -n "${DMG_UNSIGNED:-}" ] && [ -f "$DMG_UNSIGNED" ] || {
-  echo "[release-mac-dmg] unsigned .dmg not found under desktop/app/build/compose/binaries/main/dmg/" >&2
+  echo "[release-mac-dmg] unsigned .dmg not found under desktop/app/build/compose/binaries/main-release/dmg/" >&2
   exit 1
 }
 echo "[release-mac-dmg] unsigned .dmg = $DMG_UNSIGNED"

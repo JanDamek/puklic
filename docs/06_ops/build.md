@@ -33,7 +33,7 @@ Cross-platform iOS build from Linux = **impossible** (Apple toolchain constraint
 | `./gradlew build` | Compile + test all |
 | `./gradlew :shared:domain:test` | Per-module test |
 | `./gradlew :desktop:app:run` | Run desktop app in dev mode |
-| `./gradlew :desktop:app:packageDistributionForCurrentOS` | Build .deb + jpackage app-image dir (Linux) / .dmg (macOS dev). On Linux the final `.AppImage` is produced by wrapping the app-image dir via `desktop/app/src/main/appimage/build-appimage.sh` (runs in CI; see `.github/workflows/build-installers.yml`). |
+| `./gradlew :desktop:app:packageReleaseDistributionForCurrentOS` | Build the ProGuard-shrunk .deb + jpackage app-image dir (Linux) / .dmg (macOS dev); output under `build/compose/binaries/main-release/`. The unshrunk `packageDistributionForCurrentOS` variant is for debugging only (shrinking is what keeps idle RSS low, see `perf-baseline.md`). On Linux the final `.AppImage` is produced by wrapping the app-image dir via `desktop/app/src/main/appimage/build-appimage.sh` (runs in CI; see `.github/workflows/build-installers.yml`). |
 | `./gradlew :android:app:assembleDebug` | Android APK |
 | `./gradlew :android:app:assembleRelease` | Signed release APK / AAB |
 | `./gradlew :ios:app:iosDeployIPhone15Debug` | Run iOS app in simulator (KMP) |

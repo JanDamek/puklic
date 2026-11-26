@@ -35,7 +35,6 @@ koin = "4.2.2"
 # Logging
 kermit = "2.1.0"
 slf4j = "2.0.20"
-logback = "1.6.6"
 
 # Testing
 kotest = "6.2.6"
@@ -138,7 +137,7 @@ koin-test = { module = "io.insert-koin:koin-test", version.ref = "koin" }
 kermit = { module = "co.touchlab:kermit", version.ref = "kermit" }
 kermit-io = { module = "co.touchlab:kermit-io", version.ref = "kermit" }
 slf4j-api = { module = "org.slf4j:slf4j-api", version.ref = "slf4j" }
-logback-classic = { module = "ch.qos.logback:logback-classic", version.ref = "logback" }
+slf4j-jdk14 = { module = "org.slf4j:slf4j-jdk14", version.ref = "slf4j" }
 
 # Testing
 kotest-assertions-core = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest" }

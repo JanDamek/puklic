@@ -3,7 +3,7 @@
 # real .AppImage using appimagetool.
 #
 # Compose Desktop's `TargetFormat.AppImage` is jpackage's `--type app-image`,
-# which emits a runtime tree under build/compose/binaries/main/app-image/Puklic/.
+# which emits a runtime tree under build/compose/binaries/main-release/app-image/Puklic/.
 # That directory is NOT an AppImage file — it's an unpacked jpackage app-image.
 # AppImage convention requires:
 #   AppDir/
@@ -16,7 +16,7 @@
 # Inputs (env):
 #   PUKLIC_VERSION   — required, e.g. "1.0.1"
 #   APP_IMAGE_DIR    — required, path to Compose Desktop's emitted app-image dir
-#                      (e.g. desktop/app/build/compose/binaries/main/app-image/Puklic)
+#                      (e.g. desktop/app/build/compose/binaries/main-release/app-image/Puklic)
 #   OUT_DIR          — required, directory where the final .AppImage is written
 #   ICON_PATH        — required, path to puklic.png (512x512 PNG)
 #   APPIMAGETOOL_URL — optional override (default: pinned release below)
@@ -42,7 +42,7 @@ APPIMAGETOOL_SHA256="${APPIMAGETOOL_SHA256:-$DEFAULT_APPIMAGETOOL_SHA256}"
 
 if [ ! -d "$APP_IMAGE_DIR" ]; then
     echo "ERROR: APP_IMAGE_DIR='$APP_IMAGE_DIR' does not exist." >&2
-    echo "       Run :desktop:app:packageAppImage first." >&2
+    echo "       Run :desktop:app:createReleaseDistributable first." >&2
     exit 1
 fi
 if [ ! -f "$ICON_PATH" ]; then

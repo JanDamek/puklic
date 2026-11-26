@@ -20,7 +20,7 @@ media stack), it suffices to:
 - swap the `ffmpeg-platform-gpl` dependency in `desktop/app/build.gradle.kts`
   for the LGPL build `ffmpeg-platform` (audio-only — H.264/H.265 encode will
   not be available)
-- rebuild with `./gradlew :desktop:app:packageDistributionForCurrentOS`
+- rebuild with `./gradlew :desktop:app:packageReleaseDistributionForCurrentOS`
 
 That binary is then Apache-2.0 + LGPL (FFmpeg LGPL build).
 
