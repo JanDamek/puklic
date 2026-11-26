@@ -2,6 +2,7 @@ package dev.puklic.protocol.discord.gateway
 
 import dev.puklic.protocol.discord.Capabilities
 import dev.puklic.protocol.discord.DiscordClientProperties
+import dev.puklic.protocol.discord.DiscordEndpoints
 import dev.puklic.protocol.discord.DiscordJson
 import dev.puklic.protocol.discord.SuperPropertiesJson
 import dev.puklic.protocol.discord.buildClientProperties
@@ -39,7 +40,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 
-internal const val GATEWAY_URL_DEFAULT = "wss://gateway.discord.gg/?v=10&encoding=json"
+internal const val GATEWAY_URL_DEFAULT = DiscordEndpoints.PRODUCTION_GATEWAY_URL
 
 /** Discord-defined close codes for the gateway, per `docs/02_domain/discord-protocol.md`. */
 internal object CloseCode {
@@ -97,6 +98,8 @@ public class GatewayConnection(
      * (1, 2, 4, 8, 16, 30 s capped). Tests can override with [0L] for instant retries.
      */
     private val reconnectBackoffMs: LongArray = DEFAULT_RECONNECT_BACKOFF_MS,
+    /** Gateway endpoint used for fresh connects; overridable to target a local test server. */
+    private val gatewayUrl: String = GATEWAY_URL_DEFAULT,
 ) {
     // Emit ALL identity fields (defaults included) — Discord's IDENTIFY parser expects the
     // full client-properties payload, identical to the X-Super-Properties JSON.
@@ -122,7 +125,7 @@ public class GatewayConnection(
     private var lastHeartbeatSent: Long = 0
     private var lastHeartbeatAcked: Long = 0
 
-    public fun connect(url: String = GATEWAY_URL_DEFAULT) {
+    public fun connect(url: String = gatewayUrl) {
         if (workerJob?.isActive == true) return
         workerJob = scope.launch { runLoop(url) }
     }
@@ -208,7 +211,7 @@ public class GatewayConnection(
             // Resumable close → RESUME via resume_gateway_url.
             // Anything else → fresh IDENTIFY against default gateway.
             val resumable = sessionId != null && isResumableCloseCode(closeCode)
-            nextUrl = if (resumable) resumeGatewayUrl ?: GATEWAY_URL_DEFAULT else GATEWAY_URL_DEFAULT
+            nextUrl = if (resumable) resumeGatewayUrl ?: gatewayUrl else gatewayUrl
             delayBackoff(attempt)
         }
     }

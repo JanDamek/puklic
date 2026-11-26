@@ -38,6 +38,7 @@ import dev.puklic.platform.windows.WindowsSecureStorage
 import dev.puklic.screencast.ScreenCaptureFactory
 import dev.puklic.screencast.macos.MacScreenCaptureFactory
 import dev.puklic.screencast.windows.WindowsScreenCaptureFactory
+import dev.puklic.protocol.discord.DiscordEndpoints
 import dev.puklic.protocol.discord.DiscordGatewayBridge
 import dev.puklic.protocol.discord.DiscordMessageBridge
 import dev.puklic.protocol.discord.DiscordSessionBridge
@@ -192,6 +193,8 @@ public class DependencyGraph private constructor(
             // in-memory; on session restart the orchestrator's READY handler wholesale replaces it.
             val roleStore = dev.puklic.repositories.RoleStore()
 
+            val endpoints = discordEndpointsFromSystemProperties()
+
             val sessionFactory: (String) -> DiscordSession = { token ->
                 buildSession(
                     token = token,
@@ -205,10 +208,11 @@ public class DependencyGraph private constructor(
                     notificationService = notifications,
                     roleStore = roleStore,
                     readStateStore = readState,
+                    endpoints = endpoints,
                 )
             }
 
-            val credentialsLogin = DiscordCredentialsLoginAdapter(DiscordLoginClient(httpClient))
+            val credentialsLogin = DiscordCredentialsLoginAdapter(DiscordLoginClient(httpClient, baseUrl = endpoints.apiBase))
 
             val sessionManager = SessionManager(
                 applicationScope = applicationScope,
@@ -235,6 +239,12 @@ public class DependencyGraph private constructor(
             applicationScope.launch {
                 runCatching { sessionManager.loadStoredSession() }
                     .onFailure { ex -> Logger.w(LOG_TAG, ex) { "Auto-restore failed" } }
+            }
+
+            applicationScope.launch {
+                sessionManager.activeSession.filterNotNull().first()
+                    .state.filterIsInstance<SessionState.Connected>().first()
+                StartupTiming.milestone("session-connected")
             }
 
             if (System.getProperty("puklic.dev.autotest") == "true") {
@@ -282,13 +292,14 @@ public class DependencyGraph private constructor(
             notificationService: dev.puklic.platform.NotificationService,
             roleStore: dev.puklic.repositories.RoleStore,
             readStateStore: ReadStateRepositoryImpl,
+            endpoints: DiscordEndpoints,
         ): DiscordSession {
             val sessionJob = SupervisorJob(applicationScope.coroutineContext[Job])
             val sessionScope = CoroutineScope(sessionJob + Dispatchers.Default)
 
-            val rest = DiscordRestClient(httpClient, token)
+            val rest = DiscordRestClient(httpClient, token, baseUrl = endpoints.apiBase)
             val gatewayTransportFactory = ktorGatewayTransportFactory(httpClient)
-            val gateway = GatewayConnection(sessionScope, token, gatewayTransportFactory)
+            val gateway = GatewayConnection(sessionScope, token, gatewayTransportFactory, gatewayUrl = endpoints.gatewayUrl)
 
             // Self-user id tracker — populated when Ready arrives, consumed by
             // MessageOrchestrator and by the bridge itself (issue #18: GUILD_MEMBER_UPDATE

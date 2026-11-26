@@ -10,7 +10,7 @@
     <property name="LOG_DIR" value="${puklic.log.dir:-${user.home}/.puklic/logs}"/>
 
     <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
-        <encoder>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
             <layout class="dev.puklic.desktop.logging.RedactingPatternLayout">
                 <pattern>%d{HH:mm:ss.SSS} %-5level [%logger{20}] %msg%n</pattern>
             </layout>
@@ -25,7 +25,7 @@
             <maxHistory>14</maxHistory>
             <totalSizeCap>200MB</totalSizeCap>
         </rollingPolicy>
-        <encoder>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
             <layout class="dev.puklic.desktop.logging.RedactingPatternLayout">
                 <pattern>%d{ISO8601} [%thread] %-5level [%logger] - %msg%n</pattern>
             </layout>

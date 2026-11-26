@@ -5,6 +5,7 @@ import dev.puklic.ids.ChannelId
 import dev.puklic.ids.GuildId
 import dev.puklic.ids.MessageId
 import dev.puklic.protocol.discord.DiscordClientProperties
+import dev.puklic.protocol.discord.DiscordEndpoints
 import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordJson
 import dev.puklic.protocol.discord.buildClientProperties
@@ -46,7 +47,7 @@ import kotlinx.serialization.serializer
 import kotlin.io.encoding.Base64
 import kotlin.io.encoding.ExperimentalEncodingApi
 
-private const val BASE_URL = "https://discord.com/api/v10"
+private const val BASE_URL = DiscordEndpoints.PRODUCTION_API_BASE
 private const val MAX_RETRIES = 3
 private const val INITIAL_BACKOFF_MS = 1_000L
 private const val MESSAGE_LIMIT_DEFAULT = 50

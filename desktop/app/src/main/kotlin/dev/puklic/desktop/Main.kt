@@ -2,9 +2,11 @@ package dev.puklic.desktop
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,7 @@ private const val IMAGE_CACHE_MAX_BYTES: Long = 50L * 1024 * 1024
  */
 public fun main(): Unit = application {
     LoggingBootstrap.install()
+    StartupTiming.milestone("main-entered")
     CrashReporter.install()
     configureDockIcon()
     val graph = remember { DependencyGraph.create() }
@@ -68,6 +71,10 @@ public fun main(): Unit = application {
         icon = painterResource(WINDOW_ICON_RESOURCE),
     ) {
         window.minimumSize = Dimension(480, 600)
+        LaunchedEffect(Unit) {
+            withFrameNanos { }
+            StartupTiming.milestone("first-frame")
+        }
         val update by graph.updateScheduler.update.collectAsState()
         Column(modifier = Modifier.fillMaxSize()) {
             UpdateBanner(

@@ -1,6 +1,7 @@
 package dev.puklic.protocol.discord.rest
 
 import dev.puklic.protocol.discord.DiscordClientProperties
+import dev.puklic.protocol.discord.DiscordEndpoints
 import dev.puklic.protocol.discord.DiscordError
 import dev.puklic.protocol.discord.DiscordJson
 import dev.puklic.protocol.discord.buildClientProperties
@@ -27,7 +28,7 @@ import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 
-private const val DEFAULT_BASE_URL = "https://discord.com/api/v10"
+private const val DEFAULT_BASE_URL = DiscordEndpoints.PRODUCTION_API_BASE
 
 /**
  * Outcome of an email/password (or username/password) login attempt against

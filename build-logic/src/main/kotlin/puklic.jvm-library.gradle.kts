@@ -8,6 +8,7 @@ plugins {
 
 kotlin {
     jvmToolchain(21)
+    compilerOptions.freeCompilerArgs.addAll("-Xlambdas=class", "-Xsam-conversions=class")
 }
 
 dependencies {

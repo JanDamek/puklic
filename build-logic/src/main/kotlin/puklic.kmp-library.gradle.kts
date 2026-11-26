@@ -16,7 +16,9 @@ plugins {
 
 kotlin {
     // Default hierarchy template auto-applied by Kotlin 2.x — no explicit call needed
-    jvm()
+    jvm {
+        compilerOptions.freeCompilerArgs.addAll("-Xlambdas=class", "-Xsam-conversions=class")
+    }
     android {
         compileSdk = 37
         minSdk = 26

@@ -64,6 +64,16 @@ dependencies {
 compose.desktop {
     application {
         mainClass = "dev.puklic.desktop.MainKt"
+        jvmArgs += listOf(
+            "-XX:+UseSerialGC",
+            "-XX:TieredStopAtLevel=1",
+            "-Xms32m",
+            "-Xmx512m",
+            "-Xmn16m",
+            "-XX:MinHeapFreeRatio=10",
+            "-XX:MaxHeapFreeRatio=30",
+            "-XX:-UsePerfData",
+        )
         nativeDistributions {
             // Linux is the primary target (per CLAUDE.md). macOS and Windows are
             // produced from their respective host runners. jpackage cross-compile is
