@@ -24,6 +24,11 @@ import dev.puklic.voice.screenshare.ScreenShareState
 import dev.puklic.voice.screenshare.ScreenSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_generic_channel_label
+import dev.puklic.ui.resources.voice_picker_audio_unsupported_macos
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.UiText
 
 @Composable
 internal actual fun VoiceDock(viewModel: MainViewModel) {
@@ -68,7 +73,8 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     var selectedCaptureId by remember { mutableStateOf<String?>(null) }
     var selectedPlaybackId by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
-    val label = (state as? VoiceState.Connected)?.let { "voice" }
+    val genericLabel = stringResource(Res.string.voice_generic_channel_label)
+    val label = (state as? VoiceState.Connected)?.let { genericLabel }
 
     Column {
         if (downgradeBannerVisible) {
@@ -133,7 +139,7 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
         ScreenSharePickerDialog(
             sources = pickerSources,
             audioShareSupported = !isMacOs,
-            audioShareUnsupportedReason = if (isMacOs) MACOS_AUDIO_SHARE_UNSUPPORTED_REASON else null,
+            audioShareUnsupportedReason = if (isMacOs) UiText.of(Res.string.voice_picker_audio_unsupported_macos) else null,
             onShare = { source, shareAudio ->
                 pickerOpen = false
                 scope.launch { voiceClient.screenShare.start(source, shareAudio) }
@@ -143,5 +149,3 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     }
 }
 
-private const val MACOS_AUDIO_SHARE_UNSUPPORTED_REASON: String =
-    "System audio sharing is not supported on macOS."

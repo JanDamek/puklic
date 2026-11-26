@@ -11,6 +11,7 @@ The UX foundation has been settled by discussion. This section holds the UI spec
 | [`screens.md`](screens.md) | Screen inventory (Login, Main three-pane, Settings, Command palette) + states |
 | [`component-library.md`](component-library.md) | Reusable Compose components (Avatar, MessageRow, Composer, CommandPalette, ...) |
 | [`interactions.md`](interactions.md) | Keyboard shortcuts, gestures, focus management, accessibility |
+| [`i18n.md`](i18n.md) | UI string localization (Compose resources, English + Czech), adding strings and locales |
 
 ## Fixed decisions (UX discussion 2026-05-21)
 

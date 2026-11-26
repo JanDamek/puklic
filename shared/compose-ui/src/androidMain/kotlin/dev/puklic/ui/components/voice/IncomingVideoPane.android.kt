@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.IncomingVideoFrame
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_remote_screenshare
+import org.jetbrains.compose.resources.stringResource
 
 private const val BYTES_PER_PIXEL = 4
 private const val PANE_PADDING_DP = 8
@@ -41,7 +44,7 @@ internal actual fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {
             }
             Image(
                 bitmap = bitmap,
-                contentDescription = "Remote screenshare $ssrc",
+                contentDescription = stringResource(Res.string.voice_remote_screenshare, ssrc.toString()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(frame.width.toFloat() / frame.height.toFloat().coerceAtLeast(MIN_FRAME_HEIGHT)),

@@ -37,6 +37,19 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.screenshare.ScreenSource
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_cancel
+import dev.puklic.ui.resources.voice_picker_no_sources
+import dev.puklic.ui.resources.voice_picker_no_windows
+import dev.puklic.ui.resources.voice_picker_share
+import dev.puklic.ui.resources.voice_picker_share_audio
+import dev.puklic.ui.resources.voice_picker_tab_screens
+import dev.puklic.ui.resources.voice_picker_tab_windows
+import dev.puklic.ui.resources.voice_picker_title
+import dev.puklic.ui.resources.voice_picker_window_fallback
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.UiText
+import dev.puklic.ui.text.asString
 
 /**
  * Modal "Share Screen" picker. See architect report
@@ -53,7 +66,7 @@ import dev.puklic.voice.screenshare.ScreenSource
 public fun ScreenSharePickerDialog(
     sources: List<ScreenSource>,
     audioShareSupported: Boolean,
-    audioShareUnsupportedReason: String?,
+    audioShareUnsupportedReason: UiText?,
     onShare: (ScreenSource, Boolean) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -67,12 +80,12 @@ public fun ScreenSharePickerDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share Screen") },
+        title = { Text(stringResource(Res.string.voice_picker_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 if (sources.isEmpty()) {
                     Text(
-                        text = "No capturable screens were detected.",
+                        text = stringResource(Res.string.voice_picker_no_sources),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                 } else {
@@ -80,7 +93,7 @@ public fun ScreenSharePickerDialog(
                         Tab(
                             selected = selectedTab == 0,
                             onClick = { selectedTab = 0 },
-                            text = { Text("Screens (${monitors.size})") },
+                            text = { Text(stringResource(Res.string.voice_picker_tab_screens, monitors.size.toString())) },
                             icon = {
                                 Icon(Icons.Outlined.DesktopWindows, contentDescription = null)
                             },
@@ -88,7 +101,7 @@ public fun ScreenSharePickerDialog(
                         Tab(
                             selected = selectedTab == 1,
                             onClick = { selectedTab = 1 },
-                            text = { Text("Windows (${windows.size})") },
+                            text = { Text(stringResource(Res.string.voice_picker_tab_windows, windows.size.toString())) },
                             icon = {
                                 Icon(Icons.Outlined.Window, contentDescription = null)
                             },
@@ -96,16 +109,14 @@ public fun ScreenSharePickerDialog(
                     }
                     if (selectedTab == 1 && windows.isEmpty()) {
                         Text(
-                            text = "No windows detected. Grant Automation permission in System " +
-                                "Settings → Privacy & Security → Automation if prompted.",
+                            text = stringResource(Res.string.voice_picker_no_windows),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                     if (selectedTab == 1) {
                         Text(
-                            text = "Window capture currently falls back to fullscreen of the " +
-                                "primary monitor (v1 limitation).",
+                            text = stringResource(Res.string.voice_picker_window_fallback),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -140,10 +151,10 @@ public fun ScreenSharePickerDialog(
                     val s = selected ?: return@TextButton
                     onShare(s, shareAudio && audioShareSupported)
                 },
-            ) { Text("Share") }
+            ) { Text(stringResource(Res.string.voice_picker_share)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
 }
@@ -205,14 +216,15 @@ private fun AudioRow(
     enabled: Boolean,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
-    unsupportedReason: String?,
+    unsupportedReason: UiText?,
 ) {
+    val reasonText = unsupportedReason?.asString()
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Row(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            modifier = if (!enabled && unsupportedReason != null) {
-                Modifier.semantics { contentDescription = unsupportedReason }
+            modifier = if (!enabled && reasonText != null) {
+                Modifier.semantics { contentDescription = reasonText }
             } else {
                 Modifier
             },
@@ -223,15 +235,15 @@ private fun AudioRow(
                 enabled = enabled,
             )
             Text(
-                text = "Share system audio",
+                text = stringResource(Res.string.voice_picker_share_audio),
                 style = MaterialTheme.typography.bodyMedium,
                 color = if (enabled) MaterialTheme.colorScheme.onSurface
                 else MaterialTheme.colorScheme.onSurface.copy(alpha = DISABLED_ALPHA),
             )
         }
-        if (!enabled && unsupportedReason != null) {
+        if (!enabled && reasonText != null) {
             Text(
-                text = unsupportedReason,
+                text = reasonText,
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.padding(start = 12.dp),

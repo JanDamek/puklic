@@ -25,6 +25,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.VoiceMember
 import dev.puklic.ids.UserId
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_member_deafened
+import dev.puklic.ui.resources.voice_member_muted
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Single member row rendered under a voice-channel entry in the channel list. Shows a small
@@ -67,7 +71,7 @@ public fun VoiceMemberRow(
             Spacer(Modifier.width(6.dp))
             Icon(
                 imageVector = Icons.Outlined.MicOff,
-                contentDescription = "Muted",
+                contentDescription = stringResource(Res.string.voice_member_muted),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp),
             )
@@ -76,7 +80,7 @@ public fun VoiceMemberRow(
             Spacer(Modifier.width(4.dp))
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.VolumeOff,
-                contentDescription = "Deafened",
+                contentDescription = stringResource(Res.string.voice_member_deafened),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier.size(14.dp),
             )

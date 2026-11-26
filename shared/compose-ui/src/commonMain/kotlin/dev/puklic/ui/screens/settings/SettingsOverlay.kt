@@ -18,6 +18,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.settings_category_about
+import dev.puklic.ui.resources.settings_category_account
+import dev.puklic.ui.resources.settings_category_appearance
+import dev.puklic.ui.resources.settings_category_keybindings
+import dev.puklic.ui.resources.settings_category_notifications
+import dev.puklic.ui.resources.settings_category_storage
+import dev.puklic.ui.resources.settings_title
+import org.jetbrains.compose.resources.stringResource
 
 public enum class SettingsCategory { ACCOUNT, APPEARANCE, NOTIFICATIONS, STORAGE, KEYBINDINGS, ABOUT }
 
@@ -55,7 +64,7 @@ public fun SettingsOverlay(
                     .background(MaterialTheme.colorScheme.surfaceVariant)
                     .padding(spacing.space4),
             ) {
-                Text("Settings", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(Res.string.settings_title), style = MaterialTheme.typography.titleMedium)
                 SettingsCategory.entries.forEach { category ->
                     Text(
                         text = category.label(),
@@ -83,11 +92,14 @@ public fun SettingsOverlay(
     }
 }
 
-private fun SettingsCategory.label(): String = when (this) {
-    SettingsCategory.ACCOUNT -> "Account"
-    SettingsCategory.APPEARANCE -> "Appearance"
-    SettingsCategory.NOTIFICATIONS -> "Notifications"
-    SettingsCategory.STORAGE -> "Storage"
-    SettingsCategory.KEYBINDINGS -> "Keybindings"
-    SettingsCategory.ABOUT -> "About"
-}
+@Composable
+internal fun SettingsCategory.label(): String = stringResource(
+    when (this) {
+        SettingsCategory.ACCOUNT -> Res.string.settings_category_account
+        SettingsCategory.APPEARANCE -> Res.string.settings_category_appearance
+        SettingsCategory.NOTIFICATIONS -> Res.string.settings_category_notifications
+        SettingsCategory.STORAGE -> Res.string.settings_category_storage
+        SettingsCategory.KEYBINDINGS -> Res.string.settings_category_keybindings
+        SettingsCategory.ABOUT -> Res.string.settings_category_about
+    },
+)

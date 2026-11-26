@@ -32,6 +32,12 @@ import androidx.compose.ui.platform.LocalFocusManager
 import dev.puklic.ui.screens.main.PendingAttachmentItem
 import dev.puklic.ui.screens.main.PendingAttachmentStatus
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.composer_attach_file
+import dev.puklic.ui.resources.composer_attachment_chip
+import dev.puklic.ui.resources.composer_remove_attachment
+import dev.puklic.ui.resources.composer_send
+import org.jetbrains.compose.resources.stringResource
 
 /** Format actions per `docs/04_ui/component-library.md` §Composer. */
 public enum class FormatCommand { BOLD, ITALIC, STRIKETHROUGH, INLINE_CODE, CODE_BLOCK, LINK, SPOILER }
@@ -122,7 +128,7 @@ public fun Composer(
         }
         Row(verticalAlignment = Alignment.Bottom, modifier = Modifier.fillMaxWidth()) {
             IconButton(onClick = onAttachClick, enabled = isEnabled) {
-                Icon(Icons.Outlined.AttachFile, contentDescription = "Attach file")
+                Icon(Icons.Outlined.AttachFile, contentDescription = stringResource(Res.string.composer_attach_file))
             }
             OutlinedTextField(
                 value = draft,
@@ -137,7 +143,7 @@ public fun Composer(
                     ),
             )
             IconButton(onClick = attemptSend, enabled = canSend) {
-                Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = "Send")
+                Icon(Icons.AutoMirrored.Outlined.Send, contentDescription = stringResource(Res.string.composer_send))
             }
         }
     }
@@ -158,12 +164,12 @@ private fun AttachmentChipsRow(
                 onClick = { onRemove(item.attachment.id) },
                 label = {
                     val sizeKb = item.attachment.sizeBytes / BYTES_PER_KIB
-                    Text("${item.attachment.filename} (${sizeKb} KB)")
+                    Text(stringResource(Res.string.composer_attachment_chip, item.attachment.filename, sizeKb.toString()))
                 },
                 trailingIcon = {
                     Icon(
                         Icons.Outlined.Close,
-                        contentDescription = "Remove ${item.attachment.filename}",
+                        contentDescription = stringResource(Res.string.composer_remove_attachment, item.attachment.filename),
                         modifier = Modifier.padding(start = spacing.space1),
                     )
                 },

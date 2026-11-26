@@ -12,6 +12,17 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.login_error_captcha_orphaned
+import dev.puklic.ui.text.UiText
+import dev.puklic.ui.resources.login_error_sign_in_failed_type
+import dev.puklic.ui.resources.login_error_network
+import dev.puklic.ui.resources.login_error_sign_in_failed
+import dev.puklic.ui.resources.login_error_token_rejected_detail
+import dev.puklic.ui.resources.login_error_bad_credentials
+import dev.puklic.ui.resources.login_error_bad_credentials_detail
+import dev.puklic.ui.resources.login_error_sign_in_failed_detail
+import dev.puklic.ui.resources.login_error_token_rejected
 
 /**
  * Sign-in mode the user has chosen on the [LoginScreen]. CREDENTIALS is listed first so the
@@ -28,7 +39,7 @@ public enum class LoginMode { CREDENTIALS, TOKEN }
  *  - [submitting] — request in flight.
  *  - [mfaTicket] — non-null when Discord challenged us; UI then shows the TOTP field.
  *  - [mfaCode] — user-entered 6-digit code.
- *  - [error] — user-facing error string (already mapped), per `docs/04_ui/screens.md`.
+ *  - [error] — user-facing error text (already mapped, resolved at render time), per `docs/04_ui/screens.md`.
  */
 public data class LoginState(
     val mode: LoginMode = LoginMode.CREDENTIALS,
@@ -55,7 +66,7 @@ public data class LoginState(
     val captchaRqdata: String? = null,
     val captchaRqtoken: String? = null,
     val captchaSessionId: String? = null,
-    val error: String? = null,
+    val error: UiText? = null,
 ) {
     public val canSubmitToken: Boolean get() = token.isNotBlank() && !submitting
 
@@ -236,7 +247,7 @@ public class LoginViewModel(
                     captchaRqdata = null,
                     captchaRqtoken = null,
                     captchaSessionId = null,
-                    error = "Captcha resolved without an active login attempt.",
+                    error = UiText.of(Res.string.login_error_captcha_orphaned),
                 )
             }
             return
@@ -328,31 +339,41 @@ public class LoginViewModel(
         }
     }
 
-    private fun mapTokenError(throwable: Throwable?): String {
-        if (throwable == null) return "Sign in failed"
-        val msg = throwable.message.orEmpty()
-        val lower = msg.lowercase()
+    private fun mapTokenError(throwable: Throwable?): UiText {
+        if (throwable == null) return UiText.of(Res.string.login_error_sign_in_failed)
+        val detail = throwable.message.orEmpty()
         return when {
-            throwable is IllegalArgumentException -> "Token rejected by Discord" +
-                msg.takeIf { it.isNotBlank() && it != "Token rejected by Discord" }?.let { " — $it" }.orEmpty()
-            looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
-            // Surface the transport / unknown failure detail so the user (and bug
-            // reports) can see what went wrong; the previous generic "Sign in failed"
-            // hid the real cause (HTTP status, TLS error, Discord WAF rejection, …).
-            else -> "Sign in failed: ${throwable::class.simpleName}${msg.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}"
+            throwable is IllegalArgumentException -> tokenRejected(detail)
+            looksLikeNetwork(detail.lowercase()) -> UiText.of(Res.string.login_error_network)
+            else -> signInFailed(throwable, detail)
         }
     }
 
-    private fun mapCredentialsError(throwable: Throwable?): String {
-        if (throwable == null) return "Sign in failed"
-        val msg = throwable.message.orEmpty()
-        val lower = msg.lowercase()
+    private fun mapCredentialsError(throwable: Throwable?): UiText {
+        if (throwable == null) return UiText.of(Res.string.login_error_sign_in_failed)
+        val detail = throwable.message.orEmpty()
         return when {
-            throwable is IllegalArgumentException -> "Bad email/username or password." +
-                msg.takeIf { it.isNotBlank() && it != "Bad email/username or password." }?.let { " ($it)" }.orEmpty()
-            looksLikeNetwork(lower) -> "Cannot reach Discord. Check connection."
-            else -> "Sign in failed: ${throwable::class.simpleName}${msg.takeIf { it.isNotBlank() }?.let { " — $it" } ?: ""}"
+            throwable is IllegalArgumentException -> badCredentials(detail)
+            looksLikeNetwork(detail.lowercase()) -> UiText.of(Res.string.login_error_network)
+            else -> signInFailed(throwable, detail)
         }
+    }
+
+    private fun tokenRejected(detail: String): UiText =
+        detail.takeIf { it.isNotBlank() && it != TOKEN_REJECTED_PLAIN }
+            ?.let { UiText.of(Res.string.login_error_token_rejected_detail, it) }
+            ?: UiText.of(Res.string.login_error_token_rejected)
+
+    private fun badCredentials(detail: String): UiText =
+        detail.takeIf { it.isNotBlank() && it != BAD_CREDENTIALS_PLAIN }
+            ?.let { UiText.of(Res.string.login_error_bad_credentials_detail, it) }
+            ?: UiText.of(Res.string.login_error_bad_credentials)
+
+    private fun signInFailed(throwable: Throwable, detail: String): UiText {
+        val type = throwable::class.simpleName.orEmpty()
+        return detail.takeIf { it.isNotBlank() }
+            ?.let { UiText.of(Res.string.login_error_sign_in_failed_detail, type, it) }
+            ?: UiText.of(Res.string.login_error_sign_in_failed_type, type)
     }
 
     private fun looksLikeNetwork(msg: String): Boolean =
@@ -361,5 +382,7 @@ public class LoginViewModel(
     public companion object {
         public const val LOGIN_FIELD_KEY: String = "discord.login_field"
         public const val PASSWORD_KEY: String = "discord.password"
+        private const val TOKEN_REJECTED_PLAIN = "Token rejected by Discord"
+        private const val BAD_CREDENTIALS_PLAIN = "Bad email/username or password."
     }
 }

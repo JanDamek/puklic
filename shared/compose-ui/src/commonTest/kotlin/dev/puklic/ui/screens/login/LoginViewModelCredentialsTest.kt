@@ -11,6 +11,9 @@ import dev.puklic.session.GatewayLifecycleEvent
 import dev.puklic.session.SessionManager
 import dev.puklic.session.SessionTransport
 import dev.puklic.session.TokenValidation
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.login_error_bad_credentials_detail
+import dev.puklic.ui.text.UiText
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -44,7 +47,7 @@ class LoginViewModelCredentialsTest {
         advanceUntilIdle()
         vm.state.value.submitting shouldBe false
         (vm.state.value.error != null) shouldBe true
-        vm.state.value.error!!.lowercase().contains("password") shouldBe true
+        vm.state.value.error shouldBe UiText.of(Res.string.login_error_bad_credentials_detail, "Login or password is invalid.")
     }
 
     @Test

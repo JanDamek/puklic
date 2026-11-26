@@ -25,6 +25,17 @@ import dev.puklic.ui.screens.main.MessageListState
 import dev.puklic.ui.theme.LocalPuklicSpacing
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.message_list_empty
+import dev.puklic.ui.resources.message_list_error_failed
+import dev.puklic.ui.resources.message_list_error_forbidden
+import dev.puklic.ui.resources.message_list_error_generic
+import dev.puklic.ui.resources.message_list_error_network
+import dev.puklic.ui.resources.message_list_error_not_found
+import dev.puklic.ui.resources.message_list_error_rate_limited
+import dev.puklic.ui.resources.message_list_error_timed_out
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 private const val GROUPING_WINDOW_SECONDS: Long = 300L // 5 minutes per docs/04_ui/screens.md MessagePane
 
@@ -62,18 +73,18 @@ public fun MessageList(
                 repeat(5) { MessageRowSkeleton() }
             }
             MessageListState.Empty -> Text(
-                "It's quiet here. Start the conversation.",
+                stringResource(Res.string.message_list_empty),
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             is MessageListState.Error -> Text(
-                friendlyErrorMessage(state.message),
+                friendlyErrorMessage(state),
                 modifier = Modifier.align(Alignment.Center),
                 color = MaterialTheme.colorScheme.error,
             )
             is MessageListState.Loaded -> if (state.messages.isEmpty()) {
                 Text(
-                    "It's quiet here. Start the conversation.",
+                    stringResource(Res.string.message_list_empty),
                     modifier = Modifier.align(Alignment.Center),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -124,7 +135,7 @@ public fun MessageList(
                         val isFirstUnread = firstUnreadId != null && msg.id == firstUnreadId
                         Column {
                             if (newDay) {
-                                DateSeparator(czechLongDate(msg.timestamp.toLocalDateTime(zone).date))
+                                DateSeparator(longDateLabel(msg.timestamp.toLocalDateTime(zone).date))
                             }
                             if (isFirstUnread) {
                                 UnreadDivider()
@@ -153,23 +164,31 @@ public fun MessageList(
 }
 
 /**
- * Maps raw error strings (REST status text, Discord JSON error bodies, network exceptions) to a
- * short user-facing line. Avoids leaking JSON payloads or stack traces into the UI. English only;
- * localization is part of Phase 2 L10n work.
+ * Maps a failed load (REST status text, Discord JSON error bodies, network exceptions) to a short
+ * localized user-facing line. Avoids leaking JSON payloads or stack traces into the UI.
  */
-internal fun friendlyErrorMessage(raw: String): String = when {
-    raw.contains("50001") ||
-        raw.contains("Forbidden", ignoreCase = true) ||
-        raw.contains("Missing Access", ignoreCase = true) ->
-        "You don't have permission to view this channel."
-    raw.contains("404") || raw.contains("Not Found", ignoreCase = true) ->
-        "Channel not found."
-    raw.contains("429") || raw.contains("rate limit", ignoreCase = true) ->
-        "Rate limited by Discord. Try again in a moment."
-    raw.contains("Network", ignoreCase = true) ||
-        raw.contains("Cannot reach", ignoreCase = true) ||
-        raw.contains("UnknownHost", ignoreCase = true) ||
-        raw.contains("timeout", ignoreCase = true) ->
-        "Cannot reach Discord. Check your connection."
-    else -> "Failed to load messages: ${raw.take(120)}"
+@Composable
+internal fun friendlyErrorMessage(error: MessageListState.Error): String {
+    val raw = when {
+        error.timedOut -> stringResource(Res.string.message_list_error_timed_out)
+        else -> error.message ?: stringResource(Res.string.message_list_error_generic)
+    }
+    return stringResource(raw.toErrorResource(), *raw.errorArgs())
 }
+
+private fun String.toErrorResource(): StringResource = when {
+    contains("50001") ||
+        contains("Forbidden", ignoreCase = true) ||
+        contains("Missing Access", ignoreCase = true) -> Res.string.message_list_error_forbidden
+    contains("404") || contains("Not Found", ignoreCase = true) -> Res.string.message_list_error_not_found
+    contains("429") || contains("rate limit", ignoreCase = true) -> Res.string.message_list_error_rate_limited
+    contains("Network", ignoreCase = true) ||
+        contains("Cannot reach", ignoreCase = true) ||
+        contains("UnknownHost", ignoreCase = true) ||
+        contains("timeout", ignoreCase = true) -> Res.string.message_list_error_network
+    else -> Res.string.message_list_error_failed
+}
+
+private fun String.errorArgs(): Array<String> = arrayOf(take(MAX_RAW_ERROR_LENGTH))
+
+private const val MAX_RAW_ERROR_LENGTH = 120

@@ -24,6 +24,9 @@ import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_generic_channel_label
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * iOS `actual` for [VoiceDock]. Mirrors `VoiceDock.jvm.kt` for parity — same state flows,
@@ -74,7 +77,8 @@ internal actual fun VoiceDock(viewModel: MainViewModel) {
     }
 
     val scope = rememberCoroutineScope()
-    val label = (state as? VoiceState.Connected)?.let { "voice" }
+    val genericLabel = stringResource(Res.string.voice_generic_channel_label)
+    val label = (state as? VoiceState.Connected)?.let { genericLabel }
 
     Column {
         if (downgradeBannerVisible) {

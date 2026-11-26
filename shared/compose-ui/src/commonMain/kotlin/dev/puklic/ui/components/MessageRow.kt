@@ -52,6 +52,35 @@ import dev.puklic.domain.MessageType
 import dev.puklic.domain.UserSummary
 import dev.puklic.ui.theme.LocalPuklicColors
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.message_edited
+import dev.puklic.ui.resources.message_menu_copy_link
+import dev.puklic.ui.resources.message_menu_copy_text
+import dev.puklic.ui.resources.message_menu_delete
+import dev.puklic.ui.resources.message_menu_edit
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.asString
+import dev.puklic.ui.resources.message_system_user_join_10
+import dev.puklic.ui.resources.message_system_user_join_04
+import dev.puklic.ui.resources.message_system_user_join_01
+import dev.puklic.ui.resources.message_system_recipient_add
+import dev.puklic.ui.resources.message_system_pinned
+import dev.puklic.ui.resources.message_system_user_join_07
+import dev.puklic.ui.resources.message_system_user_join_12
+import dev.puklic.ui.resources.message_system_channel_icon_change
+import dev.puklic.ui.resources.message_system_user_join_03
+import dev.puklic.ui.resources.message_system_user_join_05
+import dev.puklic.ui.resources.message_system_user_join_11
+import dev.puklic.ui.resources.message_system_call
+import dev.puklic.ui.resources.message_system_channel_name_change
+import dev.puklic.ui.resources.message_system_user_join_02
+import dev.puklic.ui.resources.message_system_user_join_13
+import dev.puklic.ui.resources.message_system_user_join_06
+import dev.puklic.ui.resources.message_system_user_join_09
+import dev.puklic.ui.resources.message_system_recipient_remove
+import dev.puklic.ui.resources.message_system_user_join_08
+import dev.puklic.ui.text.UiText
 
 /** Delivery state per `docs/04_ui/component-library.md` §MessageRow. */
 public sealed interface MessageDeliveryState {
@@ -88,7 +117,7 @@ public fun MessageRow(
 
     val systemLabel = systemMessageLabel(message)
     if (systemLabel != null) {
-        SystemMessageRow(text = systemLabel, modifier = modifier)
+        SystemMessageRow(text = systemLabel.asString(), modifier = modifier)
         return
     }
 
@@ -156,7 +185,7 @@ public fun MessageRow(
                     if (message.editedTimestamp != null) {
                         Spacer(Modifier.width(spacing.space2))
                         Text(
-                            text = "(edited)",
+                            text = stringResource(Res.string.message_edited),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -485,11 +514,11 @@ internal fun MessageContextMenu(
     onDelete: () -> Unit,
 ) {
     DropdownMenu(expanded = isOpen, onDismissRequest = onDismiss) {
-        DropdownMenuItem(text = { Text("Copy text") }, onClick = onCopyText)
-        DropdownMenuItem(text = { Text("Copy message link") }, onClick = onCopyLink)
+        DropdownMenuItem(text = { Text(stringResource(Res.string.message_menu_copy_text)) }, onClick = onCopyText)
+        DropdownMenuItem(text = { Text(stringResource(Res.string.message_menu_copy_link)) }, onClick = onCopyLink)
         if (isOwnMessage) {
-            DropdownMenuItem(text = { Text("Edit") }, onClick = onEdit)
-            DropdownMenuItem(text = { Text("Delete") }, onClick = onDelete)
+            DropdownMenuItem(text = { Text(stringResource(Res.string.message_menu_edit)) }, onClick = onEdit)
+            DropdownMenuItem(text = { Text(stringResource(Res.string.message_menu_delete)) }, onClick = onDelete)
         }
     }
 }
@@ -525,41 +554,41 @@ internal fun SystemMessageRow(text: String, modifier: Modifier = Modifier) {
  * USER_JOIN variants (issue #91): Discord picks one of 13 greeting templates based on
  * `(messageId >>> 22) % 13`. The upper bits of a snowflake encode the Discord epoch
  * timestamp, so consecutive joins land on visually different lines instead of repeating
- * "X joined.". Czech localisations mirror the official Discord client's translations.
+ * "X joined.". Localisations mirror the official Discord client's translations.
  */
-internal fun systemMessageLabel(message: ChatMessage): String? {
+internal fun systemMessageLabel(message: ChatMessage): UiText? {
     val name = message.author.globalName ?: message.author.username
     return when (message.type) {
-        MessageType.CALL -> "$name started a call."
-        MessageType.RECIPIENT_ADD -> "$name added someone to the group."
-        MessageType.RECIPIENT_REMOVE -> "$name removed someone from the group."
-        MessageType.CHANNEL_NAME_CHANGE -> "$name changed the channel name."
-        MessageType.CHANNEL_ICON_CHANGE -> "$name changed the channel icon."
-        MessageType.CHANNEL_PINNED_MESSAGE -> "$name pinned a message to this channel."
+        MessageType.CALL -> UiText.of(Res.string.message_system_call, name)
+        MessageType.RECIPIENT_ADD -> UiText.of(Res.string.message_system_recipient_add, name)
+        MessageType.RECIPIENT_REMOVE -> UiText.of(Res.string.message_system_recipient_remove, name)
+        MessageType.CHANNEL_NAME_CHANGE -> UiText.of(Res.string.message_system_channel_name_change, name)
+        MessageType.CHANNEL_ICON_CHANGE -> UiText.of(Res.string.message_system_channel_icon_change, name)
+        MessageType.CHANNEL_PINNED_MESSAGE -> UiText.of(Res.string.message_system_pinned, name)
         MessageType.USER_JOIN -> userJoinGreeting(name, message.id.value)
         MessageType.DEFAULT, MessageType.REPLY, MessageType.UNKNOWN -> null
     }
 }
 
-internal fun userJoinGreeting(name: String, messageId: Long): String {
+internal fun userJoinGreeting(name: String, messageId: Long): UiText {
     val idx = ((messageId ushr 22) % USER_JOIN_TEMPLATES.size).toInt()
-    return USER_JOIN_TEMPLATES[idx](name)
+    return UiText.of(USER_JOIN_TEMPLATES[idx], name)
 }
 
-private val USER_JOIN_TEMPLATES: List<(String) -> String> = listOf(
-    { "$it se právě připojil/a." },
-    { "$it je tu." },
-    { "Vítej, $it. Doufáme, že neseš pizzu." },
-    { "Objevil/a se divoký $it." },
-    { "$it právě přistál/a." },
-    { "$it právě proklouznul/a na server." },
-    { "$it se ukázal/a!" },
-    { "Vítej, $it. Pozdrav nám tu ostatní!" },
-    { "$it naskočil/a na server." },
-    { "Všichni přivítejme $it!" },
-    { "Jsme rádi, že jsi tady, $it." },
-    { "Moc rádi tě tu vidíme, $it." },
-    { "$it je tady! Pěkně vítáme!" },
+private val USER_JOIN_TEMPLATES: List<StringResource> = listOf(
+    Res.string.message_system_user_join_01,
+    Res.string.message_system_user_join_02,
+    Res.string.message_system_user_join_03,
+    Res.string.message_system_user_join_04,
+    Res.string.message_system_user_join_05,
+    Res.string.message_system_user_join_06,
+    Res.string.message_system_user_join_07,
+    Res.string.message_system_user_join_08,
+    Res.string.message_system_user_join_09,
+    Res.string.message_system_user_join_10,
+    Res.string.message_system_user_join_11,
+    Res.string.message_system_user_join_12,
+    Res.string.message_system_user_join_13,
 )
 
 @Composable

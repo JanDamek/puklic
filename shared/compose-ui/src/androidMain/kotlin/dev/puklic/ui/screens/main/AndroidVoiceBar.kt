@@ -29,6 +29,20 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.VoiceState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_bar_connecting_to
+import dev.puklic.ui.resources.voice_bar_title_fallback
+import dev.puklic.ui.resources.voice_bar_title_with_server
+import dev.puklic.ui.resources.voice_cancel_call
+import dev.puklic.ui.resources.voice_deafen
+import dev.puklic.ui.resources.voice_disconnect
+import dev.puklic.ui.resources.voice_dismiss
+import dev.puklic.ui.resources.voice_mute_microphone
+import dev.puklic.ui.resources.voice_status_failed
+import dev.puklic.ui.resources.voice_undeafen
+import dev.puklic.ui.resources.voice_unmute_microphone
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.asString
 
 /** User actions offered by the voice bar. */
 internal class VoiceBarActions(
@@ -57,17 +71,19 @@ private fun ConnectedRow(state: VoiceState.Connected, label: VoiceChannelLabel?,
         BarTitle(label.titleText(), Modifier.weight(1f))
         BarIconButton(
             icon = if (state.selfMute) Icons.Filled.MicOff else Icons.Filled.Mic,
-            description = if (state.selfMute) "Unmute microphone" else "Mute microphone",
+            description = stringResource(
+                if (state.selfMute) Res.string.voice_unmute_microphone else Res.string.voice_mute_microphone,
+            ),
             highlighted = state.selfMute,
             onClick = actions.onMuteToggle,
         )
         BarIconButton(
             icon = if (state.selfDeaf) Icons.Filled.HeadsetOff else Icons.Filled.Headset,
-            description = if (state.selfDeaf) "Undeafen" else "Deafen",
+            description = stringResource(if (state.selfDeaf) Res.string.voice_undeafen else Res.string.voice_deafen),
             highlighted = state.selfDeaf,
             onClick = actions.onDeafenToggle,
         )
-        BarIconButton(Icons.Filled.CallEnd, "Disconnect", highlighted = true, onClick = actions.onDisconnect)
+        BarIconButton(Icons.Filled.CallEnd, stringResource(Res.string.voice_disconnect), highlighted = true, onClick = actions.onDisconnect)
     }
 }
 
@@ -75,16 +91,16 @@ private fun ConnectedRow(state: VoiceState.Connected, label: VoiceChannelLabel?,
 private fun ConnectingRow(label: VoiceChannelLabel?, onDisconnect: () -> Unit) {
     BarRow {
         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-        BarTitle("Connecting to ${label.titleText()}", Modifier.weight(1f))
-        BarIconButton(Icons.Filled.CallEnd, "Cancel call", highlighted = true, onClick = onDisconnect)
+        BarTitle(stringResource(Res.string.voice_bar_connecting_to, label.titleText()), Modifier.weight(1f))
+        BarIconButton(Icons.Filled.CallEnd, stringResource(Res.string.voice_cancel_call), highlighted = true, onClick = onDisconnect)
     }
 }
 
 @Composable
 private fun FailedRow(reason: String, onDismiss: () -> Unit) {
     BarRow(background = MaterialTheme.colorScheme.errorContainer) {
-        BarTitle("Voice failed: $reason", Modifier.weight(1f), MaterialTheme.colorScheme.onErrorContainer)
-        BarIconButton(Icons.Filled.Close, "Dismiss", highlighted = false, onClick = onDismiss)
+        BarTitle(stringResource(Res.string.voice_status_failed, reason), Modifier.weight(1f), MaterialTheme.colorScheme.onErrorContainer)
+        BarIconButton(Icons.Filled.Close, stringResource(Res.string.voice_dismiss), highlighted = false, onClick = onDismiss)
     }
 }
 
@@ -123,8 +139,9 @@ private fun BarIconButton(icon: ImageVector, description: String, highlighted: B
     }
 }
 
+@Composable
 private fun VoiceChannelLabel?.titleText(): String = when {
-    this == null -> "Voice"
-    serverName == null -> channelName
-    else -> "$channelName · $serverName"
+    this == null -> stringResource(Res.string.voice_bar_title_fallback)
+    serverName == null -> channelName.asString()
+    else -> stringResource(Res.string.voice_bar_title_with_server, channelName.asString(), serverName)
 }

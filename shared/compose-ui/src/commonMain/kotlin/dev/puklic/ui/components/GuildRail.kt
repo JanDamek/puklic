@@ -31,6 +31,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import dev.puklic.domain.Guild
 import dev.puklic.ids.GuildId
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.guild_rail_add_friend
+import dev.puklic.ui.resources.guild_rail_direct_messages_label
+import dev.puklic.ui.resources.guild_rail_join_server
+import org.jetbrains.compose.resources.stringResource
 
 private const val RAIL_ITEM_SIZE_DP = 40
 private const val RAIL_DIVIDER_WIDTH_DP = 32
@@ -88,8 +93,8 @@ public fun GuildRail(
             }
         }
         RailDivider()
-        RailActionItem(Icons.Filled.PersonAdd, "Add friend", onOpenAddFriend)
-        RailActionItem(Icons.Filled.Public, "Join server", onOpenJoinServer)
+        RailActionItem(Icons.Filled.PersonAdd, stringResource(Res.string.guild_rail_add_friend), onOpenAddFriend)
+        RailActionItem(Icons.Filled.Public, stringResource(Res.string.guild_rail_join_server), onOpenJoinServer)
     }
 }
 
@@ -139,6 +144,6 @@ private fun HomeRailItem(isSelected: Boolean, onClick: () -> Unit) {
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text("DM", style = MaterialTheme.typography.labelSmall, color = fg)
+        Text(stringResource(Res.string.guild_rail_direct_messages_label), style = MaterialTheme.typography.labelSmall, color = fg)
     }
 }

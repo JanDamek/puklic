@@ -13,6 +13,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.bootstrap_connecting
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Brief loading screen shown while [dev.puklic.session.SessionManager.loadStoredSession] is in
@@ -29,7 +32,7 @@ public fun BootstrappingScreen() {
             CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(16.dp))
             Text(
-                "Connecting…",
+                stringResource(Res.string.bootstrap_connecting),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 style = MaterialTheme.typography.bodyMedium,
             )

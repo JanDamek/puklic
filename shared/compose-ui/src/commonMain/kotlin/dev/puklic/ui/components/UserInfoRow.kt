@@ -31,6 +31,13 @@ import dev.puklic.repositories.PresenceState
 import dev.puklic.ui.components.voice.DaveLockIcon
 import dev.puklic.voice.DaveUiState
 import dev.puklic.voice.VoiceState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_deafen
+import dev.puklic.ui.resources.voice_mute
+import dev.puklic.ui.resources.voice_open_settings
+import dev.puklic.ui.resources.voice_undeafen
+import dev.puklic.ui.resources.voice_unmute
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Identity + quick-controls row pinned to the bottom of the channel-list pane. Replaces the
@@ -103,7 +110,7 @@ public fun UserInfoRow(
         IconButton(onClick = onMicToggle, enabled = voiceConnected) {
             Icon(
                 imageVector = if (state.micMuted) Icons.Filled.MicOff else Icons.Filled.Mic,
-                contentDescription = if (state.micMuted) "Unmute" else "Mute",
+                contentDescription = stringResource(if (state.micMuted) Res.string.voice_unmute else Res.string.voice_mute),
                 tint = when {
                     !voiceConnected -> MaterialTheme.colorScheme.onSurfaceVariant
                     state.micMuted -> MaterialTheme.colorScheme.error
@@ -114,7 +121,7 @@ public fun UserInfoRow(
         IconButton(onClick = onDeafToggle, enabled = voiceConnected) {
             Icon(
                 imageVector = if (state.deafened) Icons.Filled.HeadsetOff else Icons.Filled.Headset,
-                contentDescription = if (state.deafened) "Undeafen" else "Deafen",
+                contentDescription = stringResource(if (state.deafened) Res.string.voice_undeafen else Res.string.voice_deafen),
                 tint = when {
                     !voiceConnected -> MaterialTheme.colorScheme.onSurfaceVariant
                     state.deafened -> MaterialTheme.colorScheme.error
@@ -126,7 +133,7 @@ public fun UserInfoRow(
         IconButton(onClick = onOpenSettings) {
             Icon(
                 imageVector = Icons.Outlined.Settings,
-                contentDescription = "Open settings",
+                contentDescription = stringResource(Res.string.voice_open_settings),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

@@ -48,6 +48,11 @@ import dev.puklic.ui.resolvers.LocalEmojiResolver
 import dev.puklic.ui.resolvers.LocalMentionResolver
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.message_mention_fallback_channel
+import dev.puklic.ui.resources.message_mention_fallback_role
+import dev.puklic.ui.resources.message_mention_fallback_user
+import org.jetbrains.compose.resources.stringResource
 
 private val EmojiSize = 22.dp
 
@@ -279,15 +284,44 @@ private fun resolveMentionLabels(runs: List<RichTextInline>): MentionLabels {
         if (name != null) channels[id.value] = name
     }
 
-    return MentionLabels(users, roleLabels, roleColors, channels)
+    return MentionLabels(
+        users = users,
+        roles = roleLabels,
+        roleColors = roleColors,
+        channels = channels,
+        timestamps = resolveTimestampLabels(runs),
+        fallbacks = MentionFallbacks(
+            user = stringResource(Res.string.message_mention_fallback_user),
+            role = stringResource(Res.string.message_mention_fallback_role),
+            channel = stringResource(Res.string.message_mention_fallback_channel),
+        ),
+    )
 }
+
+@Composable
+private fun resolveTimestampLabels(runs: List<RichTextInline>): Map<RichTextInline.Timestamp, String> =
+    flattenTimestamps(runs).distinct().associateWith { TimestampFormat.discord(it.instant, it.style) }
 
 private data class MentionLabels(
     val users: Map<Long, String>,
     val roles: Map<Long, String>,
     val roleColors: Map<Long, Int>,
     val channels: Map<Long, String>,
+    val timestamps: Map<RichTextInline.Timestamp, String>,
+    val fallbacks: MentionFallbacks,
 )
+
+private data class MentionFallbacks(val user: String, val role: String, val channel: String)
+
+private fun flattenTimestamps(runs: List<RichTextInline>): List<RichTextInline.Timestamp> =
+    runs.flatMap { run ->
+        when (run) {
+            is RichTextInline.Timestamp -> listOf(run)
+            is RichTextInline.Link -> flattenTimestamps(run.display)
+            is RichTextInline.Spoiler -> flattenTimestamps(run.content)
+            else -> emptyList()
+        }
+    }
 
 private fun flattenMentions(runs: List<RichTextInline>): List<MentionTarget> {
     val out = mutableListOf<MentionTarget>()
@@ -407,16 +441,16 @@ private fun androidx.compose.ui.text.AnnotatedString.Builder.appendInlines(
             }
             is RichTextInline.Timestamp -> withStyle(
                 SpanStyle(background = codeBg, fontWeight = FontWeight.Medium),
-            ) { append(TimestampFormat.discord(run.instant, run.style)) }
+            ) { append(labels.timestamps[run].orEmpty()) }
             is RichTextInline.LineBreak -> append('\n')
         }
     }
 }
 
 private fun renderMention(target: MentionTarget, labels: MentionLabels): String = when (target) {
-    is MentionTarget.User -> "@${labels.users[target.id.value] ?: "user"}"
-    is MentionTarget.Role -> "@${labels.roles[target.id.value] ?: "role"}"
-    is MentionTarget.Channel -> "#${labels.channels[target.id.value] ?: "channel"}"
+    is MentionTarget.User -> "@${labels.users[target.id.value] ?: labels.fallbacks.user}"
+    is MentionTarget.Role -> "@${labels.roles[target.id.value] ?: labels.fallbacks.role}"
+    is MentionTarget.Channel -> "#${labels.channels[target.id.value] ?: labels.fallbacks.channel}"
     MentionTarget.Everyone -> "@everyone"
     MentionTarget.Here -> "@here"
 }

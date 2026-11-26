@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.IncomingVideoFrame
 import java.awt.image.BufferedImage
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_remote_screenshare
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * JVM `actual` for [IncomingVideoPane] — converts RGBA bytes to a `BufferedImage` and on to
@@ -42,7 +45,7 @@ internal actual fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {
             }
             Image(
                 bitmap = bitmap,
-                contentDescription = "Remote screenshare $ssrc",
+                contentDescription = stringResource(Res.string.voice_remote_screenshare, ssrc.toString()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(frame.width.toFloat() / frame.height.toFloat().coerceAtLeast(1f)),

@@ -12,6 +12,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.add_friend_placeholder
+import dev.puklic.ui.resources.add_friend_send
+import dev.puklic.ui.resources.add_friend_sending
+import dev.puklic.ui.resources.add_friend_title
+import dev.puklic.ui.resources.common_close
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.asString
+import dev.puklic.ui.text.UiText
 
 /**
  * Modal Add-Friend dialog (issue #80). Single text field accepts a pomelo handle ("name"), a
@@ -23,29 +32,29 @@ import androidx.compose.ui.unit.dp
 public fun AddFriendDialog(
     query: String,
     isSubmitting: Boolean,
-    errorMessage: String?,
-    successMessage: String?,
+    errorMessage: UiText?,
+    successMessage: UiText?,
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add a friend") },
+        title = { Text(stringResource(Res.string.add_friend_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("username or username#1234") },
+                    placeholder = { Text(stringResource(Res.string.add_friend_placeholder)) },
                     singleLine = true,
                     enabled = !isSubmitting,
                 )
                 if (errorMessage != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = errorMessage,
+                        text = errorMessage.asString(),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -53,7 +62,7 @@ public fun AddFriendDialog(
                 if (successMessage != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = successMessage,
+                        text = successMessage.asString(),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -62,11 +71,11 @@ public fun AddFriendDialog(
         },
         confirmButton = {
             TextButton(onClick = onSubmit, enabled = !isSubmitting && query.isNotBlank()) {
-                Text(if (isSubmitting) "Sending..." else "Send Request")
+                Text(stringResource(if (isSubmitting) Res.string.add_friend_sending else Res.string.add_friend_send))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) }
         },
     )
 }

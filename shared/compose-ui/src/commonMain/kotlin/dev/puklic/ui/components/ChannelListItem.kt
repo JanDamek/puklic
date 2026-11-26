@@ -21,6 +21,9 @@ import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
 import dev.puklic.domain.GuildVoiceChannel
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.channel_voice_description
+import org.jetbrains.compose.resources.stringResource
 
 @Composable
 public fun ChannelListItem(
@@ -56,7 +59,7 @@ public fun ChannelListItem(
             if (isVoice) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.VolumeUp,
-                    contentDescription = "Voice channel",
+                    contentDescription = stringResource(Res.string.channel_voice_description),
                     tint = textColor,
                     modifier = Modifier.height(16.dp),
                 )

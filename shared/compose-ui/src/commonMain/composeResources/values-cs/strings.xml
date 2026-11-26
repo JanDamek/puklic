@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_subtitle">Přihlas se k Discordu</string>
+    <string name="login_tab_credentials">E-mail / heslo</string>
+    <string name="login_tab_token">Token</string>
+    <string name="login_captcha_hint">Discord může u nových přihlášení vyžadovat captchu. Pokud se tak stane, přepni na záložku Token.</string>
+    <string name="login_token_label">Vlož svůj token</string>
+    <string name="login_token_paste_description">Vložit token</string>
+    <string name="login_token_warning">Tvůj token dává plný přístup k účtu. Nikdy ho nesdílej.</string>
+    <string name="login_sign_in">Přihlásit se</string>
+    <string name="login_field_label">E-mail nebo uživatelské jméno</string>
+    <string name="login_password_label">Heslo</string>
+    <string name="login_save_password">Uložit heslo</string>
+    <string name="login_mfa_prompt">Zadej šestimístný kód z autentizační aplikace.</string>
+    <string name="login_mfa_label">Šestimístný kód</string>
+    <string name="login_verify">Ověřit</string>
+    <string name="login_captcha_prompt">Discord vyžaduje bezpečnostní kontrolu. Vyřeš hádanku níže — Puklic se pak automaticky pokusí přihlásit znovu.</string>
+    <string name="login_captcha_desktop_fallback">Discord vyžaduje bezpečnostní kontrolu. Vyřeš ji v prohlížeči a přepni na záložku Token.</string>
+    <string name="login_error_captcha_orphaned">Captcha byla vyřešena bez probíhajícího pokusu o přihlášení.</string>
+    <string name="login_error_sign_in_failed">Přihlášení se nezdařilo</string>
+    <string name="login_error_sign_in_failed_type">Přihlášení se nezdařilo: %1$s</string>
+    <string name="login_error_sign_in_failed_detail">Přihlášení se nezdařilo: %1$s — %2$s</string>
+    <string name="login_error_token_rejected">Discord odmítl token</string>
+    <string name="login_error_token_rejected_detail">Discord odmítl token — %1$s</string>
+    <string name="login_error_bad_credentials">Špatný e-mail/uživatelské jméno nebo heslo.</string>
+    <string name="login_error_bad_credentials_detail">Špatný e-mail/uživatelské jméno nebo heslo. (%1$s)</string>
+    <string name="login_error_network">Discord není dostupný. Zkontroluj připojení.</string>
+    <string name="settings_title">Nastavení</string>
+    <string name="settings_category_account">Účet</string>
+    <string name="settings_category_appearance">Vzhled</string>
+    <string name="settings_category_notifications">Oznámení</string>
+    <string name="settings_category_storage">Úložiště</string>
+    <string name="settings_category_keybindings">Klávesové zkratky</string>
+    <string name="settings_category_about">O aplikaci</string>
+    <string name="settings_category_coming_soon">%1$s — brzy</string>
+    <string name="settings_account_loading">Načítání účtu…</string>
+    <string name="settings_account_user_id">ID uživatele</string>
+    <string name="settings_account_log_out">Odhlásit se</string>
+    <string name="settings_account_log_out_title">Odhlásit se z Puklicu?</string>
+    <string name="settings_account_log_out_body">Tvůj token Discordu bude z tohoto zařízení odstraněn. Místní mezipaměť zpráv zůstane na disku, aby bylo příští přihlášení rychlejší.</string>
+    <string name="timestamp_header_today">Dnes v %1$s</string>
+    <string name="timestamp_header_yesterday">Včera v %1$s</string>
+    <string name="timestamp_header_weekday">%1$s %2$s</string>
+    <string name="timestamp_header_date">%1$s %2$s</string>
+    <string name="timestamp_date_short">%2$s. %1$s. %3$s</string>
+    <string name="timestamp_date_long">%2$s. %1$s %3$s</string>
+    <string name="timestamp_datetime_short">%1$s %2$s</string>
+    <string name="timestamp_datetime_long">%1$s, %2$s %3$s</string>
+    <string name="date_separator_format">%2$s. %1$s %3$s</string>
+    <string-array name="calendar_days_short">
+        <item>Po</item>
+        <item>Út</item>
+        <item>St</item>
+        <item>Čt</item>
+        <item>Pá</item>
+        <item>So</item>
+        <item>Ne</item>
+    </string-array>
+    <string-array name="calendar_days_long">
+        <item>pondělí</item>
+        <item>úterý</item>
+        <item>středa</item>
+        <item>čtvrtek</item>
+        <item>pátek</item>
+        <item>sobota</item>
+        <item>neděle</item>
+    </string-array>
+    <string-array name="calendar_months_abbreviated">
+        <item>led</item>
+        <item>úno</item>
+        <item>bře</item>
+        <item>dub</item>
+        <item>kvě</item>
+        <item>čvn</item>
+        <item>čvc</item>
+        <item>srp</item>
+        <item>zář</item>
+        <item>říj</item>
+        <item>lis</item>
+        <item>pro</item>
+    </string-array>
+    <string-array name="calendar_months_full">
+        <item>ledna</item>
+        <item>února</item>
+        <item>března</item>
+        <item>dubna</item>
+        <item>května</item>
+        <item>června</item>
+        <item>července</item>
+        <item>srpna</item>
+        <item>září</item>
+        <item>října</item>
+        <item>listopadu</item>
+        <item>prosince</item>
+    </string-array>
+    <string name="message_unread_marker">NOVÉ</string>
+    <plurals name="timestamp_relative_past_seconds">
+        <item quantity="one">před %1$s sekundou</item>
+        <item quantity="few">před %1$s sekundami</item>
+        <item quantity="other">před %1$s sekundami</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_seconds">
+        <item quantity="one">za %1$s sekundu</item>
+        <item quantity="few">za %1$s sekundy</item>
+        <item quantity="other">za %1$s sekund</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_minutes">
+        <item quantity="one">před %1$s minutou</item>
+        <item quantity="few">před %1$s minutami</item>
+        <item quantity="other">před %1$s minutami</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_minutes">
+        <item quantity="one">za %1$s minutu</item>
+        <item quantity="few">za %1$s minuty</item>
+        <item quantity="other">za %1$s minut</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_hours">
+        <item quantity="one">před %1$s hodinou</item>
+        <item quantity="few">před %1$s hodinami</item>
+        <item quantity="other">před %1$s hodinami</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_hours">
+        <item quantity="one">za %1$s hodinu</item>
+        <item quantity="few">za %1$s hodiny</item>
+        <item quantity="other">za %1$s hodin</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_days">
+        <item quantity="one">před %1$s dnem</item>
+        <item quantity="few">před %1$s dny</item>
+        <item quantity="other">před %1$s dny</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_days">
+        <item quantity="one">za %1$s den</item>
+        <item quantity="few">za %1$s dny</item>
+        <item quantity="other">za %1$s dní</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_months">
+        <item quantity="one">před %1$s měsícem</item>
+        <item quantity="few">před %1$s měsíci</item>
+        <item quantity="other">před %1$s měsíci</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_months">
+        <item quantity="one">za %1$s měsíc</item>
+        <item quantity="few">za %1$s měsíce</item>
+        <item quantity="other">za %1$s měsíců</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_years">
+        <item quantity="one">před %1$s rokem</item>
+        <item quantity="few">před %1$s lety</item>
+        <item quantity="other">před %1$s lety</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_years">
+        <item quantity="one">za %1$s rok</item>
+        <item quantity="few">za %1$s roky</item>
+        <item quantity="other">za %1$s let</item>
+    </plurals>
+    <string name="message_mention_fallback_user">uživatel</string>
+    <string name="message_mention_fallback_role">role</string>
+    <string name="message_mention_fallback_channel">kanál</string>
+    <string name="common_cancel">Zrušit</string>
+    <string name="common_close">Zavřít</string>
+    <string name="common_done">Hotovo</string>
+    <string name="common_retry">Zkusit znovu</string>
+    <string name="voice_mute">Ztlumit</string>
+    <string name="voice_unmute">Zrušit ztlumení</string>
+    <string name="voice_deafen">Ohluchnout</string>
+    <string name="voice_undeafen">Zrušit ohluchnutí</string>
+    <string name="voice_open_settings">Otevřít nastavení</string>
+    <string name="connection_banner_connecting">Připojování k Discordu…</string>
+    <string name="connection_banner_reconnecting">Opětovné připojení za %1$s s…</string>
+    <string name="connection_banner_retry_now">Zkusit hned</string>
+    <string name="connection_banner_offline">Offline — režim jen pro čtení. Zprávy se odešlou po opětovném připojení.</string>
+    <string name="connection_banner_session_expired">Platnost relace vypršela.</string>
+    <string name="connection_banner_sign_in_again">Přihlásit se znovu</string>
+    <string name="palette_search_placeholder">Hledat kanály, uživatele, příkazy…</string>
+    <string name="palette_no_results">Žádné výsledky</string>
+    <string name="add_friend_title">Přidat přítele</string>
+    <string name="add_friend_placeholder">uživatelské jméno nebo jméno#1234</string>
+    <string name="add_friend_sending">Odesílání...</string>
+    <string name="add_friend_send">Odeslat žádost</string>
+    <string name="join_server_title">Připojit se k serveru</string>
+    <string name="join_server_placeholder">https://discord.gg/kód nebo jen kód</string>
+    <string name="join_server_joining">Připojování...</string>
+    <string name="join_server_join">Připojit se</string>
+    <string name="new_dm_title">Zahájit přímou zprávu</string>
+    <string name="new_dm_search_placeholder">Hledat podle jména</string>
+    <string name="new_dm_hint_type_name">Zadej jméno pro hledání v kontaktech</string>
+    <string name="new_dm_hint_no_matches">Mezi známými uživateli nic nenalezeno</string>
+    <string name="emoji_picker_title">Přidat reakci</string>
+    <string name="emoji_picker_placeholder">Vlož emoji nebo zadej unicode</string>
+    <string name="emoji_picker_recent">Nedávné</string>
+    <string name="emoji_picker_add">Přidat</string>
+    <string name="channel_voice_description">Hlasový kanál</string>
+    <string name="guild_rail_add_friend">Přidat přítele</string>
+    <string name="guild_rail_join_server">Připojit se k serveru</string>
+    <string name="guild_rail_direct_messages_label">DM</string>
+    <string name="message_edited">(upraveno)</string>
+    <string name="message_menu_copy_text">Kopírovat text</string>
+    <string name="message_menu_copy_link">Kopírovat odkaz na zprávu</string>
+    <string name="message_menu_edit">Upravit</string>
+    <string name="message_menu_delete">Smazat</string>
+    <string name="message_system_call">%1$s zahájil/a hovor.</string>
+    <string name="message_system_recipient_add">%1$s přidal/a někoho do skupiny.</string>
+    <string name="message_system_recipient_remove">%1$s odebral/a někoho ze skupiny.</string>
+    <string name="message_system_channel_name_change">%1$s změnil/a název kanálu.</string>
+    <string name="message_system_channel_icon_change">%1$s změnil/a ikonu kanálu.</string>
+    <string name="message_system_pinned">%1$s připnul/a zprávu v tomto kanálu.</string>
+    <string name="composer_attach_file">Přiložit soubor</string>
+    <string name="composer_send">Odeslat</string>
+    <string name="composer_attachment_chip">%1$s (%2$s KB)</string>
+    <string name="composer_remove_attachment">Odebrat %1$s</string>
+    <string name="attachment_play">Přehrát</string>
+    <string name="attachment_file_fallback_extension">SOUBOR</string>
+    <string name="attachment_viewer_close">Zavřít</string>
+    <string name="voice_member_muted">Ztlumen</string>
+    <string name="voice_member_deafened">Ohluchen</string>
+    <string name="bootstrap_connecting">Připojování…</string>
+    <string name="message_system_user_join_01">%1$s se právě připojil/a.</string>
+    <string name="message_system_user_join_02">%1$s je tu.</string>
+    <string name="message_system_user_join_03">Vítej, %1$s. Doufáme, že neseš pizzu.</string>
+    <string name="message_system_user_join_04">Objevil/a se divoký %1$s.</string>
+    <string name="message_system_user_join_05">%1$s právě přistál/a.</string>
+    <string name="message_system_user_join_06">%1$s právě proklouznul/a na server.</string>
+    <string name="message_system_user_join_07">%1$s se ukázal/a!</string>
+    <string name="message_system_user_join_08">Vítej, %1$s. Pozdrav nám tu ostatní!</string>
+    <string name="message_system_user_join_09">%1$s naskočil/a na server.</string>
+    <string name="message_system_user_join_10">Všichni přivítejme %1$s!</string>
+    <string name="message_system_user_join_11">Jsme rádi, že jsi tady, %1$s.</string>
+    <string name="message_system_user_join_12">Moc rádi tě tu vidíme, %1$s.</string>
+    <string name="message_system_user_join_13">%1$s je tady! Pěkně vítáme!</string>
+    <string name="voice_dave_active">Šifrováno od konce ke konci (DAVE, epocha %1$s) - klepnutím ověříš hovor</string>
+    <string name="voice_dave_connecting">Probíhá DAVE handshake</string>
+    <string name="voice_dave_disabled">DAVE vypnuto: %1$s</string>
+    <string name="voice_dave_off">Není šifrováno od konce ke konci</string>
+    <string name="voice_status_connecting">Připojování...</string>
+    <string name="voice_status_connecting_to">Připojování k %1$s...</string>
+    <string name="voice_status_connected">Hlas připojen</string>
+    <string name="voice_status_sharing">Sdílení</string>
+    <string name="voice_status_failed">Hlas selhal: %1$s</string>
+    <string name="voice_settings_title">Nastavení hlasu</string>
+    <string name="voice_stop_screen_share">Zastavit sdílení obrazovky</string>
+    <string name="voice_share_screen">Sdílet obrazovku</string>
+    <string name="voice_disconnect">Odpojit</string>
+    <string name="voice_generic_channel_label">hlas</string>
+    <string name="voice_dismiss">Zavřít</string>
+    <string name="voice_dave_downgrade_icon">Snížení úrovně šifrování</string>
+    <string name="voice_dave_downgrade_message">Šifrování od konce ke konci je vypnuto. Tvůj zvuk už není chráněn E2EE.</string>
+    <string name="voice_incoming_call_title">%1$s volá...</string>
+    <string name="voice_incoming_call_generic_title">Příchozí hovor z této přímé zprávy</string>
+    <string name="voice_incoming_call_generic_caller">Přímá zpráva</string>
+    <string name="voice_incoming_call_accept">Přijmout</string>
+    <string name="voice_incoming_call_decline">Odmítnout</string>
+    <string name="voice_verify_title">Ověřit hovor</string>
+    <string name="voice_verify_instructions">Přečtěte si tyto kódy nahlas a potvrďte, že druhá strana vidí stejné. Neshoda znamená, že šifrování může být narušeno.</string>
+    <string name="voice_verify_no_participants">V hovoru zatím nejsou žádní vzdálení účastníci.</string>
+    <string name="voice_verify_unavailable">nedostupné</string>
+    <string name="voice_picker_title">Sdílet obrazovku</string>
+    <string name="voice_picker_no_sources">Nebyly nalezeny žádné obrazovky ke sdílení.</string>
+    <string name="voice_picker_tab_screens">Obrazovky (%1$s)</string>
+    <string name="voice_picker_tab_windows">Okna (%1$s)</string>
+    <string name="voice_picker_no_windows">Nebyla nalezena žádná okna. Pokud se zobrazí výzva, povol Automatizaci v Nastavení systému → Soukromí a zabezpečení → Automatizace.</string>
+    <string name="voice_picker_window_fallback">Záznam okna se zatím přepíná na celou obrazovku hlavního monitoru (omezení v1).</string>
+    <string name="voice_picker_share">Sdílet</string>
+    <string name="voice_picker_share_audio">Sdílet systémový zvuk</string>
+    <string name="voice_picker_audio_unsupported_macos">Sdílení systémového zvuku není v macOS podporováno.</string>
+    <string name="voice_settings_input_device">Vstupní zařízení</string>
+    <string name="voice_settings_output_device">Výstupní zařízení</string>
+    <string name="voice_direct_call">Přímý hovor</string>
+    <string name="voice_bar_title_fallback">Hlas</string>
+    <string name="voice_bar_title_with_server">%1$s · %2$s</string>
+    <string name="voice_bar_connecting_to">Připojování k %1$s</string>
+    <string name="voice_mute_microphone">Ztlumit mikrofon</string>
+    <string name="voice_unmute_microphone">Zrušit ztlumení mikrofonu</string>
+    <string name="voice_cancel_call">Zrušit hovor</string>
+    <string name="voice_remote_screenshare">Vzdálené sdílení obrazovky %1$s</string>
+    <string name="voice_ios_share_title">Sdílet obrazovku iPhonu?</string>
+    <string name="voice_ios_share_warning">Vysílání zachytí vše na obrazovce, včetně dalších aplikací.</string>
+    <string name="voice_ios_share_app_audio">Sdílet zvuk aplikací</string>
+    <string name="main_snackbar_leave_current_call">Nejdřív opusť aktuální hovor</string>
+    <string name="main_snackbar_reorder_guilds_failed">Pořadí serverů se nepodařilo uložit. Zkus to prosím znovu.</string>
+    <string name="main_snackbar_new_dm_failed">Přímou zprávu se nepodařilo zahájit. Zkus to prosím znovu.</string>
+    <string name="add_friend_unavailable">Přidání přítele není v této relaci dostupné.</string>
+    <string name="add_friend_empty">Zadej uživatelské jméno, jméno#1234 nebo ID uživatele.</string>
+    <string name="add_friend_failed">Žádost o přátelství selhala. Zkontroluj jméno a zkus to znovu.</string>
+    <string name="add_friend_success">Žádost o přátelství odeslána.</string>
+    <string name="join_server_unavailable">Připojení k serveru není v této relaci dostupné.</string>
+    <string name="join_server_empty">Zadej odkaz s pozvánkou nebo kód.</string>
+    <string name="join_server_failed">K serveru se nepodařilo připojit. Zkontroluj pozvánku a zkus to znovu.</string>
+    <string name="join_server_success">Připojeno.</string>
+    <string name="main_direct_messages_title">Přímé zprávy</string>
+    <string name="main_start_new_dm">Zahájit novou přímou zprávu</string>
+    <string name="main_no_direct_messages">Zatím žádné přímé zprávy</string>
+    <string name="main_dm_unknown_recipient">Neznámý</string>
+    <string name="main_channels_title">Kanály</string>
+    <string name="main_no_channels">Zatím žádné kanály</string>
+    <string name="main_empty_select_channel_title">Vyber kanál a začni chatovat</string>
+    <string name="main_empty_select_channel_body">Kanály se tu objeví, jakmile se připojíš k serveru.</string>
+    <string name="main_empty_no_session_title">Žádná aktivní relace</string>
+    <string name="main_empty_no_session_body">Pro příjem zpráv se přihlas.</string>
+    <string name="main_open_channels">Otevřít kanály</string>
+    <string name="main_empty_voice_channel_title">Hlasový kanál</string>
+    <string name="main_empty_voice_channel_body">Hlasové kanály zatím nejsou podporovány. (Hlas řeší fáze 3 roadmapy.)</string>
+    <string name="main_empty_stage_channel_title">Pódiový kanál</string>
+    <string name="main_empty_stage_channel_body">Pódiové kanály zatím nejsou podporovány. (Hlas řeší fáze 3 roadmapy.)</string>
+    <string name="main_empty_directory_title">Adresář serverů</string>
+    <string name="main_empty_directory_body">Adresáře serverů zatím nejsou podporovány.</string>
+    <string name="main_empty_category_title">Kategorie</string>
+    <string name="main_empty_category_body">Kategorie seskupují kanály a neobsahují zprávy.</string>
+    <string name="main_composer_placeholder">Napsat zprávu do #%1$s</string>
+    <string name="main_call_cancel">Zrušit hovor</string>
+    <string name="main_call_hang_up">Zavěsit</string>
+    <string name="main_call_start">Zavolat</string>
+    <string name="main_ringback_calling">Volání: %1$s%2$s</string>
+    <string name="message_list_empty">Je tu ticho. Začni konverzaci.</string>
+    <string name="message_list_error_forbidden">Nemáš oprávnění zobrazit tento kanál.</string>
+    <string name="message_list_error_not_found">Kanál nebyl nalezen.</string>
+    <string name="message_list_error_rate_limited">Discord omezil počet požadavků. Zkus to za chvíli.</string>
+    <string name="message_list_error_network">Discord není dostupný. Zkontroluj připojení.</string>
+    <string name="message_list_error_failed">Zprávy se nepodařilo načíst: %1$s</string>
+    <string name="message_list_error_timed_out">Načítání zpráv vypršelo.</string>
+    <string name="message_list_error_generic">Zprávy se nepodařilo načíst.</string>
+</resources>

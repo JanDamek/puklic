@@ -40,6 +40,25 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import dev.puklic.ui.theme.LocalPuklicSpacing
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_cancel
+import dev.puklic.ui.resources.login_captcha_hint
+import dev.puklic.ui.resources.login_captcha_prompt
+import dev.puklic.ui.resources.login_field_label
+import dev.puklic.ui.resources.login_mfa_label
+import dev.puklic.ui.resources.login_mfa_prompt
+import dev.puklic.ui.resources.login_password_label
+import dev.puklic.ui.resources.login_save_password
+import dev.puklic.ui.resources.login_sign_in
+import dev.puklic.ui.resources.login_subtitle
+import dev.puklic.ui.resources.login_tab_credentials
+import dev.puklic.ui.resources.login_tab_token
+import dev.puklic.ui.resources.login_token_label
+import dev.puklic.ui.resources.login_token_paste_description
+import dev.puklic.ui.resources.login_token_warning
+import dev.puklic.ui.resources.login_verify
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.asString
 
 /**
  * LoginScreen per `docs/04_ui/screens.md`. Centered 480 dp card with a TabRow switching between
@@ -80,9 +99,9 @@ public fun LoginScreen(viewModel: LoginViewModel) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(spacing.space4),
             ) {
-                Text("Puklic", style = MaterialTheme.typography.displaySmall)
+                Text(BRAND_NAME, style = MaterialTheme.typography.displaySmall)
                 Text(
-                    "Sign in to Discord",
+                    stringResource(Res.string.login_subtitle),
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
@@ -91,13 +110,13 @@ public fun LoginScreen(viewModel: LoginViewModel) {
                         selected = state.mode == LoginMode.CREDENTIALS,
                         onClick = { viewModel.selectMode(LoginMode.CREDENTIALS) },
                         enabled = !state.submitting,
-                        text = { Text("Email / Password") },
+                        text = { Text(stringResource(Res.string.login_tab_credentials)) },
                     )
                     Tab(
                         selected = state.mode == LoginMode.TOKEN,
                         onClick = { viewModel.selectMode(LoginMode.TOKEN) },
                         enabled = !state.submitting,
-                        text = { Text("Token") },
+                        text = { Text(stringResource(Res.string.login_tab_token)) },
                     )
                 }
 
@@ -111,8 +130,7 @@ public fun LoginScreen(viewModel: LoginViewModel) {
                 }
 
                 Text(
-                    "Discord may challenge new sign-ins with captcha. If that happens, switch " +
-                        "to the Token tab.",
+                    stringResource(Res.string.login_captcha_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -132,7 +150,7 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
     OutlinedTextField(
         value = state.token,
         onValueChange = viewModel::onTokenChange,
-        label = { Text("Paste your token") },
+        label = { Text(stringResource(Res.string.login_token_label)) },
         visualTransformation = PasswordVisualTransformation(),
         singleLine = true,
         // Keyboard hints: password-class field; disable autocorrect + capitalization
@@ -147,7 +165,7 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
         enabled = !state.submitting,
         isError = state.error != null,
         supportingText = state.error?.let { msg ->
-            { Text(msg, color = MaterialTheme.colorScheme.error) }
+            { Text(msg.asString(), color = MaterialTheme.colorScheme.error) }
         },
         trailingIcon = {
             IconButton(
@@ -158,18 +176,18 @@ private fun TokenForm(state: LoginState, viewModel: LoginViewModel) {
                     }
                 },
             ) {
-                Icon(Icons.Outlined.ContentPaste, contentDescription = "Paste token")
+                Icon(Icons.Outlined.ContentPaste, contentDescription = stringResource(Res.string.login_token_paste_description))
             }
         },
         modifier = Modifier.widthIn(min = 320.dp),
     )
     Text(
-        "Your token grants full access to your account. Never share it.",
+        stringResource(Res.string.login_token_warning),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
     SubmitButton(
-        label = "Sign in",
+        label = stringResource(Res.string.login_sign_in),
         submitting = state.submitting,
         enabled = state.canSubmitToken,
         onClick = viewModel::submit,
@@ -182,7 +200,7 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
         OutlinedTextField(
             value = state.loginField,
             onValueChange = viewModel::onLoginFieldChange,
-            label = { Text("Email or username") },
+            label = { Text(stringResource(Res.string.login_field_label)) },
             singleLine = true,
             enabled = !state.submitting,
             isError = state.error != null,
@@ -196,7 +214,7 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
         OutlinedTextField(
             value = state.password,
             onValueChange = viewModel::onPasswordChange,
-            label = { Text("Password") },
+            label = { Text(stringResource(Res.string.login_password_label)) },
             visualTransformation = PasswordVisualTransformation(),
             singleLine = true,
             enabled = !state.submitting,
@@ -207,7 +225,7 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
                 capitalization = KeyboardCapitalization.None,
             ),
             supportingText = state.error?.let { msg ->
-                { Text(msg, color = MaterialTheme.colorScheme.error) }
+                { Text(msg.asString(), color = MaterialTheme.colorScheme.error) }
             },
             modifier = Modifier.widthIn(min = 320.dp),
         )
@@ -220,23 +238,23 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
                 onCheckedChange = viewModel::onSavePasswordChange,
                 enabled = !state.submitting,
             )
-            Text("Save password")
+            Text(stringResource(Res.string.login_save_password))
         }
         SubmitButton(
-            label = "Sign in",
+            label = stringResource(Res.string.login_sign_in),
             submitting = state.submitting,
             enabled = state.canSubmitCredentials,
             onClick = viewModel::submit,
         )
     } else {
         Text(
-            "Enter the 6-digit code from your authenticator app.",
+            stringResource(Res.string.login_mfa_prompt),
             style = MaterialTheme.typography.bodyMedium,
         )
         OutlinedTextField(
             value = state.mfaCode,
             onValueChange = viewModel::onMfaCodeChange,
-            label = { Text("6-digit code") },
+            label = { Text(stringResource(Res.string.login_mfa_label)) },
             singleLine = true,
             enabled = !state.submitting,
             isError = state.error != null,
@@ -245,12 +263,12 @@ private fun CredentialsForm(state: LoginState, viewModel: LoginViewModel) {
                 autoCorrectEnabled = false,
             ),
             supportingText = state.error?.let { msg ->
-                { Text(msg, color = MaterialTheme.colorScheme.error) }
+                { Text(msg.asString(), color = MaterialTheme.colorScheme.error) }
             },
             modifier = Modifier.widthIn(min = 320.dp),
         )
         SubmitButton(
-            label = "Verify",
+            label = stringResource(Res.string.login_verify),
             submitting = state.submitting,
             enabled = state.canSubmitMfa,
             onClick = viewModel::submitMfa,
@@ -263,8 +281,7 @@ private fun CaptchaSection(state: LoginState, viewModel: LoginViewModel) {
     val sitekey = state.captchaSitekey ?: return
     val service = state.captchaService.orEmpty()
     Text(
-        "Discord asked for a security check. Solve the puzzle below — " +
-            "Puklic will retry sign-in automatically.",
+        stringResource(Res.string.login_captcha_prompt),
         style = MaterialTheme.typography.bodyMedium,
     )
     // fillMaxWidth (not widthIn) so the WebView gets the full Card width — hCaptcha
@@ -278,13 +295,13 @@ private fun CaptchaSection(state: LoginState, viewModel: LoginViewModel) {
         modifier = Modifier.fillMaxWidth(),
     )
     state.error?.let { msg ->
-        Text(msg, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+        Text(msg.asString(), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
     }
     Button(
         onClick = viewModel::cancelCaptcha,
         enabled = !state.submitting,
     ) {
-        Text("Cancel")
+        Text(stringResource(Res.string.common_cancel))
     }
 }
 
@@ -302,3 +319,5 @@ private fun SubmitButton(label: String, submitting: Boolean, enabled: Boolean, o
         }
     }
 }
+
+private const val BRAND_NAME = "Puklic"

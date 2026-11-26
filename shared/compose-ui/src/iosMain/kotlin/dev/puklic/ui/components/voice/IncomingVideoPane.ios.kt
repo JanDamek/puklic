@@ -19,6 +19,9 @@ import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
 import org.jetbrains.skia.ImageInfo
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_remote_screenshare
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * iOS `actual` for [IncomingVideoPane] — converts the raw RGBA payload to a Skia raster
@@ -45,7 +48,7 @@ internal actual fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {
             }
             Image(
                 bitmap = bitmap,
-                contentDescription = "Remote screenshare $ssrc",
+                contentDescription = stringResource(Res.string.voice_remote_screenshare, ssrc.toString()),
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(frame.width.toFloat() / frame.height.toFloat().coerceAtLeast(1f)),

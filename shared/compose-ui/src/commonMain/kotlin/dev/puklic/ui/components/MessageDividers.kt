@@ -19,18 +19,29 @@ import kotlin.time.Instant
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.calendar_months_full
+import dev.puklic.ui.resources.date_separator_format
+import org.jetbrains.compose.resources.stringArrayResource
+import dev.puklic.ui.resources.message_unread_marker
+import org.jetbrains.compose.resources.stringResource
 
 /**
- * Issue #91 message-stream dividers: a centered Czech date separator and the red "NOVÉ" unread
- * marker. Pure helpers ([czechLongDate], [isNewDay]) are unit-tested; the composables render the
+ * Issue #91 message-stream dividers: a centered localized date separator and the red "NEW" unread
+ * marker. The pure helper [isNewDay] is unit-tested; the composables render the
  * approved Discord-parity styling.
  */
 
 private const val DIVIDER_VERTICAL_PADDING_DP = 8
 
-/** "21. března 2026" — Czech genitive month, day without a leading zero. */
-fun czechLongDate(date: LocalDate): String =
-    "${date.dayOfMonth}. ${TimestampFormat.czechGenitiveMonth(date.month)} ${date.year}"
+/** Locale-aware long date, e.g. "March 21, 2026" or "21. března 2026" — day without a leading zero. */
+@Composable
+fun longDateLabel(date: LocalDate): String = stringResource(
+    Res.string.date_separator_format,
+    stringArrayResource(Res.array.calendar_months_full)[date.monthNumber - 1],
+    date.dayOfMonth.toString(),
+    date.year.toString(),
+)
 
 /**
  * True when [current] falls on a different calendar day (in [zone]) than its older sibling
@@ -67,7 +78,7 @@ fun DateSeparator(label: String, modifier: Modifier = Modifier) {
     }
 }
 
-/** Full-width red rule with a right-aligned red "NOVÉ" chip, anchored above the first unread message. */
+/** Full-width red rule with a right-aligned red "NEW" chip, anchored above the first unread message. */
 @Composable
 fun UnreadDivider(modifier: Modifier = Modifier) {
     Box(
@@ -79,7 +90,7 @@ fun UnreadDivider(modifier: Modifier = Modifier) {
         HorizontalDivider(color = MaterialTheme.colorScheme.error)
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) {
             Text(
-                text = "NOVÉ",
+                text = stringResource(Res.string.message_unread_marker),
                 style = MaterialTheme.typography.labelSmall,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onError,

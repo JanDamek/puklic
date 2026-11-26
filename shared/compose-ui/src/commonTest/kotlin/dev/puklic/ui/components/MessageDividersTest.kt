@@ -1,7 +1,6 @@
 package dev.puklic.ui.components
 
 import kotlin.time.Instant
-import kotlinx.datetime.LocalDate
 import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
@@ -11,32 +10,9 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
- * Issue #91 Czech date divider tests for [czechLongDate] and [isNewDay], which live in
- * [MessageDividers]. RED until impl lands.
+ * Issue #91 date divider tests for [isNewDay], which lives in [MessageDividers].
  */
 class MessageDividersTest {
-
-    // --- czechLongDate ---
-
-    @Test
-    fun czechLongDate_march() {
-        assertEquals("21. března 2026", czechLongDate(LocalDate(2026, 3, 21)))
-    }
-
-    @Test
-    fun czechLongDate_january_no_leading_zero() {
-        assertEquals("1. ledna 2026", czechLongDate(LocalDate(2026, 1, 1)))
-    }
-
-    @Test
-    fun czechLongDate_december() {
-        assertEquals("9. prosince 2025", czechLongDate(LocalDate(2025, 12, 9)))
-    }
-
-    @Test
-    fun czechLongDate_september() {
-        assertEquals("30. září 2026", czechLongDate(LocalDate(2026, 9, 30)))
-    }
 
     // --- isNewDay ---
 

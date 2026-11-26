@@ -25,6 +25,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.AudioDevice
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_close
+import dev.puklic.ui.resources.voice_settings_input_device
+import dev.puklic.ui.resources.voice_settings_output_device
+import dev.puklic.ui.resources.voice_settings_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Voice settings dialog: pick capture + playback device.
@@ -48,10 +54,10 @@ public fun VoiceSettingsDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Voice settings") },
+        title = { Text(stringResource(Res.string.voice_settings_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Input device", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(Res.string.voice_settings_input_device), style = MaterialTheme.typography.labelMedium)
                 DeviceDropdown(
                     devices = captureDevices,
                     selectedId = selectedCaptureId
@@ -59,7 +65,7 @@ public fun VoiceSettingsDialog(
                         ?: captureDevices.firstOrNull()?.id,
                     onSelect = onSelectCapture,
                 )
-                Text("Output device", style = MaterialTheme.typography.labelMedium)
+                Text(stringResource(Res.string.voice_settings_output_device), style = MaterialTheme.typography.labelMedium)
                 DeviceDropdown(
                     devices = playbackDevices,
                     selectedId = selectedPlaybackId
@@ -69,7 +75,7 @@ public fun VoiceSettingsDialog(
                 )
             }
         },
-        confirmButton = { TextButton(onClick = onDismiss) { Text("Close") } },
+        confirmButton = { TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) } },
     )
 }
 

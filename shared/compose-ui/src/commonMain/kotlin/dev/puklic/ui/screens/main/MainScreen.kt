@@ -98,6 +98,34 @@ import dev.puklic.ui.screens.settings.SettingsHost
 import dev.puklic.ui.screens.settings.SettingsOverlay
 import dev.puklic.ui.theme.LocalPuklicSpacing
 import dev.puklic.voice.VoiceState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.main_call_cancel
+import dev.puklic.ui.resources.main_call_hang_up
+import dev.puklic.ui.resources.main_call_start
+import dev.puklic.ui.resources.main_channels_title
+import dev.puklic.ui.resources.main_composer_placeholder
+import dev.puklic.ui.resources.main_direct_messages_title
+import dev.puklic.ui.resources.main_dm_unknown_recipient
+import dev.puklic.ui.resources.main_empty_category_body
+import dev.puklic.ui.resources.main_empty_category_title
+import dev.puklic.ui.resources.main_empty_directory_body
+import dev.puklic.ui.resources.main_empty_directory_title
+import dev.puklic.ui.resources.main_empty_no_session_body
+import dev.puklic.ui.resources.main_empty_no_session_title
+import dev.puklic.ui.resources.main_empty_select_channel_body
+import dev.puklic.ui.resources.main_empty_select_channel_title
+import dev.puklic.ui.resources.main_empty_stage_channel_body
+import dev.puklic.ui.resources.main_empty_stage_channel_title
+import dev.puklic.ui.resources.main_empty_voice_channel_body
+import dev.puklic.ui.resources.main_empty_voice_channel_title
+import dev.puklic.ui.resources.main_no_channels
+import dev.puklic.ui.resources.main_no_direct_messages
+import dev.puklic.ui.resources.main_open_channels
+import dev.puklic.ui.resources.main_ringback_calling
+import dev.puklic.ui.resources.main_start_new_dm
+import dev.puklic.ui.text.resolve
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Three-pane Expanded layout per `docs/04_ui/adaptive-layouts.md`:
@@ -538,14 +566,14 @@ private fun DmListPane(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             Text(
-                "Direct Messages",
+                stringResource(Res.string.main_direct_messages_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurface,
             )
             IconButton(onClick = onStartNewDm) {
                 Icon(
                     imageVector = Icons.Filled.Add,
-                    contentDescription = "Start new DM",
+                    contentDescription = stringResource(Res.string.main_start_new_dm),
                 )
             }
         }
@@ -554,7 +582,7 @@ private fun DmListPane(
         Spacer(Modifier.height(spacing.space4))
         if (dms.isEmpty()) {
             Text(
-                "No direct messages yet",
+                stringResource(Res.string.main_no_direct_messages),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -562,7 +590,8 @@ private fun DmListPane(
             LazyColumn {
                 items(dms, key = { "dm-${it.id.value}" }) { dm ->
                     val recipient = dm.recipients.firstOrNull()
-                    val label = recipient?.let { it.globalName ?: it.username } ?: "Unknown"
+                    val label = recipient?.let { it.globalName ?: it.username }
+                        ?: stringResource(Res.string.main_dm_unknown_recipient)
                     DmRow(
                         label = "@$label",
                         avatar = recipient,
@@ -627,7 +656,7 @@ private fun ChannelListPane(
     val spacing = LocalPuklicSpacing.current
     Column(modifier = modifier.background(MaterialTheme.colorScheme.surface).padding(spacing.space4)) {
         Text(
-            "Channels",
+            stringResource(Res.string.main_channels_title),
             style = MaterialTheme.typography.titleMedium,
             color = MaterialTheme.colorScheme.onSurface,
         )
@@ -636,7 +665,7 @@ private fun ChannelListPane(
         Spacer(Modifier.height(spacing.space4))
         if (channels.isEmpty()) {
             Text(
-                "No channels yet",
+                stringResource(Res.string.main_no_channels),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -765,7 +794,7 @@ private fun SnackbarHostMount(viewModel: MainViewModel) {
     val hostState = remember { SnackbarHostState() }
     LaunchedEffect(viewModel) {
         viewModel.snackbarMessage.collect { msg ->
-            hostState.showSnackbar(msg)
+            hostState.showSnackbar(msg.resolve())
         }
     }
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
@@ -795,18 +824,18 @@ private fun MessagePane(
         val nonTextEmptyState = selectedChannel?.let { nonTextChannelEmptyState(it.type) }
         when {
             selectedChannelId == null -> EmptyMessagePane(
-                title = "Select a channel to start chatting",
-                body = "Channels appear here once you join a server.",
+                title = stringResource(Res.string.main_empty_select_channel_title),
+                body = stringResource(Res.string.main_empty_select_channel_body),
                 onOpenDrawer = onOpenDrawer,
             )
             messageOrchestrator == null -> EmptyMessagePane(
-                title = "No active session",
-                body = "Sign in to start receiving messages.",
+                title = stringResource(Res.string.main_empty_no_session_title),
+                body = stringResource(Res.string.main_empty_no_session_body),
                 onOpenDrawer = onOpenDrawer,
             )
             nonTextEmptyState != null -> EmptyMessagePane(
-                title = nonTextEmptyState.first,
-                body = nonTextEmptyState.second,
+                title = stringResource(nonTextEmptyState.first),
+                body = stringResource(nonTextEmptyState.second),
                 onOpenDrawer = onOpenDrawer,
             )
             else -> ChannelMessages(
@@ -854,7 +883,7 @@ private fun EmptyMessagePane(title: String, body: String, onOpenDrawer: (() -> U
 @Composable
 private fun DrawerMenuButton(onOpenDrawer: () -> Unit) {
     IconButton(onClick = onOpenDrawer) {
-        Icon(imageVector = Icons.Filled.Menu, contentDescription = "Open channels")
+        Icon(imageVector = Icons.Filled.Menu, contentDescription = stringResource(Res.string.main_open_channels))
     }
 }
 
@@ -864,20 +893,16 @@ private fun DrawerMenuButton(onOpenDrawer: () -> Unit) {
  * for text-capable channel types (GUILD_TEXT, GUILD_ANNOUNCEMENT, DM, GROUP_DM, threads, forum/
  * media post channels).
  */
-private fun nonTextChannelEmptyState(type: dev.puklic.domain.ChannelType): Pair<String, String>? =
+private fun nonTextChannelEmptyState(type: dev.puklic.domain.ChannelType): Pair<StringResource, StringResource>? =
     when (type) {
         dev.puklic.domain.ChannelType.GUILD_VOICE ->
-            "Voice channel" to
-                "Voice channels aren't supported yet. (Phase 3 roadmap covers voice.)"
+            Res.string.main_empty_voice_channel_title to Res.string.main_empty_voice_channel_body
         dev.puklic.domain.ChannelType.GUILD_STAGE_VOICE ->
-            "Stage channel" to
-                "Stage channels aren't supported yet. (Phase 3 roadmap covers voice.)"
+            Res.string.main_empty_stage_channel_title to Res.string.main_empty_stage_channel_body
         dev.puklic.domain.ChannelType.GUILD_DIRECTORY ->
-            "Server directory" to
-                "Server directories aren't supported yet."
+            Res.string.main_empty_directory_title to Res.string.main_empty_directory_body
         dev.puklic.domain.ChannelType.GUILD_CATEGORY ->
-            "Category" to
-                "Categories group channels and don't contain messages."
+            Res.string.main_empty_category_title to Res.string.main_empty_category_body
         else -> null
     }
 
@@ -1005,7 +1030,7 @@ private fun ChannelMessages(
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Composer(
             draft = composerState.draft,
-            placeholder = "Message #$displayName",
+            placeholder = stringResource(Res.string.main_composer_placeholder, displayName),
             onDraftChange = composerVm.viewModel::onDraftChange,
             onSubmit = composerVm.viewModel::send,
             attachments = composerState.attachments,
@@ -1081,14 +1106,16 @@ private fun DmCallControl(
                 }
                 Icon(
                     Icons.Filled.CallEnd,
-                    contentDescription = if (isPreConnect) "Cancel call" else "Hang up",
+                    contentDescription = stringResource(
+                        if (isPreConnect) Res.string.main_call_cancel else Res.string.main_call_hang_up,
+                    ),
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
         }
     } else {
         IconButton(onClick = onStartCall) {
-            Icon(Icons.Filled.Call, contentDescription = "Call")
+            Icon(Icons.Filled.Call, contentDescription = stringResource(Res.string.main_call_start))
         }
     }
 }
@@ -1110,7 +1137,7 @@ private fun RingbackLabel(targetName: String) {
         }
     }
     Text(
-        text = "Calling $targetName$dots",
+        text = stringResource(Res.string.main_ringback_calling, targetName, dots),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )

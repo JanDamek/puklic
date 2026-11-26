@@ -25,6 +25,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import dev.puklic.ids.UserId
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_done
+import dev.puklic.ui.resources.voice_verify_instructions
+import dev.puklic.ui.resources.voice_verify_no_participants
+import dev.puklic.ui.resources.voice_verify_title
+import dev.puklic.ui.resources.voice_verify_unavailable
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Renders a row per remote [participants] participant with the Short
@@ -61,12 +68,11 @@ public fun VerifyCallDialog(
     }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Verify call") },
+        title = { Text(stringResource(Res.string.voice_verify_title)) },
         text = {
             Column(modifier = modifier.fillMaxWidth()) {
                 Text(
-                    text = "Read these codes aloud and confirm the other side sees the same. " +
-                        "A mismatch means the encryption may be compromised.",
+                    text = stringResource(Res.string.voice_verify_instructions),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -77,7 +83,7 @@ public fun VerifyCallDialog(
                     if (participants.isEmpty()) {
                         item {
                             Text(
-                                text = "No remote participants in the call yet.",
+                                text = stringResource(Res.string.voice_verify_no_participants),
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -94,7 +100,7 @@ public fun VerifyCallDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismiss) { Text("Done") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_done)) }
         },
     )
 }
@@ -117,7 +123,7 @@ private fun VerifyCallRow(displayName: String, state: SasRowState) {
                     strokeWidth = SPINNER_STROKE_DP.dp,
                 )
                 is SasRowState.Loaded -> Text(
-                    text = state.sas ?: "unavailable",
+                    text = state.sas ?: stringResource(Res.string.voice_verify_unavailable),
                     style = MaterialTheme.typography.bodyMedium.copy(fontFamily = FontFamily.Monospace),
                     color = if (state.sas == null) {
                         MaterialTheme.colorScheme.onSurfaceVariant

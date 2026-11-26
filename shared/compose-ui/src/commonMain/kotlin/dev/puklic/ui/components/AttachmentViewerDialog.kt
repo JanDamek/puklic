@@ -35,6 +35,9 @@ import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.LaunchedEffect
 import coil3.compose.AsyncImage
 import dev.puklic.domain.Attachment
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.attachment_viewer_close
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Full-size modal viewer for an image attachment.
@@ -128,7 +131,7 @@ public fun AttachmentViewerDialog(attachment: Attachment, onDismiss: () -> Unit)
             ) {
                 Icon(
                     imageVector = Icons.Filled.Close,
-                    contentDescription = "Close",
+                    contentDescription = stringResource(Res.string.attachment_viewer_close),
                     tint = Color.White,
                 )
             }

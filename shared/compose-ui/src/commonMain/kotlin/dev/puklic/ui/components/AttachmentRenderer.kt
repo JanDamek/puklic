@@ -38,6 +38,10 @@ import dev.puklic.domain.Attachment
 import dev.puklic.ui.theme.LocalPuklicSpacing
 import kotlin.math.min
 import kotlin.math.roundToInt
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.attachment_file_fallback_extension
+import dev.puklic.ui.resources.attachment_play
+import org.jetbrains.compose.resources.stringResource
 
 internal enum class AttachmentKind { Image, Video, File }
 
@@ -142,7 +146,7 @@ internal fun VideoAttachment(attachment: Attachment, onOpen: () -> Unit) {
             ) {
                 Icon(
                     imageVector = Icons.Filled.PlayArrow,
-                    contentDescription = "Play",
+                    contentDescription = stringResource(Res.string.attachment_play),
                     tint = Color.White,
                 )
             }
@@ -213,7 +217,7 @@ internal fun FileAttachment(attachment: Attachment, onOpen: () -> Unit) {
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = extension.ifEmpty { "FILE" },
+                    text = extension.ifEmpty { stringResource(Res.string.attachment_file_fallback_extension) },
                     style = MaterialTheme.typography.labelSmall,
                     fontWeight = FontWeight.SemiBold,
                     color = MaterialTheme.colorScheme.onPrimaryContainer,

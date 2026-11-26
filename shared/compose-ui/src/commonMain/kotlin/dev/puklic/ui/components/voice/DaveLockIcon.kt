@@ -12,6 +12,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.puklic.voice.DaveUiState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_dave_active
+import dev.puklic.ui.resources.voice_dave_connecting
+import dev.puklic.ui.resources.voice_dave_disabled
+import dev.puklic.ui.resources.voice_dave_off
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Renders a lock icon reflecting the [DaveUiState] of the current voice session.
@@ -28,10 +34,10 @@ public fun DaveLockIcon(
 ) {
     val active = daveState is DaveUiState.Active
     val description = when (daveState) {
-        is DaveUiState.Active -> "End-to-end encrypted (DAVE epoch ${daveState.epoch}) - tap to verify call"
-        is DaveUiState.Connecting -> "DAVE handshake in progress"
-        is DaveUiState.Disabled -> "DAVE disabled: ${daveState.reason}"
-        DaveUiState.Off -> "Not end-to-end encrypted"
+        is DaveUiState.Active -> stringResource(Res.string.voice_dave_active, daveState.epoch.toString())
+        is DaveUiState.Connecting -> stringResource(Res.string.voice_dave_connecting)
+        is DaveUiState.Disabled -> stringResource(Res.string.voice_dave_disabled, daveState.reason)
+        DaveUiState.Off -> stringResource(Res.string.voice_dave_off)
     }
     val clickModifier = if (active && onVerifyCall != null) {
         Modifier.clickable(onClick = onVerifyCall)

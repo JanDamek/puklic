@@ -54,5 +54,14 @@ kotlin {
 kotlin {
     android {
         namespace = "dev.puklic.shared.composeui"
+        androidResources {
+            enable = true
+        }
     }
+}
+
+compose.resources {
+    publicResClass = false
+    packageOfResClass = "dev.puklic.ui.resources"
+    generateResClass = always
 }

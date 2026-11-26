@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="login_subtitle">Sign in to Discord</string>
+    <string name="login_tab_credentials">Email / Password</string>
+    <string name="login_tab_token">Token</string>
+    <string name="login_captcha_hint">Discord may challenge new sign-ins with captcha. If that happens, switch to the Token tab.</string>
+    <string name="login_token_label">Paste your token</string>
+    <string name="login_token_paste_description">Paste token</string>
+    <string name="login_token_warning">Your token grants full access to your account. Never share it.</string>
+    <string name="login_sign_in">Sign in</string>
+    <string name="login_field_label">Email or username</string>
+    <string name="login_password_label">Password</string>
+    <string name="login_save_password">Save password</string>
+    <string name="login_mfa_prompt">Enter the 6-digit code from your authenticator app.</string>
+    <string name="login_mfa_label">6-digit code</string>
+    <string name="login_verify">Verify</string>
+    <string name="login_captcha_prompt">Discord asked for a security check. Solve the puzzle below — Puklic will retry sign-in automatically.</string>
+    <string name="login_captcha_desktop_fallback">Discord asked for a security check. Solve it in a browser and switch to the Token tab.</string>
+    <string name="login_error_captcha_orphaned">Captcha resolved without an active login attempt.</string>
+    <string name="login_error_sign_in_failed">Sign in failed</string>
+    <string name="login_error_sign_in_failed_type">Sign in failed: %1$s</string>
+    <string name="login_error_sign_in_failed_detail">Sign in failed: %1$s — %2$s</string>
+    <string name="login_error_token_rejected">Token rejected by Discord</string>
+    <string name="login_error_token_rejected_detail">Token rejected by Discord — %1$s</string>
+    <string name="login_error_bad_credentials">Bad email/username or password.</string>
+    <string name="login_error_bad_credentials_detail">Bad email/username or password. (%1$s)</string>
+    <string name="login_error_network">Cannot reach Discord. Check connection.</string>
+    <string name="settings_title">Settings</string>
+    <string name="settings_category_account">Account</string>
+    <string name="settings_category_appearance">Appearance</string>
+    <string name="settings_category_notifications">Notifications</string>
+    <string name="settings_category_storage">Storage</string>
+    <string name="settings_category_keybindings">Keybindings</string>
+    <string name="settings_category_about">About</string>
+    <string name="settings_category_coming_soon">%1$s settings — coming soon</string>
+    <string name="settings_account_loading">Loading account…</string>
+    <string name="settings_account_user_id">User ID</string>
+    <string name="settings_account_log_out">Log out</string>
+    <string name="settings_account_log_out_title">Log out of Puklic?</string>
+    <string name="settings_account_log_out_body">Your Discord token will be removed from this device. Local message cache is kept on disk to speed up future sign-in.</string>
+    <string name="timestamp_header_today">Today at %1$s</string>
+    <string name="timestamp_header_yesterday">Yesterday at %1$s</string>
+    <string name="timestamp_header_weekday">%1$s %2$s</string>
+    <string name="timestamp_header_date">%1$s %2$s</string>
+    <string name="timestamp_date_short">%1$s/%2$s/%3$s</string>
+    <string name="timestamp_date_long">%1$s %2$s, %3$s</string>
+    <string name="timestamp_datetime_short">%1$s %2$s</string>
+    <string name="timestamp_datetime_long">%1$s, %2$s %3$s</string>
+    <string name="date_separator_format">%1$s %2$s, %3$s</string>
+    <string-array name="calendar_days_short">
+        <item>Mon</item>
+        <item>Tue</item>
+        <item>Wed</item>
+        <item>Thu</item>
+        <item>Fri</item>
+        <item>Sat</item>
+        <item>Sun</item>
+    </string-array>
+    <string-array name="calendar_days_long">
+        <item>Monday</item>
+        <item>Tuesday</item>
+        <item>Wednesday</item>
+        <item>Thursday</item>
+        <item>Friday</item>
+        <item>Saturday</item>
+        <item>Sunday</item>
+    </string-array>
+    <string-array name="calendar_months_abbreviated">
+        <item>Jan</item>
+        <item>Feb</item>
+        <item>Mar</item>
+        <item>Apr</item>
+        <item>May</item>
+        <item>Jun</item>
+        <item>Jul</item>
+        <item>Aug</item>
+        <item>Sep</item>
+        <item>Oct</item>
+        <item>Nov</item>
+        <item>Dec</item>
+    </string-array>
+    <string-array name="calendar_months_full">
+        <item>January</item>
+        <item>February</item>
+        <item>March</item>
+        <item>April</item>
+        <item>May</item>
+        <item>June</item>
+        <item>July</item>
+        <item>August</item>
+        <item>September</item>
+        <item>October</item>
+        <item>November</item>
+        <item>December</item>
+    </string-array>
+    <string name="message_unread_marker">NEW</string>
+    <plurals name="timestamp_relative_past_seconds">
+        <item quantity="one">%1$s second ago</item>
+        <item quantity="other">%1$s seconds ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_seconds">
+        <item quantity="one">in %1$s second</item>
+        <item quantity="other">in %1$s seconds</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_minutes">
+        <item quantity="one">%1$s minute ago</item>
+        <item quantity="other">%1$s minutes ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_minutes">
+        <item quantity="one">in %1$s minute</item>
+        <item quantity="other">in %1$s minutes</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_hours">
+        <item quantity="one">%1$s hour ago</item>
+        <item quantity="other">%1$s hours ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_hours">
+        <item quantity="one">in %1$s hour</item>
+        <item quantity="other">in %1$s hours</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_days">
+        <item quantity="one">%1$s day ago</item>
+        <item quantity="other">%1$s days ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_days">
+        <item quantity="one">in %1$s day</item>
+        <item quantity="other">in %1$s days</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_months">
+        <item quantity="one">%1$s month ago</item>
+        <item quantity="other">%1$s months ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_months">
+        <item quantity="one">in %1$s month</item>
+        <item quantity="other">in %1$s months</item>
+    </plurals>
+    <plurals name="timestamp_relative_past_years">
+        <item quantity="one">%1$s year ago</item>
+        <item quantity="other">%1$s years ago</item>
+    </plurals>
+    <plurals name="timestamp_relative_future_years">
+        <item quantity="one">in %1$s year</item>
+        <item quantity="other">in %1$s years</item>
+    </plurals>
+    <string name="message_mention_fallback_user">user</string>
+    <string name="message_mention_fallback_role">role</string>
+    <string name="message_mention_fallback_channel">channel</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_close">Close</string>
+    <string name="common_done">Done</string>
+    <string name="common_retry">Retry</string>
+    <string name="voice_mute">Mute</string>
+    <string name="voice_unmute">Unmute</string>
+    <string name="voice_deafen">Deafen</string>
+    <string name="voice_undeafen">Undeafen</string>
+    <string name="voice_open_settings">Open settings</string>
+    <string name="connection_banner_connecting">Connecting to Discord…</string>
+    <string name="connection_banner_reconnecting">Reconnecting in %1$ss…</string>
+    <string name="connection_banner_retry_now">Retry now</string>
+    <string name="connection_banner_offline">Offline — read-only mode. Messages will send when you reconnect.</string>
+    <string name="connection_banner_session_expired">Session expired.</string>
+    <string name="connection_banner_sign_in_again">Sign in again</string>
+    <string name="palette_search_placeholder">Search channels, users, commands…</string>
+    <string name="palette_no_results">No results</string>
+    <string name="add_friend_title">Add a friend</string>
+    <string name="add_friend_placeholder">username or username#1234</string>
+    <string name="add_friend_sending">Sending...</string>
+    <string name="add_friend_send">Send Request</string>
+    <string name="join_server_title">Join a server</string>
+    <string name="join_server_placeholder">https://discord.gg/code or just the code</string>
+    <string name="join_server_joining">Joining...</string>
+    <string name="join_server_join">Join</string>
+    <string name="new_dm_title">Start a direct message</string>
+    <string name="new_dm_search_placeholder">Search by name</string>
+    <string name="new_dm_hint_type_name">Type a name to search your contacts</string>
+    <string name="new_dm_hint_no_matches">No matches in your known users</string>
+    <string name="emoji_picker_title">Add reaction</string>
+    <string name="emoji_picker_placeholder">Paste emoji or type unicode</string>
+    <string name="emoji_picker_recent">Recent</string>
+    <string name="emoji_picker_add">Add</string>
+    <string name="channel_voice_description">Voice channel</string>
+    <string name="guild_rail_add_friend">Add friend</string>
+    <string name="guild_rail_join_server">Join server</string>
+    <string name="guild_rail_direct_messages_label">DM</string>
+    <string name="message_edited">(edited)</string>
+    <string name="message_menu_copy_text">Copy text</string>
+    <string name="message_menu_copy_link">Copy message link</string>
+    <string name="message_menu_edit">Edit</string>
+    <string name="message_menu_delete">Delete</string>
+    <string name="message_system_call">%1$s started a call.</string>
+    <string name="message_system_recipient_add">%1$s added someone to the group.</string>
+    <string name="message_system_recipient_remove">%1$s removed someone from the group.</string>
+    <string name="message_system_channel_name_change">%1$s changed the channel name.</string>
+    <string name="message_system_channel_icon_change">%1$s changed the channel icon.</string>
+    <string name="message_system_pinned">%1$s pinned a message to this channel.</string>
+    <string name="composer_attach_file">Attach file</string>
+    <string name="composer_send">Send</string>
+    <string name="composer_attachment_chip">%1$s (%2$s KB)</string>
+    <string name="composer_remove_attachment">Remove %1$s</string>
+    <string name="attachment_play">Play</string>
+    <string name="attachment_file_fallback_extension">FILE</string>
+    <string name="attachment_viewer_close">Close</string>
+    <string name="voice_member_muted">Muted</string>
+    <string name="voice_member_deafened">Deafened</string>
+    <string name="bootstrap_connecting">Connecting…</string>
+    <string name="message_system_user_join_01">%1$s joined the party.</string>
+    <string name="message_system_user_join_02">%1$s is here.</string>
+    <string name="message_system_user_join_03">Welcome, %1$s. We hope you brought pizza.</string>
+    <string name="message_system_user_join_04">A wild %1$s appeared.</string>
+    <string name="message_system_user_join_05">%1$s just landed.</string>
+    <string name="message_system_user_join_06">%1$s just slid into the server.</string>
+    <string name="message_system_user_join_07">%1$s just showed up!</string>
+    <string name="message_system_user_join_08">Welcome %1$s. Say hi!</string>
+    <string name="message_system_user_join_09">%1$s hopped into the server.</string>
+    <string name="message_system_user_join_10">Everyone welcome %1$s!</string>
+    <string name="message_system_user_join_11">Glad you\'re here, %1$s.</string>
+    <string name="message_system_user_join_12">Good to see you, %1$s.</string>
+    <string name="message_system_user_join_13">Yay you made it, %1$s!</string>
+    <string name="voice_dave_active">End-to-end encrypted (DAVE epoch %1$s) - tap to verify call</string>
+    <string name="voice_dave_connecting">DAVE handshake in progress</string>
+    <string name="voice_dave_disabled">DAVE disabled: %1$s</string>
+    <string name="voice_dave_off">Not end-to-end encrypted</string>
+    <string name="voice_status_connecting">Connecting...</string>
+    <string name="voice_status_connecting_to">Connecting to %1$s...</string>
+    <string name="voice_status_connected">Voice Connected</string>
+    <string name="voice_status_sharing">Sharing</string>
+    <string name="voice_status_failed">Voice failed: %1$s</string>
+    <string name="voice_settings_title">Voice settings</string>
+    <string name="voice_stop_screen_share">Stop screen share</string>
+    <string name="voice_share_screen">Share screen</string>
+    <string name="voice_disconnect">Disconnect</string>
+    <string name="voice_generic_channel_label">voice</string>
+    <string name="voice_dismiss">Dismiss</string>
+    <string name="voice_dave_downgrade_icon">Encryption downgrade</string>
+    <string name="voice_dave_downgrade_message">End-to-end encryption disabled. Your audio is no longer E2EE protected.</string>
+    <string name="voice_incoming_call_title">%1$s is calling...</string>
+    <string name="voice_incoming_call_generic_title">Incoming call from this DM</string>
+    <string name="voice_incoming_call_generic_caller">Direct message</string>
+    <string name="voice_incoming_call_accept">Accept</string>
+    <string name="voice_incoming_call_decline">Decline</string>
+    <string name="voice_verify_title">Verify call</string>
+    <string name="voice_verify_instructions">Read these codes aloud and confirm the other side sees the same. A mismatch means the encryption may be compromised.</string>
+    <string name="voice_verify_no_participants">No remote participants in the call yet.</string>
+    <string name="voice_verify_unavailable">unavailable</string>
+    <string name="voice_picker_title">Share Screen</string>
+    <string name="voice_picker_no_sources">No capturable screens were detected.</string>
+    <string name="voice_picker_tab_screens">Screens (%1$s)</string>
+    <string name="voice_picker_tab_windows">Windows (%1$s)</string>
+    <string name="voice_picker_no_windows">No windows detected. Grant Automation permission in System Settings → Privacy &amp; Security → Automation if prompted.</string>
+    <string name="voice_picker_window_fallback">Window capture currently falls back to fullscreen of the primary monitor (v1 limitation).</string>
+    <string name="voice_picker_share">Share</string>
+    <string name="voice_picker_share_audio">Share system audio</string>
+    <string name="voice_picker_audio_unsupported_macos">System audio sharing is not supported on macOS.</string>
+    <string name="voice_settings_input_device">Input device</string>
+    <string name="voice_settings_output_device">Output device</string>
+    <string name="voice_direct_call">Direct call</string>
+    <string name="voice_bar_title_fallback">Voice</string>
+    <string name="voice_bar_title_with_server">%1$s · %2$s</string>
+    <string name="voice_bar_connecting_to">Connecting to %1$s</string>
+    <string name="voice_mute_microphone">Mute microphone</string>
+    <string name="voice_unmute_microphone">Unmute microphone</string>
+    <string name="voice_cancel_call">Cancel call</string>
+    <string name="voice_remote_screenshare">Remote screenshare %1$s</string>
+    <string name="voice_ios_share_title">Share your iPhone screen?</string>
+    <string name="voice_ios_share_warning">The broadcast will capture everything on your screen, including other apps.</string>
+    <string name="voice_ios_share_app_audio">Share app audio</string>
+    <string name="main_snackbar_leave_current_call">Leave current call first</string>
+    <string name="main_snackbar_reorder_guilds_failed">Could not save the server order. Please try again.</string>
+    <string name="main_snackbar_new_dm_failed">Could not start the DM. Please try again.</string>
+    <string name="add_friend_unavailable">Add-friend is not available in this session.</string>
+    <string name="add_friend_empty">Enter a username, name#1234 or user id.</string>
+    <string name="add_friend_failed">Friend request failed. Check the name and try again.</string>
+    <string name="add_friend_success">Friend request sent.</string>
+    <string name="join_server_unavailable">Join-server is not available in this session.</string>
+    <string name="join_server_empty">Enter an invite link or code.</string>
+    <string name="join_server_failed">Could not join the server. Check the invite and try again.</string>
+    <string name="join_server_success">Joined.</string>
+    <string name="main_direct_messages_title">Direct Messages</string>
+    <string name="main_start_new_dm">Start new DM</string>
+    <string name="main_no_direct_messages">No direct messages yet</string>
+    <string name="main_dm_unknown_recipient">Unknown</string>
+    <string name="main_channels_title">Channels</string>
+    <string name="main_no_channels">No channels yet</string>
+    <string name="main_empty_select_channel_title">Select a channel to start chatting</string>
+    <string name="main_empty_select_channel_body">Channels appear here once you join a server.</string>
+    <string name="main_empty_no_session_title">No active session</string>
+    <string name="main_empty_no_session_body">Sign in to start receiving messages.</string>
+    <string name="main_open_channels">Open channels</string>
+    <string name="main_empty_voice_channel_title">Voice channel</string>
+    <string name="main_empty_voice_channel_body">Voice channels aren\'t supported yet. (Phase 3 roadmap covers voice.)</string>
+    <string name="main_empty_stage_channel_title">Stage channel</string>
+    <string name="main_empty_stage_channel_body">Stage channels aren\'t supported yet. (Phase 3 roadmap covers voice.)</string>
+    <string name="main_empty_directory_title">Server directory</string>
+    <string name="main_empty_directory_body">Server directories aren\'t supported yet.</string>
+    <string name="main_empty_category_title">Category</string>
+    <string name="main_empty_category_body">Categories group channels and don\'t contain messages.</string>
+    <string name="main_composer_placeholder">Message #%1$s</string>
+    <string name="main_call_cancel">Cancel call</string>
+    <string name="main_call_hang_up">Hang up</string>
+    <string name="main_call_start">Call</string>
+    <string name="main_ringback_calling">Calling %1$s%2$s</string>
+    <string name="message_list_empty">It\'s quiet here. Start the conversation.</string>
+    <string name="message_list_error_forbidden">You don\'t have permission to view this channel.</string>
+    <string name="message_list_error_not_found">Channel not found.</string>
+    <string name="message_list_error_rate_limited">Rate limited by Discord. Try again in a moment.</string>
+    <string name="message_list_error_network">Cannot reach Discord. Check your connection.</string>
+    <string name="message_list_error_failed">Failed to load messages: %1$s</string>
+    <string name="message_list_error_timed_out">Timed out loading messages.</string>
+    <string name="message_list_error_generic">Failed to load messages.</string>
+</resources>

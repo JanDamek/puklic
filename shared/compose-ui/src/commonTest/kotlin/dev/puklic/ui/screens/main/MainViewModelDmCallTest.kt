@@ -59,7 +59,7 @@ class MainViewModelDmCallTest {
         yield()
         vm.startDmCall(ChannelId(123L))
 
-        message.await() shouldBe "Leave current call first"
+        message.await() shouldBe MainViewModel.SNACKBAR_LEAVE_CURRENT_CALL
     }
 
     private fun newVm(

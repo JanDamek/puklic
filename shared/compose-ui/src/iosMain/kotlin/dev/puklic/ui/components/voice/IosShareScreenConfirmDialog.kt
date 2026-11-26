@@ -17,6 +17,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_cancel
+import dev.puklic.ui.resources.voice_ios_share_app_audio
+import dev.puklic.ui.resources.voice_ios_share_title
+import dev.puklic.ui.resources.voice_ios_share_warning
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * iOS share-screen confirm dialog, locked design per HARD RULE #3 user approval 2026-05-29.
@@ -48,12 +54,11 @@ public fun IosShareScreenConfirmDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Share your iPhone screen?") },
+        title = { Text(stringResource(Res.string.voice_ios_share_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "The broadcast will capture everything on your screen, " +
-                        "including other apps.",
+                    text = stringResource(Res.string.voice_ios_share_warning),
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Row(
@@ -62,7 +67,7 @@ public fun IosShareScreenConfirmDialog(
                     horizontalArrangement = Arrangement.SpaceBetween,
                 ) {
                     Text(
-                        text = "Share app audio",
+                        text = stringResource(Res.string.voice_ios_share_app_audio),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Switch(
@@ -81,7 +86,7 @@ public fun IosShareScreenConfirmDialog(
             )
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
 }

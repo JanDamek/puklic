@@ -22,10 +22,16 @@ import dev.puklic.domain.UserSummary
 import dev.puklic.ui.components.PuklicAvatar
 import dev.puklic.voice.IncomingCall
 import kotlinx.coroutines.delay
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_incoming_call_accept
+import dev.puklic.ui.resources.voice_incoming_call_decline
+import dev.puklic.ui.resources.voice_incoming_call_generic_caller
+import dev.puklic.ui.resources.voice_incoming_call_generic_title
+import dev.puklic.ui.resources.voice_incoming_call_title
+import org.jetbrains.compose.resources.stringResource
 
 /** Auto-decline timeout matching Discord's observed ~30s ring window. */
 private const val AUTO_DECLINE_MS = 30_000L
-private const val GENERIC_TITLE = "Incoming call from this DM"
 
 /**
  * Compose dialog for a single incoming DM voice call. Renders [caller] avatar + name, an
@@ -54,7 +60,8 @@ public fun IncomingCallDialog(
         }
     }
 
-    val title = caller?.let { "${it.globalName ?: it.username} is calling..." } ?: GENERIC_TITLE
+    val title = caller?.let { stringResource(Res.string.voice_incoming_call_title, it.globalName ?: it.username) }
+        ?: stringResource(Res.string.voice_incoming_call_generic_title)
 
     AlertDialog(
         // Require explicit Accept / Decline — scrim taps do not dismiss the ring.
@@ -70,7 +77,7 @@ public fun IncomingCallDialog(
                     PuklicAvatar(user = caller, size = 48.dp)
                 }
                 Text(
-                    text = caller?.let { it.globalName ?: it.username } ?: "Direct message",
+                    text = caller?.let { it.globalName ?: it.username } ?: stringResource(Res.string.voice_incoming_call_generic_caller),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }
@@ -84,7 +91,7 @@ public fun IncomingCallDialog(
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                 ),
-            ) { Text("Accept") }
+            ) { Text(stringResource(Res.string.voice_incoming_call_accept)) }
         },
         dismissButton = {
             OutlinedButton(
@@ -92,7 +99,7 @@ public fun IncomingCallDialog(
                 colors = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
-            ) { Text("Decline") }
+            ) { Text(stringResource(Res.string.voice_incoming_call_decline)) }
         },
     )
 }

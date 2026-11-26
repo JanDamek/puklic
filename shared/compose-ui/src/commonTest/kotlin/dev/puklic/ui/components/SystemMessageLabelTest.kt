@@ -9,6 +9,10 @@ import dev.puklic.domain.UserSummary
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.MessageId
 import dev.puklic.ids.UserId
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.message_system_call
+import dev.puklic.ui.resources.message_system_recipient_add
+import dev.puklic.ui.text.UiText
 import kotlin.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -47,7 +51,7 @@ class SystemMessageLabelTest {
 
     @Test
     fun call_type_renders_started_a_call_line() {
-        assertEquals("Tester started a call.", systemMessageLabel(msg(MessageType.CALL)))
+        assertEquals(UiText.of(Res.string.message_system_call, "Tester"), systemMessageLabel(msg(MessageType.CALL)))
     }
 
     @Test
@@ -73,8 +77,8 @@ class SystemMessageLabelTest {
         val b = systemMessageLabel(msg(MessageType.USER_JOIN, messageId = 4194304L * 1L))
         assertEquals(false, a == b)
         // The chosen variant must include the user's display name.
-        assertEquals(true, a!!.contains("Tester"))
-        assertEquals(true, b!!.contains("Tester"))
+        assertEquals(true, (a as UiText.Resource).args.contains("Tester"))
+        assertEquals(true, (b as UiText.Resource).args.contains("Tester"))
     }
 
     @Test
@@ -88,7 +92,7 @@ class SystemMessageLabelTest {
     @Test
     fun recipient_add_renders_added_someone_line() {
         assertEquals(
-            "Tester added someone to the group.",
+            UiText.of(Res.string.message_system_recipient_add, "Tester"),
             systemMessageLabel(msg(MessageType.RECIPIENT_ADD)),
         )
     }

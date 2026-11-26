@@ -33,6 +33,22 @@ import androidx.compose.ui.unit.dp
 import dev.puklic.voice.DaveUiState
 import dev.puklic.voice.VoiceState
 import dev.puklic.voice.screenshare.ScreenShareState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_retry
+import dev.puklic.ui.resources.voice_deafen
+import dev.puklic.ui.resources.voice_disconnect
+import dev.puklic.ui.resources.voice_mute
+import dev.puklic.ui.resources.voice_settings_title
+import dev.puklic.ui.resources.voice_share_screen
+import dev.puklic.ui.resources.voice_status_connected
+import dev.puklic.ui.resources.voice_status_connecting
+import dev.puklic.ui.resources.voice_status_connecting_to
+import dev.puklic.ui.resources.voice_status_failed
+import dev.puklic.ui.resources.voice_status_sharing
+import dev.puklic.ui.resources.voice_stop_screen_share
+import dev.puklic.ui.resources.voice_undeafen
+import dev.puklic.ui.resources.voice_unmute
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Two-row docked voice status widget for the bottom of the channel-list pane.
@@ -95,7 +111,9 @@ private fun ConnectingBar(channelLabel: String?, modifier: Modifier) {
     ) {
         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         Text(
-            text = "Connecting${channelLabel?.let { " to $it" }.orEmpty()}...",
+            text = channelLabel
+                ?.let { stringResource(Res.string.voice_status_connecting_to, it) }
+                ?: stringResource(Res.string.voice_status_connecting),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
@@ -118,6 +136,8 @@ private fun ConnectedBar(
     onVerifyCall: (() -> Unit)? = null,
 ) {
     val sharing = screenShareState is ScreenShareState.Active
+    val connectedTitle = stringResource(Res.string.voice_status_connected)
+    val sharingSuffix = stringResource(Res.string.voice_status_sharing)
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -136,9 +156,9 @@ private fun ConnectedBar(
             )
             Text(
                 text = buildString {
-                    append("Voice Connected")
+                    append(connectedTitle)
                     channelLabel?.let { append(" - $it") }
-                    if (sharing) append(" - Sharing")
+                    if (sharing) append(" - $sharingSuffix")
                 },
                 style = MaterialTheme.typography.labelSmall,
                 color = if (sharing) MaterialTheme.colorScheme.error
@@ -154,7 +174,7 @@ private fun ConnectedBar(
             IconButton(onClick = onMicToggle) {
                 Icon(
                     imageVector = if (state.selfMute) Icons.Filled.MicOff else Icons.Filled.Mic,
-                    contentDescription = if (state.selfMute) "Unmute" else "Mute",
+                    contentDescription = stringResource(if (state.selfMute) Res.string.voice_unmute else Res.string.voice_mute),
                     tint = if (state.selfMute) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurface,
                 )
@@ -162,7 +182,7 @@ private fun ConnectedBar(
             IconButton(onClick = onDeafToggle) {
                 Icon(
                     imageVector = if (state.selfDeaf) Icons.Filled.HeadsetOff else Icons.Filled.Headset,
-                    contentDescription = if (state.selfDeaf) "Undeafen" else "Deafen",
+                    contentDescription = stringResource(if (state.selfDeaf) Res.string.voice_undeafen else Res.string.voice_deafen),
                     tint = if (state.selfDeaf) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurface,
                 )
@@ -170,14 +190,16 @@ private fun ConnectedBar(
             IconButton(onClick = onSettings) {
                 Icon(
                     imageVector = Icons.Filled.Settings,
-                    contentDescription = "Voice settings",
+                    contentDescription = stringResource(Res.string.voice_settings_title),
                 )
             }
             IconButton(onClick = if (sharing) onScreenShareStop else onScreenSharePick) {
                 Icon(
                     imageVector = if (sharing) Icons.AutoMirrored.Outlined.StopScreenShare
                     else Icons.Outlined.PresentToAll,
-                    contentDescription = if (sharing) "Stop screen share" else "Share screen",
+                    contentDescription = stringResource(
+                        if (sharing) Res.string.voice_stop_screen_share else Res.string.voice_share_screen,
+                    ),
                     tint = if (sharing) MaterialTheme.colorScheme.error
                     else MaterialTheme.colorScheme.onSurface,
                 )
@@ -185,7 +207,7 @@ private fun ConnectedBar(
             IconButton(onClick = onDisconnect) {
                 Icon(
                     imageVector = Icons.Filled.CallEnd,
-                    contentDescription = "Disconnect",
+                    contentDescription = stringResource(Res.string.voice_disconnect),
                     tint = MaterialTheme.colorScheme.error,
                 )
             }
@@ -204,11 +226,11 @@ private fun FailedBar(reason: String, onRetry: () -> Unit, modifier: Modifier) {
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
         Text(
-            text = "Voice failed: $reason",
+            text = stringResource(Res.string.voice_status_failed, reason),
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.padding(end = 8.dp),
         )
-        TextButton(onClick = onRetry) { Text("Retry") }
+        TextButton(onClick = onRetry) { Text(stringResource(Res.string.common_retry)) }
     }
 }

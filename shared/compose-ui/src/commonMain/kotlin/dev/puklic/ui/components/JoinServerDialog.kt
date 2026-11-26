@@ -12,6 +12,15 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_close
+import dev.puklic.ui.resources.join_server_join
+import dev.puklic.ui.resources.join_server_joining
+import dev.puklic.ui.resources.join_server_placeholder
+import dev.puklic.ui.resources.join_server_title
+import org.jetbrains.compose.resources.stringResource
+import dev.puklic.ui.text.asString
+import dev.puklic.ui.text.UiText
 
 /**
  * Modal Join-Server dialog (issue #80). Accepts an invite URL (`https://discord.gg/<code>`,
@@ -23,29 +32,29 @@ import androidx.compose.ui.unit.dp
 public fun JoinServerDialog(
     query: String,
     isSubmitting: Boolean,
-    errorMessage: String?,
-    successMessage: String?,
+    errorMessage: UiText?,
+    successMessage: UiText?,
     onQueryChange: (String) -> Unit,
     onSubmit: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Join a server") },
+        title = { Text(stringResource(Res.string.join_server_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("https://discord.gg/code or just the code") },
+                    placeholder = { Text(stringResource(Res.string.join_server_placeholder)) },
                     singleLine = true,
                     enabled = !isSubmitting,
                 )
                 if (errorMessage != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = errorMessage,
+                        text = errorMessage.asString(),
                         color = MaterialTheme.colorScheme.error,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -53,7 +62,7 @@ public fun JoinServerDialog(
                 if (successMessage != null) {
                     Spacer(Modifier.height(8.dp))
                     Text(
-                        text = successMessage,
+                        text = successMessage.asString(),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -62,11 +71,11 @@ public fun JoinServerDialog(
         },
         confirmButton = {
             TextButton(onClick = onSubmit, enabled = !isSubmitting && query.isNotBlank()) {
-                Text(if (isSubmitting) "Joining..." else "Join")
+                Text(stringResource(if (isSubmitting) Res.string.join_server_joining else Res.string.join_server_join))
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Close") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_close)) }
         },
     )
 }

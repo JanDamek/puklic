@@ -22,6 +22,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.UserSummary
 import dev.puklic.ids.UserId
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_close
+import dev.puklic.ui.resources.new_dm_hint_no_matches
+import dev.puklic.ui.resources.new_dm_hint_type_name
+import dev.puklic.ui.resources.new_dm_search_placeholder
+import dev.puklic.ui.resources.new_dm_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Modal "Start new DM" picker (issue #17). Search field at the top, list of matches below.
@@ -46,14 +53,14 @@ public fun NewDmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Start a direct message") },
+        title = { Text(stringResource(Res.string.new_dm_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = query,
                     onValueChange = onQueryChange,
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Search by name") },
+                    placeholder = { Text(stringResource(Res.string.new_dm_search_placeholder)) },
                     singleLine = true,
                     enabled = !isSubmitting,
                 )
@@ -68,7 +75,7 @@ public fun NewDmDialog(
         confirmButton = {
             // Empty confirm slot — selection happens on row click. Slot kept for a11y / focus
             // traversal so the dialog still has a "primary action" anchor.
-            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text("Close") }
+            TextButton(onClick = onDismiss, enabled = !isSubmitting) { Text(stringResource(Res.string.common_close)) }
         },
     )
 }
@@ -80,8 +87,8 @@ private fun ResultsBody(
     onPick: (UserId) -> Unit,
 ) {
     when {
-        query.isBlank() -> HintLine("Type a name to search your contacts")
-        results.isEmpty() -> HintLine("No matches in your known users")
+        query.isBlank() -> HintLine(stringResource(Res.string.new_dm_hint_type_name))
+        results.isEmpty() -> HintLine(stringResource(Res.string.new_dm_hint_no_matches))
         else -> LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
             items(results, key = { "dm-pick-${it.id.value}" }) { user -> PickerRow(user, onPick) }
         }

@@ -29,6 +29,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import dev.puklic.domain.EmojiRef
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_cancel
+import dev.puklic.ui.resources.emoji_picker_add
+import dev.puklic.ui.resources.emoji_picker_placeholder
+import dev.puklic.ui.resources.emoji_picker_recent
+import dev.puklic.ui.resources.emoji_picker_title
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Modal dialog for adding a reaction. v1 only supports pasting/typing a unicode emoji
@@ -44,14 +51,14 @@ public fun EmojiPickerDialog(
     var input by remember { mutableStateOf("") }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Add reaction") },
+        title = { Text(stringResource(Res.string.emoji_picker_title)) },
         text = {
             Column(modifier = Modifier.fillMaxWidth()) {
                 OutlinedTextField(
                     value = input,
                     onValueChange = { input = it },
                     modifier = Modifier.fillMaxWidth(),
-                    placeholder = { Text("Paste emoji or type unicode") },
+                    placeholder = { Text(stringResource(Res.string.emoji_picker_placeholder)) },
                     singleLine = true,
                     keyboardActions = androidx.compose.foundation.text.KeyboardActions(
                         onDone = {
@@ -66,7 +73,7 @@ public fun EmojiPickerDialog(
                 if (recent.isNotEmpty()) {
                     Spacer(Modifier.height(12.dp))
                     Text(
-                        text = "Recent",
+                        text = stringResource(Res.string.emoji_picker_recent),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -95,10 +102,10 @@ public fun EmojiPickerDialog(
             TextButton(onClick = {
                 val trimmed = input.trim()
                 if (trimmed.isNotEmpty()) onPick(EmojiRef.Unicode(trimmed))
-            }) { Text("Add") }
+            }) { Text(stringResource(Res.string.emoji_picker_add)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text(stringResource(Res.string.common_cancel)) }
         },
     )
 }

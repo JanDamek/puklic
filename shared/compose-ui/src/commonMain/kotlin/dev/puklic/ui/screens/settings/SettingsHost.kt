@@ -8,6 +8,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import dev.puklic.ui.screens.main.MainViewModel
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.settings_category_coming_soon
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Switches between settings category screens. Currently only ACCOUNT is implemented;
@@ -27,7 +30,7 @@ public fun SettingsHost(category: SettingsCategory, viewModel: MainViewModel) {
 private fun PlaceholderCategory(category: SettingsCategory) {
     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text(
-            text = "${category.name.lowercase().replaceFirstChar { it.uppercase() }} settings — coming soon",
+            text = stringResource(Res.string.settings_category_coming_soon, category.label()),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

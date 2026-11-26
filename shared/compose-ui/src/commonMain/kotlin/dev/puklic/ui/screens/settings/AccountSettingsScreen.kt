@@ -29,6 +29,14 @@ import dev.puklic.ui.components.PuklicAvatar
 import dev.puklic.ui.screens.main.MainViewModel
 import dev.puklic.ui.theme.LocalPuklicSpacing
 import kotlinx.coroutines.launch
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.common_cancel
+import dev.puklic.ui.resources.settings_account_loading
+import dev.puklic.ui.resources.settings_account_log_out
+import dev.puklic.ui.resources.settings_account_log_out_body
+import dev.puklic.ui.resources.settings_account_log_out_title
+import dev.puklic.ui.resources.settings_account_user_id
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * ACCOUNT category content per architect report v2 §6: avatar header + user ID row + logout.
@@ -50,7 +58,7 @@ public fun AccountSettingsScreen(viewModel: MainViewModel) {
     ) {
         if (self == null) {
             Text(
-                "Loading account…",
+                stringResource(Res.string.settings_account_loading),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -82,7 +90,7 @@ public fun AccountSettingsScreen(viewModel: MainViewModel) {
             }
         }
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-        LabeledRow(label = "User ID", value = user.id.value.toString())
+        LabeledRow(label = stringResource(Res.string.settings_account_user_id), value = user.id.value.toString())
         Spacer(Modifier.height(spacing.space5))
         Button(
             onClick = { showLogoutConfirm = true },
@@ -90,27 +98,26 @@ public fun AccountSettingsScreen(viewModel: MainViewModel) {
                 containerColor = MaterialTheme.colorScheme.errorContainer,
                 contentColor = MaterialTheme.colorScheme.onErrorContainer,
             ),
-        ) { Text("Log out") }
+        ) { Text(stringResource(Res.string.settings_account_log_out)) }
     }
 
     if (showLogoutConfirm) {
         AlertDialog(
             onDismissRequest = { showLogoutConfirm = false },
-            title = { Text("Log out of Puklic?") },
+            title = { Text(stringResource(Res.string.settings_account_log_out_title)) },
             text = {
                 Text(
-                    "Your Discord token will be removed from this device. " +
-                        "Local message cache is kept on disk to speed up future sign-in.",
+                    stringResource(Res.string.settings_account_log_out_body),
                 )
             },
             confirmButton = {
                 TextButton(onClick = {
                     showLogoutConfirm = false
                     scope.launch { viewModel.logout() }
-                }) { Text("Log out") }
+                }) { Text(stringResource(Res.string.settings_account_log_out)) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutConfirm = false }) { Text("Cancel") }
+                TextButton(onClick = { showLogoutConfirm = false }) { Text(stringResource(Res.string.common_cancel)) }
             },
         )
     }

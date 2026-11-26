@@ -9,9 +9,12 @@ import dev.puklic.domain.DmChannel
 import dev.puklic.domain.GuildChannel
 import dev.puklic.ids.ChannelId
 import dev.puklic.voice.VoiceState
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_direct_call
+import dev.puklic.ui.text.UiText
 
 /** What the voice bar shows on its left: the channel and, for guild channels, the server name. */
-internal data class VoiceChannelLabel(val channelName: String, val serverName: String?)
+internal data class VoiceChannelLabel(val channelName: UiText, val serverName: String?)
 
 internal fun VoiceState.voiceChannelId(): ChannelId? = when (this) {
     is VoiceState.Connecting -> channelId
@@ -36,13 +39,12 @@ private fun MainScreenState.labelFor(channelId: ChannelId): VoiceChannelLabel? {
     val guildChannel = channelsForSelectedGuild.firstOrNull { it.id == channelId } as? GuildChannel
     if (guildChannel != null) {
         val serverName = guilds.firstOrNull { it.id == guildChannel.guildId }?.name
-        return VoiceChannelLabel(channelName = guildChannel.name.orEmpty(), serverName = serverName)
+        return VoiceChannelLabel(channelName = UiText.Verbatim(guildChannel.name.orEmpty()), serverName = serverName)
     }
     val directChannel = dmChannels.firstOrNull { it.id == channelId } ?: return null
     return VoiceChannelLabel(channelName = directChannel.callTitle(), serverName = null)
 }
 
-private fun DmChannel.callTitle(): String =
-    recipients.firstOrNull()?.let { it.globalName ?: it.username } ?: DIRECT_CALL_TITLE
-
-private const val DIRECT_CALL_TITLE = "Direct call"
+private fun DmChannel.callTitle(): UiText =
+    recipients.firstOrNull()?.let { UiText.Verbatim(it.globalName ?: it.username) }
+        ?: UiText.of(Res.string.voice_direct_call)

@@ -56,6 +56,19 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.add_friend_empty
+import dev.puklic.ui.resources.add_friend_failed
+import dev.puklic.ui.resources.add_friend_success
+import dev.puklic.ui.resources.add_friend_unavailable
+import dev.puklic.ui.resources.join_server_empty
+import dev.puklic.ui.resources.join_server_failed
+import dev.puklic.ui.resources.join_server_success
+import dev.puklic.ui.resources.join_server_unavailable
+import dev.puklic.ui.resources.main_snackbar_leave_current_call
+import dev.puklic.ui.resources.main_snackbar_new_dm_failed
+import dev.puklic.ui.resources.main_snackbar_reorder_guilds_failed
+import dev.puklic.ui.text.UiText
 
 /**
  * Snapshot of the main screen's guild + channel state. Backed by the live orchestrators
@@ -209,8 +222,8 @@ public class MainViewModel(
         val isOpen: Boolean = false,
         val query: String = "",
         val isSubmitting: Boolean = false,
-        val errorMessage: String? = null,
-        val successMessage: String? = null,
+        val errorMessage: UiText? = null,
+        val successMessage: UiText? = null,
     )
 
     /** Domain-level snapshot of the Join-Server dialog. */
@@ -218,8 +231,8 @@ public class MainViewModel(
         val isOpen: Boolean = false,
         val query: String = "",
         val isSubmitting: Boolean = false,
-        val errorMessage: String? = null,
-        val successMessage: String? = null,
+        val errorMessage: UiText? = null,
+        val successMessage: UiText? = null,
     )
 
     private val _addFriend = MutableStateFlow(AddFriendState())
@@ -462,8 +475,8 @@ public class MainViewModel(
     /**
      * Transient UI messages (snackbar). Replay=0 so late collectors don't see stale events.
      */
-    private val _snackbarMessage = MutableSharedFlow<String>(extraBufferCapacity = SNACKBAR_BUFFER)
-    public val snackbarMessage: SharedFlow<String> = _snackbarMessage.asSharedFlow()
+    private val _snackbarMessage = MutableSharedFlow<UiText>(extraBufferCapacity = SNACKBAR_BUFFER)
+    public val snackbarMessage: SharedFlow<UiText> = _snackbarMessage.asSharedFlow()
 
     /**
      * Initiate an outgoing DM 1:1 voice call. [channelId] must reference a [DmChannel]; group DM
@@ -703,17 +716,17 @@ public class MainViewModel(
         internal const val LAZY_SUBSCRIBE_BOOTSTRAP = 5
         const val LAZY_SUBSCRIBE_SETTLE_MS = 500L
         const val SNACKBAR_BUFFER = 4
-        const val SNACKBAR_LEAVE_CURRENT_CALL = "Leave current call first"
-        const val SNACKBAR_REORDER_GUILDS_FAILED = "Could not save the server order. Please try again."
-        const val SNACKBAR_NEW_DM_FAILED = "Could not start the DM. Please try again."
-        public const val ADD_FRIEND_UNAVAILABLE: String = "Add-friend is not available in this session."
-        public const val ADD_FRIEND_EMPTY: String = "Enter a username, name#1234 or user id."
-        public const val ADD_FRIEND_FAILED: String = "Friend request failed. Check the name and try again."
-        public const val ADD_FRIEND_SUCCESS: String = "Friend request sent."
-        public const val JOIN_SERVER_UNAVAILABLE: String = "Join-server is not available in this session."
-        public const val JOIN_SERVER_EMPTY: String = "Enter an invite link or code."
-        public const val JOIN_SERVER_FAILED: String = "Could not join the server. Check the invite and try again."
-        public const val JOIN_SERVER_SUCCESS: String = "Joined."
+        val SNACKBAR_LEAVE_CURRENT_CALL: UiText = UiText.of(Res.string.main_snackbar_leave_current_call)
+        val SNACKBAR_REORDER_GUILDS_FAILED: UiText = UiText.of(Res.string.main_snackbar_reorder_guilds_failed)
+        val SNACKBAR_NEW_DM_FAILED: UiText = UiText.of(Res.string.main_snackbar_new_dm_failed)
+        public val ADD_FRIEND_UNAVAILABLE: UiText = UiText.of(Res.string.add_friend_unavailable)
+        public val ADD_FRIEND_EMPTY: UiText = UiText.of(Res.string.add_friend_empty)
+        public val ADD_FRIEND_FAILED: UiText = UiText.of(Res.string.add_friend_failed)
+        public val ADD_FRIEND_SUCCESS: UiText = UiText.of(Res.string.add_friend_success)
+        public val JOIN_SERVER_UNAVAILABLE: UiText = UiText.of(Res.string.join_server_unavailable)
+        public val JOIN_SERVER_EMPTY: UiText = UiText.of(Res.string.join_server_empty)
+        public val JOIN_SERVER_FAILED: UiText = UiText.of(Res.string.join_server_failed)
+        public val JOIN_SERVER_SUCCESS: UiText = UiText.of(Res.string.join_server_success)
     }
 }
 

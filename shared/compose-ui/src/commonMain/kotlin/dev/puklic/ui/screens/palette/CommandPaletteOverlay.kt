@@ -22,6 +22,10 @@ import androidx.compose.ui.unit.dp
 import dev.puklic.domain.Channel
 import dev.puklic.domain.Guild
 import dev.puklic.domain.UserSummary
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.palette_no_results
+import dev.puklic.ui.resources.palette_search_placeholder
+import org.jetbrains.compose.resources.stringResource
 
 public data class KeyShortcut(val display: String)
 
@@ -67,13 +71,13 @@ public fun CommandPaletteOverlay(
             OutlinedTextField(
                 value = state.query,
                 onValueChange = onQueryChange,
-                placeholder = { Text("Search channels, users, commands…") },
+                placeholder = { Text(stringResource(Res.string.palette_search_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
             if (state.results.isEmpty()) {
                 Text(
-                    "No results",
+                    stringResource(Res.string.palette_no_results),
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             } else {

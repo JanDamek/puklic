@@ -168,7 +168,7 @@ Desktop builds (GitHub Releases) keep full feature set.
 
 - [x] Crash reporting — local crash dumps to `<logDir>/crashes/crash-<ts>.txt` via `dev.puklic.desktop.crash.CrashReporter`; opt-in remote upload remains TODO
 - [x] Logging — SLF4J on `java.util.logging` (`slf4j-jdk14`) on desktop (10 MB size rotation, 14 files; Logback was dropped for idle RSS, PUKLIC-137); Kermit (multiplatform call sites) bridged into SLF4J; token redaction via `RedactingFormatter` (Bearer / Authorization / `mfa.*`). Log dir: Linux `$XDG_DATA_HOME/puklic/logs` (canonical); macOS `~/Library/Logs/Puklic` (dev-side)
-- [ ] i18n framework (English + at least one additional locale)
+- [x] i18n framework (English + Czech via Compose Multiplatform resources, PUKLIC-135; see `docs/04_ui/i18n.md`)
 - [ ] Accessibility (Compose semantics, keyboard navigation)
 - [x] Update mechanism (auto-update on desktop) — opt-in check against GitHub Releases API
       (`UpdateChecker` + `UpdateCheckerScheduler` in `:desktop:app`), banner notifies user, opens

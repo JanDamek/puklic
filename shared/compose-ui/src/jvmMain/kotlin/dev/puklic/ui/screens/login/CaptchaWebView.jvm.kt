@@ -9,6 +9,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.login_captcha_desktop_fallback
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Desktop placeholder. Compose for Desktop ships without a built-in web view in 1.8;
@@ -27,7 +30,7 @@ public actual fun CaptchaWebView(
 ) {
     Column(modifier = modifier.fillMaxWidth().height(120.dp).padding(16.dp)) {
         Text(
-            "Discord asked for a security check. Solve it in a browser and switch to the Token tab.",
+            stringResource(Res.string.login_captcha_desktop_fallback),
             style = MaterialTheme.typography.bodyMedium,
         )
         Text(

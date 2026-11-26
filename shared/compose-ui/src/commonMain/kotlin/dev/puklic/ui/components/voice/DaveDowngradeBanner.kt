@@ -15,6 +15,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import dev.puklic.ui.resources.Res
+import dev.puklic.ui.resources.voice_dave_downgrade_icon
+import dev.puklic.ui.resources.voice_dave_downgrade_message
+import dev.puklic.ui.resources.voice_dismiss
+import org.jetbrains.compose.resources.stringResource
 
 /**
  * Persistent banner shown when DAVE end-to-end encryption is lost mid-call
@@ -40,16 +45,16 @@ public fun DaveDowngradeBanner(
     ) {
         Icon(
             imageVector = Icons.Filled.Warning,
-            contentDescription = "Encryption downgrade",
+            contentDescription = stringResource(Res.string.voice_dave_downgrade_icon),
             tint = MaterialTheme.colorScheme.onErrorContainer,
         )
         Text(
-            text = "End-to-end encryption disabled. Your audio is no longer E2EE protected.",
+            text = stringResource(Res.string.voice_dave_downgrade_message),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onErrorContainer,
             modifier = Modifier.weight(1f),
         )
-        TextButton(onClick = onDismiss) { Text("Dismiss") }
+        TextButton(onClick = onDismiss) { Text(stringResource(Res.string.voice_dismiss)) }
     }
 }
 

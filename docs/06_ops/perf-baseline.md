@@ -58,6 +58,10 @@ Notes:
 - Not verified: `.AppImage` / `.dmg` / `.msi` packaging, a live D-Bus tray against a session bus, a live voice call and screen sharing,
   real GPU rendering (no session bus, audio server, macOS or Windows on this host).
 - The idle margin is about 1 MB; any new eagerly loaded dependency can push it back over the target.
+- UI localization (PUKLIC-135): the first `Res.string.*` access runs the static initializer of the generated `String0_commonMainKt` /
+  `String1_commonMainKt`, which loads about 200 lambda classes (`-Xlambdas=class`). A/B on the same host and flags (median of 3, shrunk
+  image): idle 149.1 -> 151.2 MB, active 154.5 -> 156.1 MB. Idle is therefore about 1 MB over the 150 MB target again; JVM flag
+  experiments (`ReservedCodeCacheSize`, `-Xss`, string deduplication, trim interval) moved it by at most 1 MB and were not adopted.
 
 ## Results before PUKLIC-137 (median of 3)
 

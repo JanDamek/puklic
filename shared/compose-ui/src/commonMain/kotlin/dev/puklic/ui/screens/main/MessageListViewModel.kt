@@ -33,7 +33,7 @@ public sealed interface MessageListState {
         val firstUnreadId: MessageId? = null,
     ) : MessageListState
     public data object Empty : MessageListState
-    public data class Error(val message: String) : MessageListState
+    public data class Error(val message: String?, val timedOut: Boolean = false) : MessageListState
 }
 
 /**
@@ -114,12 +114,10 @@ public class MessageListViewModel(
             }
             when {
                 outcome == null && _state.value is MessageListState.Loading -> {
-                    _state.value = MessageListState.Error("Timed out loading messages.")
+                    _state.value = MessageListState.Error(message = null, timedOut = true)
                 }
                 outcome != null && outcome.isFailure && _state.value is MessageListState.Loading -> {
-                    _state.value = MessageListState.Error(
-                        outcome.exceptionOrNull()?.message ?: "Failed to load messages.",
-                    )
+                    _state.value = MessageListState.Error(message = outcome.exceptionOrNull()?.message)
                 }
                 outcome != null && outcome.isSuccess && _state.value is MessageListState.Loading -> {
                     // Safety net: if storage Flow hasn't re-emitted yet (or returns 0 messages),
