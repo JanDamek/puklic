@@ -62,6 +62,11 @@ Notes:
   `String1_commonMainKt`, which loads about 200 lambda classes (`-Xlambdas=class`). A/B on the same host and flags (median of 3, shrunk
   image): idle 149.1 -> 151.2 MB, active 154.5 -> 156.1 MB. Idle is therefore about 1 MB over the 150 MB target again; JVM flag
   experiments (`ReservedCodeCacheSize`, `-Xss`, string deduplication, trim interval) moved it by at most 1 MB and were not adopted.
+- PUKLIC-141: the generated accessors (`val Res.string.x by lazy { ... }`) are rewritten after generation by
+  `build-logic/.../ResourceAccessorRewriter.kt` (hooked into `generateResourceAccessorsFor*` in `shared/compose-ui/build.gradle.kts`).
+  The properties stay lazy, thread-safe and identity-stable, but each value is built in a shared `when` function (40 keys per class), so
+  the first `Res.string.*` access loads about 8 classes instead of about 200. Same host and flags, median of 3, shrunk image: idle
+  151.2 -> 149.8 MB (samples 149.3 / 150.2 / 149.8), active 156.1 -> 155.9 MB. PASS again, but the margin is only about 0.2 MB.
 
 ## Results before PUKLIC-137 (median of 3)
 

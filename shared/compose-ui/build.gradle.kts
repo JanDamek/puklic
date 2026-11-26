@@ -65,3 +65,7 @@ compose.resources {
     packageOfResClass = "dev.puklic.ui.resources"
     generateResClass = always
 }
+
+tasks.matching { it.name.startsWith("generateResourceAccessorsFor") }.configureEach {
+    doLast { outputs.files.files.filter(File::isDirectory).forEach(ResourceAccessorRewriter::rewrite) }
+}
