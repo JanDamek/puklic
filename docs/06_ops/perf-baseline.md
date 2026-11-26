@@ -9,7 +9,7 @@ Harness: `tools/perf` (see its README). Reproduce: `tools/perf/run.sh` (results 
   The app is pointed at it with `-Dpuklic.discord.apiBase` / `-Dpuklic.discord.gatewayUrl`
   (`DiscordEndpointsConfig.kt`); the token is pre-seeded through a file-backed `secret-tool` stand-in.
 - Each sample is a true cold start: fresh `HOME`/XDG tree (empty cache and database), fresh mock server, the packaged
-  `createDistributable` app image launched through `bin/Puklic`.
+  `createReleaseDistributable` app image (ProGuard-shrunk, see PUKLIC-137 below) launched through `bin/Puklic`.
 - Idle = 1 guild, RSS (`VmRSS` of `/proc/<pid>/status`) read 60 s after first frame and READY.
 - Active = 10 guilds; `-Dpuklic.dev.autotest=true` loads the first 5 text channels of each guild (50 messages each),
   RSS read 30 s after the auto-test completed.
@@ -23,7 +23,40 @@ Harness: `tools/perf` (see its README). Reproduce: `tools/perf/run.sh` (results 
 - The host was heavily shared during the runs (load average about 46 on 24 cores), so wall-clock timings are inflated
   and noisy (first run of each series is the slowest, e.g. 13.7 s). Memory numbers are stable (spread under 1 MB).
 
-## Results (median of 3)
+## Results after PUKLIC-137 (median of 3, 2026-11-26)
+
+| Metric | Target | PUKLIC-128 baseline | Now | Result |
+|---|---|---|---|---|
+| RSS idle (1 guild) | < 150 MB | 183.6 MB | 149.2 MB (samples 148.8 / 149.2 / 150.1) | PASS, thin margin |
+| RSS active (10 guilds, 5 channels each) | < 300 MB | 198.9 MB | 155.4 MB | PASS |
+
+What changed, with the single-run idle RSS measured for each step (same host, noise about 1 to 3 MB):
+
+| Step | Idle RSS |
+|---|---|
+| Baseline (PUKLIC-128 tuned flags, unshrunk app image) | 182.4 MB |
+| ProGuard release shrink + obfuscation (`createReleaseDistributable`, `desktop/app/proguard-rules.pro`) | 162.5 to 166 MB |
+| Plus Logback replaced by `java.util.logging` through `slf4j-jdk14` (`JulLogging`) | about -3.5 MB |
+| Plus initial heap `-Xms8m -Xmn4m` (was 32 m / 16 m): committed heap 33 MB -> 18 MB | about -8 MB |
+| Plus `-XX:TrimNativeHeapInterval=5000` (Linux only, glibc) | about -3.7 MB |
+
+Notes:
+
+- ProGuard keeps `dev.puklic.**`, ktor, kotlinx.coroutines, Skiko, JNA, dbus-java, jnr, sqlite, javacpp whole (reflection, JNI,
+  ServiceLoader). Obfuscated `kotlinx.coroutines` fails bytecode verification (`VerifyError: Bad invokespecial` in an obfuscated
+  `cancel()`), and shrunk/obfuscated ktor silently loses its engine (session never connects), so both stay unshrunk.
+  ServiceLoader implementations (ktor engine, coil fetchers, decompose main-thread checker, dbus transport, slf4j provider) have explicit
+  keep rules. ProGuard 7.10.0 is pinned because the default 7.8.0 cannot read Kotlin 2.4 metadata.
+- Shipping packages must come from the `...Release...` tasks (`packageReleaseDeb`, `packageReleaseDmg`, `createReleaseDistributable`);
+  the plain `package*` tasks produce the unshrunk image (about 20 MB more idle RSS).
+- Logging: file rotation is now size based (10 MB x 14 files, no gzip, no daily roll); console and file layouts and the credential
+  redaction are unchanged.
+- Not verified: the `.deb` / `.AppImage` / `.dmg` / `.msi` packaging of the shrunk image (this host has no `fakeroot`, Windows and macOS
+  were not available), real GPU rendering, voice, screen sharing and D-Bus tray paths against the shrunk jars (only the harness
+  scenarios were exercised: startup, READY, 10 guilds, 5 channels each, GIF messages are not part of this run).
+- The idle margin is about 1 MB; any new eagerly loaded dependency can push it back over the target.
+
+## Results before PUKLIC-137 (median of 3)
 
 | Metric | Target | Default JVM flags | Tuned (shipped) | Result |
 |---|---|---|---|---|
@@ -44,6 +77,12 @@ Ktor about 700, Logback about 570, Skiko/Skia about 330). JDK classes are not se
 that Compose builds has no CDS archive.
 
 ## Experiments that did not help (idle RSS, single runs)
+
+PUKLIC-137: Logback -> `java.util.logging` alone (+3 MB only, kept because it adds up); base CDS archive of the JDK classes
+(`-Xshare:dump` into the runtime image, about -0.7 MB, not kept); trimmed heap-free ratios (5/15), `-XX:ReservedCodeCacheSize=24m`,
+`-XX:CICompilerCount=1` (together about -1 MB, not kept); ProGuard with ktor and coroutines shrunk (broken, see above).
+
+PUKLIC-128:
 
 | Experiment | Idle RSS |
 |---|---|
@@ -68,7 +107,7 @@ No measurable increase (the difference is run-to-run noise). CPU use of playback
 ## Conclusion and caveats
 
 - JVM tuning cut idle RSS by 66 MB and active RSS by 90 MB. The active target is met with margin.
-- Idle (184 MB vs 150 MB) is not met. The remainder is class metadata and symbols of the Compose, Ktor and Logback
+- (Historical, before PUKLIC-137) Idle (184 MB vs 150 MB) was not met. The remainder is class metadata and symbols of the Compose, Ktor and Logback
   stacks; further reduction needs structural work (fewer eager-loaded libraries, trimming Logback, ProGuard/R8 shrinking of the app
   image), not flags. Tracked as follow-up work in PUKLIC-128.
 - Cold start was measured only under load, software rendering and Xvfb; 5.8 to 8.5 s is an upper bound and is not a valid

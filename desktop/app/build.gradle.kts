@@ -60,6 +60,10 @@ dependencies {
     testImplementation(libs.ktor.client.mock)
 }
 
+// glibc-only HotSpot flag (not recognised on macOS / Windows JVMs): periodically returns freed native
+// heap pages, which drops idle RSS by about 4 MB after the class-loading burst at startup.
+val glibcNativeHeapTrimArgs = listOf("-XX:TrimNativeHeapInterval=5000")
+
 compose.desktop {
     application {
         mainClass = "dev.puklic.desktop.MainKt"
@@ -73,6 +77,9 @@ compose.desktop {
             "-XX:MaxHeapFreeRatio=30",
             "-XX:-UsePerfData",
         )
+        if (System.getProperty("os.name").lowercase().contains("linux")) {
+            jvmArgs += glibcNativeHeapTrimArgs
+        }
         buildTypes.release.proguard {
             version.set("7.10.0")
             isEnabled.set(true)

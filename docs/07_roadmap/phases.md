@@ -160,7 +160,7 @@ Desktop builds (GitHub Releases) keep full feature set.
 - [ ] Network retry/backoff policy (gateway resume, REST 429 handling)
 - [ ] Cold start measurement + optimisation (target < 2 s)
 - [x] Animated GIFs on desktop (PUKLIC-134, 2026-11-26): `AnimatedGifDecoder` (`shared/compose-ui` jvmMain, registered on the desktop Coil `ImageLoader`, also used by the Mac App Store build) decodes multi-frame GIFs through the Skia `Codec` into an `AnimatedGifImage`. Memory is bounded: one decoded frame plus the encoded bytes (disk cache cap unchanged), GIFs above 2 M pixels and single-frame GIFs stay on the static decoder, and playback runs only while the image is drawn (stops about 1 s after it leaves the screen). Measured with `tools/perf --gif-every 5`: RSS active 189 MB animated vs 198 MB static (within run-to-run noise). iOS/Android are unchanged (static first frame).
-- [x] Linux desktop baseline measured (2026-11-26, `docs/06_ops/perf-baseline.md`): RSS active 199 MB (target < 300 MB, met), RSS idle 184 MB (target < 150 MB, not met), cold start 7.4 s under a loaded Xvfb/software-render host (target < 2 s, needs re-measurement on a quiet machine)
+- [x] Linux desktop baseline measured (2026-11-26, `docs/06_ops/perf-baseline.md`): RSS active 155 MB (target < 300 MB, met), RSS idle 149 MB (target < 150 MB, met after PUKLIC-137: ProGuard-shrunk app image, JUL logging, small initial heap; was 199 / 184 MB), cold start 7.4 s under a loaded Xvfb/software-render host (target < 2 s, needs re-measurement on a quiet machine)
 
 ---
 
