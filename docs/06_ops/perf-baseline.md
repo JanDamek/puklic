@@ -51,9 +51,12 @@ Notes:
   the plain `package*` tasks produce the unshrunk image (about 20 MB more idle RSS).
 - Logging: file rotation is now size based (10 MB x 14 files, no gzip, no daily roll); console and file layouts and the credential
   redaction are unchanged.
-- Not verified: the `.deb` / `.AppImage` / `.dmg` / `.msi` packaging of the shrunk image (this host has no `fakeroot`, Windows and macOS
-  were not available), real GPU rendering, voice, screen sharing and D-Bus tray paths against the shrunk jars (only the harness
-  scenarios were exercised: startup, READY, 10 guilds, 5 channels each, GIF messages are not part of this run).
+- Verified afterwards (PUKLIC-139, 2026-11-26): `packageReleaseDeb` builds a working `.deb` from the shrunk image (122 MB, Depends and
+  `/usr/bin/puklic` symlink injected by `patchDebPostBuild`; `fakeroot` is needed on the host). `jdeps` over the shrunk classpath reports
+  no unresolved class reference (only javacpp's build-time Maven mojos). A headless probe on the shrunk jars encodes and decodes Opus
+  through the bundled FFmpeg natives, instantiates the libdave MLS client and loads dbus-java (it stops only at the missing session bus).
+- Not verified: `.AppImage` / `.dmg` / `.msi` packaging, a live D-Bus tray against a session bus, a live voice call and screen sharing,
+  real GPU rendering (no session bus, audio server, macOS or Windows on this host).
 - The idle margin is about 1 MB; any new eagerly loaded dependency can push it back over the target.
 
 ## Results before PUKLIC-137 (median of 3)
