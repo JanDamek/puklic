@@ -1,6 +1,5 @@
 package dev.puklic.voice.client
 
-import dev.puklic.voice.codec.OpusCodecFactory
 import dev.puklic.voice.codec.OpusEncoder
 import dev.puklic.voice.codec.PuklicVoiceCodec
 import dev.puklic.voice.codec.transport.Endpoint
@@ -70,7 +69,7 @@ internal class VoiceMediaSession(
         val pipeline = PlaybackPipeline(
             transport = wiring.transport,
             packetCodec = wiring.codec,
-            decoderFactory = { OpusCodecFactory.createDecoder() },
+            decoderFactory = platform.opus.decoderFactory,
             playback = output,
             onSpeakers = callbacks.onSpeakers,
             packetSource = { wiring.packets.audioPackets() },
@@ -80,7 +79,7 @@ internal class VoiceMediaSession(
     }
 
     private fun startCapture(transport: VoiceUdpTransport, codec: VoicePacketCodec, deviceId: String?) {
-        val opus = OpusCodecFactory.createEncoder().also { encoder = it }
+        val opus = platform.opus.encoderFactory().also { encoder = it }
         val pipeline = CapturePipeline(
             capture = platform.audio.captureFactory(),
             encoder = opus,

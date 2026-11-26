@@ -32,10 +32,9 @@ import kotlinx.coroutines.launch
  * [IosShareScreenConfirmDialog] (single confirm + audio Switch), as user-approved
  * 2026-05-29 (HARD RULE #3).
  *
- * iOS currently wires `NoOpVoiceClient` (see `:ios:app` `IosDependencyGraph`) so most flows
- * stay in their idle state at runtime; the UI is wired end-to-end so that landing a real
- * iOS [VoiceClient] in a future slice lights up voice + screencast without any UI follow-up.
- * Per HARD RULE #2 this is the conceptually-correct shape, not a temporary stub.
+ * iOS wires the shared audio-only `SharedVoiceClient` (see `:ios:app` `buildIosVoiceClient`), so
+ * the join, mute and deafen flows are live while the screencast flows stay idle until a
+ * screen-share capable [VoiceClient] is wired.
  */
 @Composable
 internal actual fun VoiceDock(viewModel: MainViewModel) {

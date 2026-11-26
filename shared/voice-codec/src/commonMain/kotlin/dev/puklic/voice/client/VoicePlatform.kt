@@ -8,6 +8,10 @@ import dev.puklic.voice.audio.AudioPlayback
 import dev.puklic.voice.audio.audioCapture
 import dev.puklic.voice.audio.audioPlayback
 import dev.puklic.voice.audio.listAudioDevices
+import dev.puklic.voice.codec.OpusCodecFactory
+import dev.puklic.voice.codec.OpusDecoder
+import dev.puklic.voice.codec.OpusEncoder
+import dev.puklic.voice.codec.OpusEncoderConfig
 import dev.puklic.voice.codec.PuklicVoiceCodec
 import dev.puklic.voice.codec.transport.VoiceUdpTransportFactory
 import dev.puklic.voice.gateway.VoiceWsTransportFactory
@@ -22,6 +26,18 @@ public class VoicePlatform(
     public val udpTransportFactory: VoiceUdpTransportFactory,
     public val wsTransportFactory: VoiceWsTransportFactory,
     public val audio: AudioEndpoints = AudioEndpoints(),
+    public val opus: OpusEndpoints = OpusEndpoints(),
+)
+
+/**
+ * Factories for the Opus encoder and the mono voice decoder. They default to the `expect`
+ * [OpusCodecFactory]; a platform whose default actual cannot ship (the Mac App Store JVM build
+ * has no FFmpeg) supplies its own libopus binding here.
+ */
+@PuklicVoiceCodec
+public class OpusEndpoints(
+    public val encoderFactory: () -> OpusEncoder = { OpusCodecFactory.createEncoder(OpusEncoderConfig()) },
+    public val decoderFactory: () -> OpusDecoder = { OpusCodecFactory.createDecoder() },
 )
 
 /** Factories for microphone capture, speaker playback and device enumeration. */

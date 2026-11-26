@@ -57,7 +57,6 @@ import dev.puklic.ui.resolvers.CdnEmojiResolver
 import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.MentionResolver
 import dev.puklic.ui.resolvers.RepositoryMentionResolver
-import dev.puklic.voice.NoOpVoiceClient
 import dev.puklic.voice.VoiceClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.darwin.Darwin
@@ -85,7 +84,7 @@ private const val LOG_TAG = "IosDependencyGraph"
  *  - [IosPlatformPaths] / [IosSecureStorage] / [IosPlatformOpen] / [IosNotificationService]
  *  - [IosDriverFactory] → SQLDelight `NativeSqliteDriver`
  *  - [HttpClient] with the **Darwin** engine + websockets + JSON content negotiation
- *  - Per-session [DiscordSession] factory with [NoOpVoiceClient] (voice excluded on iOS)
+ *  - Per-session [DiscordSession] factory with the shared DAVE-free voice client (see [buildIosVoiceClient])
  *  - [SessionManager] for auto-restore + token storage
  *
  * Construct once at app launch (in Swift via `IosDependencyGraph.create()`), then call
@@ -316,10 +315,10 @@ public class IosDependencyGraph private constructor(
                 scope = sessionScope,
             )
 
-            // Voice excluded on iOS by design (App Store build is GPL-free and the sandbox
-            // forbids raw UDP without entitlements that are not granted for general apps).
-            // See docs/03_infrastructure/architect-reports/2026-05-28-apple-distribution.md §3.2.
-            val voiceClient: VoiceClient = NoOpVoiceClient()
+            val voiceClient: VoiceClient = buildIosVoiceClient(
+                IosVoiceWiring(sessionScope, gateway, gatewayBridge, selfUserId, rest, messageBridge),
+                httpClient,
+            )
 
             val dmCreator = DmCreator { recipientId ->
                 sessionBridge.createOrOpenDm(recipientId)

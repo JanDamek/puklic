@@ -43,6 +43,10 @@ Plan:
 - **App Store submission:** try, but expect rejection. Apple typically rejects third-party Discord clients.
 - **Alternative:** AltStore / sideloading via Apple ID — user installs their own build (requires Apple Developer account or 7-day re-signing)
 
+## Voice
+
+iOS and iPadOS run the shared DAVE-free `SharedVoiceClient` from `:shared:voice-codec` (the same engine as Android and the Mac App Store build, PUKLIC-127), wired in `:ios:app` `buildIosVoiceClient`. The platform pieces are the iosMain actuals: AVAudioEngine capture and playback under an `AVAudioSession` (`playAndRecord` / `voiceChat`), libopus 1.5.2 via cinterop, Network.framework UDP and CryptoKit-backed XChaCha20-Poly1305. The microphone permission prompt appears on the first voice join (`NSMicrophoneUsageDescription` in `Info.plist` / `project.yml`). There is no DAVE (Discord falls back to transport encryption) and no screen sharing on iOS.
+
 ## Compose iOS — known pain points (as of 2026-05)
 
 - Text input has rough edges (selection, paste menu)

@@ -74,7 +74,6 @@ import dev.puklic.ui.resolvers.CdnEmojiResolver
 import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.MentionResolver
 import dev.puklic.ui.resolvers.RepositoryMentionResolver
-import dev.puklic.voice.NoOpVoiceClient
 import dev.puklic.voice.VoiceClient
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
@@ -106,15 +105,9 @@ import javax.imageio.ImageIO
  * BSD only, enforced by `verifyMacAppStoreNoGplDeps` against the resolved
  * `macAppStoreRuntimeClasspath`.
  *
- * Posture decision (FP-14a §0, FP-14d): voice is wired as [NoOpVoiceClient]
- * — same shape as the iOS App Store ship (`:ios:app`'s
- * `IosDependencyGraph`). A real Apple-native voice client composed from
- * the FP-14c codec/transport primitives (`JnaLibopusEncoder`,
- * `JnaVideoToolboxH264Encoder`, `JnaNwConnectionUdpTransport`) lives in
- * `:desktop:platform-macos-appstore` and is brought online by a follow-up
- * conceptual slice — NOT a temporary in this slice, but a parallel
- * deliverable tracked separately (mirror of iOS where voice is not yet
- * wired in the App Store ship).
+ * Voice runs on the shared DAVE-free `SharedVoiceClient` of `:shared:voice-codec` (same
+ * engine as Android and iOS), wired in [buildMacAppStoreVoiceClient] on the JNA Apple
+ * primitives from `:desktop:platform-macos-appstore` (AVAudioEngine, libopus, Network.framework).
  *
  * See:
  *   - docs/03_infrastructure/architect-reports/2026-05-29-fp14a-mac-app-store-architect.md §4
@@ -190,8 +183,8 @@ private fun configureDockIcon() {
  *     [MacOsNotificationService] from `:desktop:platform-macos`.
  *   - [JvmDriverFactory] → SQLDelight desktop SQLite driver.
  *   - [HttpClient] with the **CIO** engine + WebSockets + JSON content negotiation.
- *   - Per-session [DiscordSession] with [NoOpVoiceClient] (voice not wired in v1
- *     Mac App Store ship — same posture as iOS App Store ship).
+ *   - Per-session [DiscordSession] with the shared voice client from
+ *     [buildMacAppStoreVoiceClient].
  *
  * Does NOT reference `dev.puklic.voice.DefaultVoiceClient`,
  * `dev.puklic.voice.MainGatewayBridgeAdapter`, or any other symbol from
@@ -398,9 +391,10 @@ public class MacAppStoreDependencyGraph private constructor(
                 scope = sessionScope,
             )
 
-            // Voice not wired in v1 Mac App Store ship — same posture as iOS
-            // App Store ship (`IosDependencyGraph` line 301).
-            val voiceClient: VoiceClient = NoOpVoiceClient()
+            val voiceClient: VoiceClient = buildMacAppStoreVoiceClient(
+                MacAppStoreVoiceWiring(sessionScope, gateway, gatewayBridge, selfUserId, rest, messageBridge),
+                httpClient,
+            )
 
             val dmCreator = DmCreator { recipientId ->
                 sessionBridge.createOrOpenDm(recipientId)

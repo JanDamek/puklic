@@ -71,6 +71,7 @@ targets:
         NSAppTransportSecurity:
           NSAllowsArbitraryLoads: false
         ITSAppUsesNonExemptEncryption: false
+        NSMicrophoneUsageDescription: "Puklic uses the microphone only while you are connected to a voice channel."
     # No App Groups entitlement and no PuklicBroadcastUpload extension —
     # iOS screen sharing is OUT of scope per user decision 2026-05-31 (#71).
     # The Apple-native voice call path (FP-14h) does not require an extension

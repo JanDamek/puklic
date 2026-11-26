@@ -25,10 +25,9 @@ import org.jetbrains.skia.ImageInfo
  * `Image` then to a Compose [ImageBitmap]. Compose Multiplatform on iOS is Skia-backed so
  * this is the canonical path — no platform-specific UIKit imageView required.
  *
- * The pane stays empty whenever no remote frames have been received. iOS today wires
- * `NoOpVoiceClient` so the map is permanently empty under FP-12 — the implementation is
- * complete so that a future real iOS [dev.puklic.voice.VoiceClient] lights it up without
- * any UI follow-up. Not a temporary state per HARD RULE #2.
+ * The pane stays empty whenever no remote frames have been received. The iOS voice client is
+ * audio-only (shared DAVE-free engine, no video receive), so the map stays empty until a
+ * video-capable [dev.puklic.voice.VoiceClient] feeds it; no UI follow-up is needed then.
  */
 @Composable
 internal actual fun IncomingVideoPane(frames: Map<Int, IncomingVideoFrame>) {

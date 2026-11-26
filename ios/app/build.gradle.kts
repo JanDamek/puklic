@@ -31,6 +31,7 @@ kotlin {
             implementation(projects.shared.persistenceApi)
             implementation(projects.shared.persistenceSqldelight)
             implementation(projects.shared.voiceApi)
+            implementation(projects.shared.voiceCodec)
             implementation(projects.shared.platformApi)
             implementation(projects.shared.ids)
             implementation(libs.koin.core)

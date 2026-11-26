@@ -142,13 +142,12 @@ Desktop builds (GitHub Releases) keep full feature set.
   - [x] FP-14e — fastlane `mac_app_store` lane (`01a0e30`, #58). **REVISED 2026-05-31 (#70):** `mac-app-store.yml` GitHub workflow deleted per HARD RULE #4; Mac App Store build + upload now runs locally via `dist/apple/macappstore/release-mac.sh`. Architect: `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`.
   - [x] FP-14f — Critic findings (`334d26a`, #59) + fixes for F-1, F-3..F-6, F-14, F-15, F-22..F-24 (`73a8922`, #60)
   - [x] FP-14g — Docs closure (this commit, #61)
-  - [ ] FP-14h — Voice wiring + critic follow-up (see below)
-- [ ] Slice 15 (FP-14h) — Wire `AppleNativeVoiceClient` into Mac App Store + iOS dependency graphs, then resolve the FP-14f deferred findings:
-      voice wiring (F-2), `JnaNwConnectionUdpTransport` lifetime (F-7..F-9), VideoToolbox refcount + JMM (F-10, F-11),
+  - [x] FP-14h voice wiring — shared `SharedVoiceClient` wired into iOS + Mac App Store (PUKLIC-127); critic follow-up items remain below
+- [ ] Slice 15 (FP-14h) — Voice wiring is DONE (PUKLIC-127: the shared DAVE-free `SharedVoiceClient` is wired into the Mac App Store + iOS dependency graphs, no second Apple-specific orchestrator). Remaining FP-14f deferred findings:
+       `JnaNwConnectionUdpTransport` lifetime (F-7..F-9), VideoToolbox refcount + JMM (F-10, F-11),
       libopus close-race (F-12), split `:shared:voice-codec` into api + libav (F-13), HARD RULE #2 cleanup of `MacAppStoreMain.kt`
       "voice not wired in v1" note (F-16), and JNA / Dispatch / Info.plist / dock-icon NITs (F-17..F-21).
-      **Blocking gate:** FP-14h MUST land before any Mac App Store TestFlight submission — until then both iOS and the
-      Mac App Store target ship `NoOpVoiceClient` and the FP-1..FP-12 native codec primitives are dead code.
+      The voice gate for Mac App Store TestFlight is lifted; on-device verification of a live call (iOS, Mac App Store) is still pending.
 
 ## Phase 5 — Optimisation
 
