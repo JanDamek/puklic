@@ -16,6 +16,7 @@ import json
 import re
 import struct
 import threading
+from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -42,7 +43,8 @@ SAMPLE_CONTENT = [
 
 
 class World:
-    def __init__(self, guilds, channels, messages):
+    def __init__(self, guilds, channels, messages, gif_every=0, gif_url=""):
+        self.gif_every, self.gif_url = gif_every, gif_url
         self.guild_count, self.channel_count, self.message_count = guilds, channels, messages
         self.users = [self.user(900000000000000001 + i) for i in range(40)]
         self.guilds = [self.build_guild(i) for i in range(guilds)]
@@ -91,9 +93,16 @@ class World:
         stamp = (BASE_TIME + timedelta(minutes=index * 3)).strftime("%Y-%m-%dT%H:%M:%S.000000+00:00")
         return {"id": str(self.message_id(channel_id, index)), "channel_id": str(channel_id), "author": author,
                 "content": f"[{index}] {SAMPLE_CONTENT[index % len(SAMPLE_CONTENT)]}", "timestamp": stamp,
-                "edited_timestamp": None, "tts": False, "pinned": False, "attachments": [], "embeds": [],
+                "edited_timestamp": None, "tts": False, "pinned": False, "attachments": self.attachments(index), "embeds": [],
                 "reactions": [], "mentions": [], "mention_roles": [], "mention_everyone": False,
                 "flags": 0, "type": 0}
+
+    def attachments(self, index):
+        if not self.gif_every or index % self.gif_every:
+            return []
+        return [{"id": str(950000000000000000 + index), "filename": "anim.gif", "size": GIF_PATH.stat().st_size,
+                 "url": self.gif_url, "proxy_url": self.gif_url, "width": 240, "height": 180,
+                 "content_type": "image/gif"}]
 
     def messages_page(self, channel_id, limit, before):
         newest_first = [self.message(channel_id, i) for i in range(self.message_count - 1, -1, -1)]
@@ -107,6 +116,7 @@ class World:
                 "private_channels": self.dms}
 
 
+GIF_PATH = Path(__file__).resolve().parent / "assets" / "anim.gif"
 WORLD = None
 WS_URL = None
 MESSAGES_RE = re.compile(r"^/api/v10/channels/(\d+)/messages$")
@@ -126,10 +136,19 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
+    def reply_bytes(self, content_type, data):
+        self.send_response(200)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self):
         if self.headers.get("Upgrade", "").lower() == "websocket":
             return self.serve_gateway()
         url = urlparse(self.path)
+        if url.path == "/cdn/anim.gif":
+            return self.reply_bytes("image/gif", GIF_PATH.read_bytes())
         match = MESSAGES_RE.match(url.path)
         if url.path == "/api/v10/users/@me":
             return self.reply(200, WORLD.users[0])
@@ -223,8 +242,9 @@ def main():
     parser.add_argument("--guilds", type=int, default=1)
     parser.add_argument("--channels", type=int, default=8, help="text channels per guild")
     parser.add_argument("--messages", type=int, default=120, help="messages per channel")
+    parser.add_argument("--gif-every", type=int, default=0, help="attach the animated GIF to every Nth message (0 = none)")
     args = parser.parse_args()
-    WORLD = World(args.guilds, args.channels, args.messages)
+    WORLD = World(args.guilds, args.channels, args.messages, args.gif_every, f"http://127.0.0.1:{args.port}/cdn/anim.gif")
     WS_URL = f"ws://127.0.0.1:{args.port}/?v=10&encoding=json"
     server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     server.daemon_threads = True

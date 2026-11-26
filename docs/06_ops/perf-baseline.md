@@ -53,6 +53,18 @@ that Compose builds has no CDS archive.
 | `MALLOC_ARENA_MAX=1` | 192 MB |
 | Smaller code cache, heap and thread stacks, one compiler thread | 198 MB |
 
+## Animated GIF impact (PUKLIC-134)
+
+Same `active` scenario (10 guilds) with `--gif-every 5`: every fifth mock message carries a 240x180, 10-frame GIF (`tools/perf/assets/anim.gif`),
+median of 3 runs.
+
+| Build | RSS active |
+|---|---|
+| Animated decoder registered | 189 MB |
+| Static first frame only | 198 MB |
+
+No measurable increase (the difference is run-to-run noise). CPU use of playback was not measured.
+
 ## Conclusion and caveats
 
 - JVM tuning cut idle RSS by 66 MB and active RSS by 90 MB. The active target is met with margin.

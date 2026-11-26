@@ -65,7 +65,7 @@ class AppRun:
         self.port = free_port()
         self.mock = subprocess.Popen(
             [sys.executable, "-I", str(HERE / "mock_discord.py"), "--port", str(self.port),
-             "--guilds", str(self.guilds)], stdout=subprocess.PIPE, text=True)
+             "--guilds", str(self.guilds), "--gif-every", str(self.args.gif_every)], stdout=subprocess.PIPE, text=True)
         self.mock.stdout.readline()
 
     def environment(self):
@@ -152,6 +152,7 @@ def main():
     parser.add_argument("--jvm-flags", default=None,
                         help="extra JVM flags passed via JAVA_TOOL_OPTIONS (default: none, i.e. the shipped launcher config)")
     parser.add_argument("--label", default="baseline")
+    parser.add_argument("--gif-every", type=int, default=0, help="attach an animated GIF to every Nth mock message")
     parser.add_argument("--scenarios", default="idle,active")
     parser.add_argument("--output", default=None)
     args = parser.parse_args()

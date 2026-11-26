@@ -27,6 +27,7 @@ import dev.puklic.desktop.crash.CrashReporter
 import dev.puklic.desktop.logging.LoggingBootstrap
 import dev.puklic.desktop.update.UpdateBanner
 import dev.puklic.ui.PuklicApp
+import dev.puklic.ui.image.AnimatedGifDecoder
 import kotlinx.coroutines.launch
 import java.awt.Dimension
 import java.awt.Taskbar
@@ -113,12 +114,7 @@ private fun buildImageLoader(context: PlatformContext, graph: DependencyGraph): 
         .crossfade(true)
         .components {
             add(KtorNetworkFetcherFactory(graph.httpClient))
-            // Note: Coil 3.1 does not yet ship a JVM-desktop GIF decoder (the
-            // `coil-gif` artifact is Android-only). Discord animated custom
-            // emoji (`<a:name:id>` → `.gif`) therefore display the first frame
-            // only; animation will be enabled when Coil publishes a multiplatform
-            // animated decoder. The URL still resolves and cache still hits, so
-            // there is no broken path — only a missing playback feature.
+            add(AnimatedGifDecoder.Factory())
         }
         .diskCache {
             DiskCache.Builder()

@@ -98,3 +98,9 @@ Persisted in `$XDG_CONFIG_HOME/puklic/settings.toml`.
 - **Memory leak test:** 24 h client run, scroll 1000+ messages across 20 channels. Heap growth target < 50 MB.
 - **Cache eviction test:** fill attachment cache above limit, verify LRU eviction works and size drops below limit.
 - **Orphan test:** manually add a file to the cache directory, verify that startup deletes it.
+
+## Animated GIFs (desktop)
+
+`AnimatedGifDecoder` (`shared/compose-ui` jvmMain) keeps the cache bounded: only the encoded GIF lives in the Coil disk cache (same
+50 MiB cap); in RAM an animated image is one decoded frame, frames are decoded on demand, and GIFs above 2 M pixels fall back to the
+static decoder. The decode loop runs only while the image is being drawn.

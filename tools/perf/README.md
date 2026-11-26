@@ -43,5 +43,7 @@ Scenarios per run (default 3 runs each, median reported):
 - cold start = harness spawn timestamp -> `milestone=first-frame` log line (also reported:
   `sessionConnectedMs`, the time until READY has been processed).
 
+`--gif-every N` makes the mock attach an animated GIF (`assets/anim.gif`, served from the mock) to every Nth message.
+
 Caveats: virtual display and software rendering (a real GPU path moves memory into the driver),
 loopback network (no TLS, no CDN: avatars/icons are `null` in the mock), warm OS page cache.
