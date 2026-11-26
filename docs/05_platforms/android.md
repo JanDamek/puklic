@@ -33,7 +33,7 @@ Actuals live in `:android:platform` (`dev.puklic.platform.android`); the wiring 
 | Opus | Concentus (pure Java, BSD-3-Clause), no NDK and no per-ABI natives |
 | Audio route | `VoiceAudioRouting`: audio focus, `MODE_IN_COMMUNICATION`, headset else loudspeaker; driven by `VoiceServiceController` together with the foreground service |
 | Voice UI | `VoiceDock` actual: one bottom row shown only while in a voice channel, "channel · server" on the left, mute, deafen and disconnect icon buttons on the right; no screen-share button, no DAVE indicator |
-| Push notifications | FCM (Firebase Cloud Messaging) — **not wired**, gateway works when app is running |
+| Push notifications | FCM — **out of scope** (decided 2026-11-26, PUKLIC-129): Discord has no push for user accounts and a relay server would have to hold the Discord token. Notifications are raised locally from the gateway while the app or its foreground service runs |
 
 ## Process / lifecycle
 

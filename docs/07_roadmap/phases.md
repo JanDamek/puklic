@@ -129,8 +129,8 @@ Desktop builds (GitHub Releases) keep full feature set.
 - [x] Slice 6 — fastlane Fastfile + Appfile + Gemfile (`adfaf2d`, #39). **REVISED 2026-05-31 (#70):** the `apple-testflight.yml` GitHub workflow originally landed alongside the fastlane lanes was deleted per HARD RULE #4 (Apple LOCAL ONLY). Build + upload now runs from `dist/apple/*.sh` invoked on a developer Mac. Architect: `docs/03_infrastructure/architect-reports/2026-05-31-apple-local-only.md`; runbook: `docs/06_ops/apple-release.md`.
 - [ ] Slice 7 — First TestFlight upload + Beta App Review submission. **REVISED 2026-05-31 (#70):** no longer blocked on GitHub Secrets — runs locally via `dist/apple/release-ios.sh`.
 - [ ] Slice 8 — Internal-tester group invite (depends on 7)
-- [ ] Slice 9 — APN `.p8` auth key provisioning (push infra prep; no consumer yet)
-- [ ] Slice 10 — Firebase project + service-account JSON (Android push prep; no consumer yet)
+- [-] Slice 9 — APN `.p8` auth key provisioning — **CANCELLED 2026-11-26 (Jan, PUKLIC-129):** remote push needs a server holding the Discord token; out of scope, no push server
+- [-] Slice 10 — Firebase project + service-account JSON — **CANCELLED 2026-11-26 (Jan, PUKLIC-129):** same reason; Android keeps the gateway alive with a foreground service instead
 - [x] Slice 11 — iOS Broadcast Extension target (App Group IPC + RPSystemBroadcastPickerView) (`7a259c5`, FP-11, #51)
 - [x] Slice 12 — iOS ReplayKit screencast impl + Material3 confirm dialog (`cbd80f7`, FP-12, #52)
 - [-] Slice 13 — macOS Kotlin/Native target (`:macos:app`) — **BLOCKED, redirected.** CMP 1.8 ships no native macOS Compose UI runtime. Mac App Store ship pivoted to the JVM Compose Desktop path delivered by Slice 14. Original plan in `2026-05-29-full-feature-parity.md` §3.6 (SUPERSEDED).
