@@ -159,6 +159,7 @@ Desktop builds (GitHub Releases) keep full feature set.
 - [x] SQLite index audit (2026-11-26, by schema review): every hot query is covered — `message(channel_id, timestamp DESC)` for paging, `channel(guild_id)`/`channel(parent_id)`, `attachment_cache_index(last_accessed_at)` for LRU, primary keys for the rest; no index added. EXPLAIN QUERY PLAN on a populated DB stays with the measurement run
 - [ ] Network retry/backoff policy (gateway resume, REST 429 handling)
 - [ ] Cold start measurement + optimisation (target < 2 s)
+- [x] Linux desktop baseline measured (2026-11-26, `docs/06_ops/perf-baseline.md`): RSS active 199 MB (target < 300 MB, met), RSS idle 184 MB (target < 150 MB, not met), cold start 7.4 s under a loaded Xvfb/software-render host (target < 2 s, needs re-measurement on a quiet machine)
 
 ---
 
