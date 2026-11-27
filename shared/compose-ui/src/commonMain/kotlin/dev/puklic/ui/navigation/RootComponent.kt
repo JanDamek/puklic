@@ -60,6 +60,19 @@ public class RootComponent(
         navState.update { it.copy(selectedChannel = id) }
     }
 
+    private val pendingChannelState = MutableStateFlow<ChannelTarget?>(null)
+
+    /** Channel an external entry point (a notification tap) asked to open, until the main UI consumes it. */
+    public val pendingChannel: StateFlow<ChannelTarget?> = pendingChannelState.asStateFlow()
+
+    public fun openChannel(target: ChannelTarget) {
+        pendingChannelState.value = target
+    }
+
+    public fun consumePendingChannel(target: ChannelTarget) {
+        pendingChannelState.compareAndSet(target, null)
+    }
+
     public fun openSettings() {
         navState.update { it.copy(settingsOpen = true) }
     }
@@ -78,6 +91,9 @@ public class RootComponent(
         else -> RouterState.Login
     }
 }
+
+/** A channel to open: [channelId] inside [guildId], or a DM channel when [guildId] is null. */
+public data class ChannelTarget(val guildId: GuildId?, val channelId: ChannelId)
 
 /**
  * Top-level routing decision.

@@ -85,7 +85,7 @@ Two foreground services exist and never show two notifications at once: both use
 
 ## Background connection service
 
-Decision PUKLIC-129: no push server, so on Android the gateway is kept alive by a foreground service and messages are raised as local notifications by the existing `NotificationDispatcher` / `AndroidNotificationService` path (tapping such a notification opens the app; it does not yet deep-link into the channel).
+Decision PUKLIC-129: no push server, so on Android the gateway is kept alive by a foreground service and messages are raised as local notifications by the existing `NotificationDispatcher` / `AndroidNotificationService` path. Each message notification carries a `NotificationTarget` (guild id or DM, channel id) set by `NotificationDispatcher`; `AndroidNotificationService` puts it into the tap intent (`channelPendingIntent`, single-top), `MainActivity` reads it in `onCreate`/`onNewIntent` into `RootComponent.openChannel`, and `MainRoute` selects the guild and channel once the main view model exists.
 
 - Setting: Settings → Notifications, switch "Receive messages when the app is closed", default off. Turning it on requests `POST_NOTIFICATIONS` (Android 13+; declining leaves it off), persists the choice, starts the service and then offers the battery-optimization exemption. Turning it off, logging out or the notification action "Disconnect" stops the service and turns the setting off.
 - Notification: channel `puklic.connection` (`IMPORTANCE_LOW`, silent, `VISIBILITY_SECRET`), title "Puklic · connected" or "Puklic · connecting…" while the gateway is not connected, text "Receiving messages from Discord", action "Disconnect", tap opens the app.

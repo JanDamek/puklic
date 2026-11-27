@@ -17,7 +17,7 @@ import java.util.concurrent.atomic.AtomicInteger
  * Local notifications through `NotificationManagerCompat`. Urgent notifications go to the high
  * importance mentions channel, the rest to the messages channel. `POST_NOTIFICATIONS` (Android 13+)
  * is requested the first time a notification is shown. A notification that carries a tag replaces the
- * previous one with the same tag; tapping any notification opens the app.
+ * previous one with the same tag; tapping a notification opens the channel it carries as target, or just the app.
  *
  * Actions, images and markup are not advertised: the service has no way to deliver an action tap back
  * to a caller and the notification small icon is a fixed app resource.
@@ -58,7 +58,7 @@ class AndroidNotificationService(
             .setContentTitle(notification.title)
             .setContentText(notification.body)
             .setCategory(NotificationCompat.CATEGORY_MESSAGE)
-            .setContentIntent(context.launchAppPendingIntent())
+            .setContentIntent(notification.target?.let(context::channelPendingIntent) ?: context.launchAppPendingIntent())
             .setAutoCancel(true)
             .build()
     }

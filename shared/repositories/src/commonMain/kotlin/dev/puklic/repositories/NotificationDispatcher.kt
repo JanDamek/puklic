@@ -3,10 +3,12 @@ package dev.puklic.repositories
 import co.touchlab.kermit.Logger
 import dev.puklic.domain.ChatMessage
 import dev.puklic.domain.DmChannel
+import dev.puklic.domain.GuildChannel
 import dev.puklic.ids.UserId
 import dev.puklic.persistence.repository.ChannelRepository
 import dev.puklic.platform.Notification
 import dev.puklic.platform.NotificationService
+import dev.puklic.platform.NotificationTarget
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.launchIn
@@ -84,7 +86,12 @@ public class NotificationDispatcher(
         return channel is DmChannel
     }
 
-    private fun buildNotification(message: ChatMessage): Notification {
+    private suspend fun targetOf(message: ChatMessage): NotificationTarget {
+        val channel = runCatching { channelRepository.findById(message.channelId) }.getOrNull()
+        return NotificationTarget(guildId = (channel as? GuildChannel)?.guildId, channelId = message.channelId)
+    }
+
+    private suspend fun buildNotification(message: ChatMessage): Notification {
         val title = message.author.username
         val body = message.rawContent.take(MAX_BODY_LEN)
         return Notification(
@@ -94,6 +101,7 @@ public class NotificationDispatcher(
             actions = emptyList(),
             tag = "msg-${message.channelId.value}",
             urgent = false,
+            target = targetOf(message),
         )
     }
 }

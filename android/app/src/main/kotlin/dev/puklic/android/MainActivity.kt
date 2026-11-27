@@ -1,11 +1,14 @@
 package dev.puklic.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import com.arkivanov.decompose.defaultComponentContext
+import dev.puklic.platform.android.notificationTarget
+import dev.puklic.ui.navigation.ChannelTarget
 import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.PuklicApp as PuklicRoot
 
@@ -14,6 +17,7 @@ import dev.puklic.ui.PuklicApp as PuklicRoot
  * and permissions live in [PuklicApp], so a recreated activity reattaches to the running session.
  */
 class MainActivity : ComponentActivity() {
+    private lateinit var root: RootComponent
     private val graph: AndroidDependencyGraph get() = (application as PuklicApp).graph
 
     private val permissionLauncher =
@@ -24,12 +28,13 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val root = RootComponent(
+        root = RootComponent(
             componentContext = defaultComponentContext(),
             sessionManager = graph.sessionManager,
             preferences = graph.userPreferences,
             secureStorage = graph.secureStorage,
         )
+        intent.openRequestedChannel()
         setContent {
             PuklicRoot(
                 root = root,
@@ -40,6 +45,15 @@ class MainActivity : ComponentActivity() {
                 backgroundConnection = graph.backgroundConnection,
             )
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.openRequestedChannel()
+    }
+
+    private fun Intent.openRequestedChannel() {
+        notificationTarget()?.let { root.openChannel(ChannelTarget(it.guildId, it.channelId)) }
     }
 
     override fun onStart() {

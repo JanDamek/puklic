@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -119,6 +120,13 @@ private fun MainRoute(root: RootComponent, platformOpen: PlatformOpen?) {
             openChannel = { viewModel.selectChannel(it) },
             openExternal = { uriHandler.openUri(it) },
         )
+    }
+    val pendingChannel by root.pendingChannel.collectAsState()
+    LaunchedEffect(viewModel, pendingChannel) {
+        val target = pendingChannel ?: return@LaunchedEffect
+        target.guildId?.let(viewModel::selectGuild) ?: viewModel.selectDmHome()
+        viewModel.selectChannel(target.channelId)
+        root.consumePendingChannel(target)
     }
     CompositionLocalProvider(LocalAppRouter provides appRouter) {
         MainScreen(viewModel = viewModel, platformOpen = platformOpen)
