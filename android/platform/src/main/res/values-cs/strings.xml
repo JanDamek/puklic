@@ -6,4 +6,9 @@
     <string name="voice_notification_title">Puklic</string>
     <string name="voice_notification_text">Připojeno k hlasu</string>
     <string name="voice_notification_disconnect">Odpojit</string>
+    <string name="channel_connection">Připojení Puklic</string>
+    <string name="connection_notification_title_connected">Puklic · připojeno</string>
+    <string name="connection_notification_title_connecting">Puklic · připojování…</string>
+    <string name="connection_notification_text">Příjem zpráv z Discordu</string>
+    <string name="connection_notification_disconnect">Odpojit</string>
 </resources>

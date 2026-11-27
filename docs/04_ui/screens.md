@@ -243,6 +243,7 @@ Categories MVP:
 - "Notify for: All messages / Mentions only / Nothing" radio
 - Sound on notification: toggle
 - (Per-channel overrides: Phase 2)
+- Android only (platform capability `BackgroundConnection`, hidden elsewhere): switch "Receive messages when the app is closed" with the description "Keeps the Discord connection alive in the background and shows a persistent notification. Increases battery usage." Default off; details in `docs/05_platforms/android.md`. This is the only implemented NOTIFICATIONS content so far; on other platforms the category stays a placeholder.
 
 #### Storage
 - Cache sizes table:

@@ -33,6 +33,8 @@
     <string name="settings_category_keybindings">Klávesové zkratky</string>
     <string name="settings_category_about">O aplikaci</string>
     <string name="settings_category_coming_soon">%1$s — brzy</string>
+    <string name="settings_notifications_background_title">Přijímat zprávy i při zavřené aplikaci</string>
+    <string name="settings_notifications_background_description">Udržuje spojení s Discordem na pozadí a zobrazuje trvalé oznámení. Zvyšuje spotřebu baterie.</string>
     <string name="settings_account_loading">Načítání účtu…</string>
     <string name="settings_account_user_id">ID uživatele</string>
     <string name="settings_account_log_out">Odhlásit se</string>

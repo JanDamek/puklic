@@ -11,6 +11,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import dev.puklic.android.platform.R
 import dev.puklic.platform.android.AppNotificationChannel
+import dev.puklic.platform.android.FOREGROUND_NOTIFICATION_ID
 import dev.puklic.platform.android.launchAppPendingIntent
 import dev.puklic.platform.android.registerNotificationChannels
 
@@ -35,8 +36,8 @@ class VoiceForegroundService : Service() {
         registerNotificationChannels()
         ServiceCompat.startForeground(
             this,
-            NOTIFICATION_ID,
-            buildNotification(),
+            FOREGROUND_NOTIFICATION_ID,
+            buildNotification(this),
             ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE,
         )
     }
@@ -48,27 +49,27 @@ class VoiceForegroundService : Service() {
         stopSelf()
     }
 
-    private fun buildNotification(): Notification =
-        NotificationCompat.Builder(this, AppNotificationChannel.Voice.id)
-            .setSmallIcon(R.drawable.ic_stat_puklic)
-            .setContentTitle(getString(R.string.voice_notification_title))
-            .setContentText(getString(R.string.voice_notification_text))
-            .setCategory(NotificationCompat.CATEGORY_SERVICE)
-            .setOngoing(true)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
-            .setContentIntent(launchAppPendingIntent())
-            .addAction(0, getString(R.string.voice_notification_disconnect), disconnectPendingIntent())
-            .build()
-
-    private fun disconnectPendingIntent(): PendingIntent {
-        val intent = Intent(this, VoiceForegroundService::class.java).setAction(ACTION_DISCONNECT)
-        return PendingIntent.getService(this, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
-    }
-
     companion object {
         private const val ACTION_DISCONNECT = "dev.puklic.android.action.DISCONNECT_VOICE"
-        private const val NOTIFICATION_ID = 2_001
 
         internal fun startIntent(context: Context): Intent = Intent(context, VoiceForegroundService::class.java)
+
+        /** The ongoing "connected to voice" notification, also shown by the background connection service during a call. */
+        internal fun buildNotification(context: Context): Notification =
+            NotificationCompat.Builder(context, AppNotificationChannel.Voice.id)
+                .setSmallIcon(R.drawable.ic_stat_puklic)
+                .setContentTitle(context.getString(R.string.voice_notification_title))
+                .setContentText(context.getString(R.string.voice_notification_text))
+                .setCategory(NotificationCompat.CATEGORY_SERVICE)
+                .setOngoing(true)
+                .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+                .setContentIntent(context.launchAppPendingIntent())
+                .addAction(0, context.getString(R.string.voice_notification_disconnect), disconnectPendingIntent(context))
+                .build()
+
+        private fun disconnectPendingIntent(context: Context): PendingIntent {
+            val intent = startIntent(context).setAction(ACTION_DISCONNECT)
+            return PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
+        }
     }
 }

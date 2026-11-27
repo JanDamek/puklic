@@ -33,6 +33,8 @@
     <string name="settings_category_keybindings">Keybindings</string>
     <string name="settings_category_about">About</string>
     <string name="settings_category_coming_soon">%1$s settings — coming soon</string>
+    <string name="settings_notifications_background_title">Receive messages when the app is closed</string>
+    <string name="settings_notifications_background_description">Keeps the Discord connection alive in the background and shows a persistent notification. Increases battery usage.</string>
     <string name="settings_account_loading">Loading account…</string>
     <string name="settings_account_user_id">User ID</string>
     <string name="settings_account_log_out">Log out</string>

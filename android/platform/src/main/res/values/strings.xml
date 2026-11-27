@@ -6,4 +6,9 @@
     <string name="voice_notification_title">Puklic</string>
     <string name="voice_notification_text">Connected to voice</string>
     <string name="voice_notification_disconnect">Disconnect</string>
+    <string name="channel_connection">Puklic connection</string>
+    <string name="connection_notification_title_connected">Puklic · connected</string>
+    <string name="connection_notification_title_connecting">Puklic · connecting…</string>
+    <string name="connection_notification_text">Receiving messages from Discord</string>
+    <string name="connection_notification_disconnect">Disconnect</string>
 </resources>

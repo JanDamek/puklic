@@ -53,6 +53,7 @@ class AndroidDependencyGraph private constructor(
     val userPreferences: UserPreferencesRepository,
     val mentionResolver: MentionResolver,
     val emojiResolver: EmojiResolver,
+    internal val backgroundConnection: AndroidBackgroundConnection,
 ) {
     /** Ends the active voice session, if any. Invoked from the foreground notification action. */
     fun disconnectVoice() {
@@ -84,6 +85,7 @@ class AndroidDependencyGraph private constructor(
                 credentialsLogin = DiscordCredentialsLoginAdapter(DiscordLoginClient(httpClient)),
             )
             restoreStoredSession(applicationScope, sessionManager)
+            val environment = BackgroundConnectionEnvironment(appContext, permissions, stores.preferences, sessionManager)
             return AndroidDependencyGraph(
                 applicationScope = applicationScope,
                 platformPaths = AndroidPlatformPaths(appContext),
@@ -96,6 +98,7 @@ class AndroidDependencyGraph private constructor(
                 userPreferences = stores.preferences,
                 mentionResolver = RepositoryMentionResolver(stores.users, stores.channels, roleStore),
                 emojiResolver = CdnEmojiResolver,
+                backgroundConnection = AndroidBackgroundConnection(environment, applicationScope),
             )
         }
 

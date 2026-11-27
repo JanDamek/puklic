@@ -52,6 +52,16 @@ public class UserPreferencesRepositoryImpl(
         }
     }
 
+    override suspend fun backgroundConnectionEnabled(): Boolean = withContext(dispatcher) {
+        read(KEY_BACKGROUND_CONNECTION) == FLAG_ON
+    }
+
+    override suspend fun setBackgroundConnectionEnabled(enabled: Boolean) {
+        withContext(dispatcher) {
+            writeOrDelete(KEY_BACKGROUND_CONNECTION, FLAG_ON.takeIf { enabled })
+        }
+    }
+
     private fun read(key: String): String? =
         db.userPreferencesQueries.selectByKey(key).executeAsOneOrNull()
 
@@ -67,6 +77,8 @@ public class UserPreferencesRepositoryImpl(
         const val KEY_SCOPE = "nav.scope"
         const val KEY_GUILD = "nav.guildId"
         const val KEY_CHANNEL = "nav.channelId"
+        const val KEY_BACKGROUND_CONNECTION = "notifications.backgroundConnection"
+        const val FLAG_ON = "1"
         const val SCOPE_DM_HOME = "dmHome"
         const val SCOPE_GUILD = "guild"
     }

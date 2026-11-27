@@ -37,6 +37,7 @@ class MainActivity : ComponentActivity() {
                 emojiResolver = graph.emojiResolver,
                 platformOpen = graph.platformOpen,
                 platformClipboard = graph.platformClipboard,
+                backgroundConnection = graph.backgroundConnection,
             )
         }
     }
@@ -44,6 +45,7 @@ class MainActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         graph.runtimePermissions.attach { permissions -> permissionLauncher.launch(permissions) }
+        graph.backgroundConnection.ensureRunning()
     }
 
     override fun onStop() {

@@ -7,6 +7,15 @@
             android:exported="false"
             android:foregroundServiceType="microphone" />
 
+        <service
+            android:name="dev.puklic.platform.android.connection.BackgroundConnectionService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps the user's own Discord gateway connection open so messages can be shown as local notifications while the app UI is closed. Enabled explicitly by the user in Settings; no push server exists." />
+        </service>
+
         <provider
             android:name="androidx.core.content.FileProvider"
             android:authorities="${applicationId}.fileprovider"

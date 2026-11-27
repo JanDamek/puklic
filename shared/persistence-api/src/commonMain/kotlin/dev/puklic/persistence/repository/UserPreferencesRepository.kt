@@ -18,6 +18,11 @@ public interface UserPreferencesRepository {
      * Persists the user's current navigation position. Pass `LastPosition.Empty` to clear.
      */
     public suspend fun setLastPosition(position: LastPosition)
+
+    /** Whether the user asked to keep receiving messages while the app UI is closed (Android only). */
+    public suspend fun backgroundConnectionEnabled(): Boolean
+
+    public suspend fun setBackgroundConnectionEnabled(enabled: Boolean)
 }
 
 public sealed interface LastPosition {

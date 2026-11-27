@@ -1,5 +1,6 @@
 package dev.puklic.ui.resolvers
 
+import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
 import dev.puklic.domain.EmojiRef
 import dev.puklic.domain.UserSummary
@@ -7,7 +8,9 @@ import dev.puklic.domain.Channel
 import dev.puklic.ids.ChannelId
 import dev.puklic.ids.RoleId
 import dev.puklic.ids.UserId
+import dev.puklic.platform.BackgroundConnection
 import dev.puklic.platform.PlatformClipboard
+import dev.puklic.platform.UnsupportedBackgroundConnection
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
@@ -83,3 +86,7 @@ public object NoopPlatformClipboard : PlatformClipboard {
 
 public val LocalPlatformClipboard: androidx.compose.runtime.ProvidableCompositionLocal<PlatformClipboard> =
     staticCompositionLocalOf { NoopPlatformClipboard }
+
+/** The platform's background-connection capability; defaults to one that is unsupported, which hides its setting. */
+public val LocalBackgroundConnection: ProvidableCompositionLocal<BackgroundConnection> =
+    staticCompositionLocalOf { UnsupportedBackgroundConnection }

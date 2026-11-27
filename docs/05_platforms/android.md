@@ -33,14 +33,16 @@ Actuals live in `:android:platform` (`dev.puklic.platform.android`); the wiring 
 | Opus | Concentus (pure Java, BSD-3-Clause), no NDK and no per-ABI natives |
 | Audio route | `VoiceAudioRouting`: audio focus, `MODE_IN_COMMUNICATION`, headset else loudspeaker; driven by `VoiceServiceController` together with the foreground service |
 | Voice UI | `VoiceDock` actual: one bottom row shown only while in a voice channel, "channel · server" on the left, mute, deafen and disconnect icon buttons on the right; no screen-share button, no DAVE indicator |
+| Background connection | Opt-in setting (Settings → Notifications, default off) behind the platform capability `BackgroundConnection` (`:shared:platform-api`; `UnsupportedBackgroundConnection` hides the switch on every other platform). `AndroidBackgroundConnection` (`:android:app`) persists the choice in `user_preferences` (`notifications.backgroundConnection`), starts `BackgroundConnectionService` (`:android:platform`, type `specialUse`) and feeds it the connection status. See "Background connection service" below |
 | Push notifications | FCM — **out of scope** (decided 2026-11-26, PUKLIC-129): Discord has no push for user accounts and a relay server would have to hold the Discord token. Notifications are raised locally from the gateway while the app or its foreground service runs |
 
 ## Process / lifecycle
 
 Discord gateway = persistent WebSocket. Android aggressively kills background apps. Current behaviour:
-- Without a voice session the app suspends in the background → gateway disconnects → reconnects on return
+- The gateway session lives in the application scope (`AndroidDependencyGraph.applicationScope`), not in the activity: destroying the activity does not cancel it
+- With the "Receive messages when the app is closed" setting off and no voice session, Android may cache or kill the process in the background; the gateway then reconnects on return
 - During a voice session the microphone foreground service keeps the process alive
-- A background gateway service with a "Background mode" toggle is a possible later addition
+- With the setting on, `BackgroundConnectionService` keeps the process, and so the gateway session, alive
 
 ## Permissions
 
@@ -50,9 +52,11 @@ Discord gateway = persistent WebSocket. Android aggressively kills background ap
 | `ACCESS_NETWORK_STATE` | Connectivity changes | install time |
 | `RECORD_AUDIO` | Voice | runtime, first voice join |
 | `MODIFY_AUDIO_SETTINGS` | Communication audio mode and route during a call | install time |
-| `POST_NOTIFICATIONS` | Notifications and the voice notification (Android 13+) | runtime, first voice join or first notification |
+| `POST_NOTIFICATIONS` | Notifications, the voice and the connection notification (Android 13+) | runtime, first voice join, first notification or enabling the background connection |
 | `FOREGROUND_SERVICE` | Voice session service | install time |
 | `FOREGROUND_SERVICE_MICROPHONE` | Voice session service type (Android 14+) | install time |
+| `FOREGROUND_SERVICE_SPECIAL_USE` | Background connection service type (Android 14+) | install time |
+| `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` | System prompt that exempts the app from Doze when the background connection is turned on | install time; the prompt is shown on enabling |
 
 The microphone hardware feature is declared `required=false` so Play does not filter out devices.
 
@@ -74,7 +78,20 @@ Discord ToS violation risk is higher on Google Play — Play may remove the app 
 
 ## Foreground service notification
 
-The only foreground service is the voice one (`VoiceForegroundService`, channel `puklic.voice`, `IMPORTANCE_LOW`): ongoing notification "Puklic / Connected to voice", tap returns to the app, action "Disconnect" ends the voice session through `VoiceDisconnectHandler` (implemented by `PuklicApp`). It is started only while a voice session is in progress. There is no background gateway service: the gateway runs while the app process is alive.
+Two foreground services exist and never show two notifications at once: both use the notification id `FOREGROUND_NOTIFICATION_ID`, so Android shows one.
+
+- Voice: `VoiceForegroundService` (channel `puklic.voice`, `IMPORTANCE_LOW`): ongoing notification "Puklic / Connected to voice", tap returns to the app, action "Disconnect" ends the voice session through `VoiceDisconnectHandler` (implemented by `PuklicApp`). Started only while a voice session is in progress.
+- Connection: `BackgroundConnectionService`, see below.
+
+## Background connection service
+
+Decision PUKLIC-129: no push server, so on Android the gateway is kept alive by a foreground service and messages are raised as local notifications by the existing `NotificationDispatcher` / `AndroidNotificationService` path (tapping such a notification opens the app; it does not yet deep-link into the channel).
+
+- Setting: Settings → Notifications, switch "Receive messages when the app is closed", default off. Turning it on requests `POST_NOTIFICATIONS` (Android 13+; declining leaves it off), persists the choice, starts the service and then offers the battery-optimization exemption. Turning it off, logging out or the notification action "Disconnect" stops the service and turns the setting off.
+- Notification: channel `puklic.connection` (`IMPORTANCE_LOW`, silent, `VISIBILITY_SECRET`), title "Puklic · connected" or "Puklic · connecting…" while the gateway is not connected, text "Receiving messages from Discord", action "Disconnect", tap opens the app.
+- Service type `specialUse` (property `PROPERTY_SPECIAL_USE_FGS_SUBTYPE` in the manifest, justification text for the Play Console declaration is the property value). `dataSync` was rejected: since Android 15 it is stopped after six hours in 24 h (`onTimeout`), which would end the connection; `specialUse` has no such limit, so no `onTimeout` handling is needed. The Play Console foreground-service declaration for `specialUse` and the sensitive permission `REQUEST_IGNORE_BATTERY_OPTIMIZATIONS` have to be justified at release.
+- Start: `MainActivity.onStart` calls `AndroidBackgroundConnection.ensureRunning()` (a foreground start is always allowed there); the service is `START_STICKY`, restarts after the process was killed, waits for the persisted setting and stops itself when it is off.
+- Voice call: while a voice session is active the connection service posts nothing and the voice notification owns the shared id; when the call ends the connection notification is posted again.
 
 ## Differences from Desktop
 

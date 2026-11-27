@@ -19,13 +19,16 @@ import com.arkivanov.decompose.extensions.compose.subscribeAsState
 import dev.puklic.persistence.repository.LastPosition
 import dev.puklic.persistence.repository.LastPositionCodec
 import dev.puklic.persistence.repository.UserPreferencesRepository
+import dev.puklic.platform.BackgroundConnection
 import dev.puklic.platform.PlatformOpen
+import dev.puklic.platform.UnsupportedBackgroundConnection
 import dev.puklic.platform.SecureStorage
 import dev.puklic.ui.navigation.RootComponent
 import dev.puklic.ui.navigation.RouterState
 import dev.puklic.ui.resolvers.EmojiResolver
 import dev.puklic.ui.resolvers.LocalEmojiResolver
 import dev.puklic.platform.PlatformClipboard
+import dev.puklic.ui.resolvers.LocalBackgroundConnection
 import dev.puklic.ui.resolvers.LocalMentionResolver
 import dev.puklic.ui.resolvers.LocalPlatformClipboard
 import dev.puklic.ui.resolvers.NoopPlatformClipboard
@@ -50,6 +53,7 @@ public fun PuklicApp(
     emojiResolver: EmojiResolver = NoopEmojiResolver,
     platformOpen: PlatformOpen? = null,
     platformClipboard: PlatformClipboard = NoopPlatformClipboard,
+    backgroundConnection: BackgroundConnection = UnsupportedBackgroundConnection,
 ) {
     val routerState by root.routerState.subscribeAsState()
     PuklicTheme {
@@ -57,6 +61,7 @@ public fun PuklicApp(
             LocalMentionResolver provides mentionResolver,
             LocalEmojiResolver provides emojiResolver,
             LocalPlatformClipboard provides platformClipboard,
+            LocalBackgroundConnection provides backgroundConnection,
         ) {
             // Full-bleed background; content is inset to the platform safe area so
             // interactive elements (the compact-layout drawer hamburger, headers) never sit

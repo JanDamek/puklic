@@ -29,17 +29,12 @@ class VoiceServiceController(
     fun bind(client: VoiceClient): Job = scope.launch {
         try {
             client.state
-                .map { it.isSessionActive() }
+                .map(VoiceState::isSessionActive)
                 .distinctUntilChanged()
                 .collect { active -> if (active) start() else stop() }
         } finally {
             stop()
         }
-    }
-
-    private fun VoiceState.isSessionActive(): Boolean = when (this) {
-        is VoiceState.Connecting, is VoiceState.Ringing, is VoiceState.Connected -> true
-        is VoiceState.Idle, is VoiceState.Failed -> false
     }
 
     private fun start() {
@@ -52,4 +47,10 @@ class VoiceServiceController(
         audioRouting.release()
         context.stopService(VoiceForegroundService.startIntent(context))
     }
+}
+
+/** True while a voice session is connecting, ringing or connected, the span the voice foreground service runs. */
+fun VoiceState.isSessionActive(): Boolean = when (this) {
+    is VoiceState.Connecting, is VoiceState.Ringing, is VoiceState.Connected -> true
+    is VoiceState.Idle, is VoiceState.Failed -> false
 }

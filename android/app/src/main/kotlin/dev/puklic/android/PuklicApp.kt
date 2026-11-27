@@ -9,7 +9,10 @@ import coil3.disk.directory
 import coil3.memory.MemoryCache
 import coil3.network.ktor3.KtorNetworkFetcherFactory
 import coil3.request.crossfade
+import dev.puklic.platform.android.connection.BackgroundConnectionHost
+import dev.puklic.platform.android.connection.BackgroundConnectionStatus
 import dev.puklic.platform.android.voice.VoiceDisconnectHandler
+import kotlinx.coroutines.flow.StateFlow
 import okio.Path.Companion.toOkioPath
 import java.io.File
 
@@ -19,9 +22,9 @@ private const val IMAGE_MEMORY_CACHE_PERCENT = 0.10
 
 /**
  * Application entry point. Owns the process-wide [AndroidDependencyGraph], the bounded Coil image
- * loader and the voice "Disconnect" notification action.
+ * loader, the voice "Disconnect" notification action and the background connection service host.
  */
-class PuklicApp : Application(), SingletonImageLoader.Factory, VoiceDisconnectHandler {
+class PuklicApp : Application(), SingletonImageLoader.Factory, VoiceDisconnectHandler, BackgroundConnectionHost {
     lateinit var graph: AndroidDependencyGraph
         private set
 
@@ -44,4 +47,14 @@ class PuklicApp : Application(), SingletonImageLoader.Factory, VoiceDisconnectHa
             .build()
 
     override fun disconnectVoice() = graph.disconnectVoice()
+
+    override val connectionStatus: StateFlow<BackgroundConnectionStatus>
+        get() = graph.backgroundConnection.connectionStatus
+
+    override val voiceActive: StateFlow<Boolean>
+        get() = graph.backgroundConnection.voiceActive
+
+    override suspend fun isBackgroundConnectionEnabled(): Boolean = graph.backgroundConnection.isBackgroundConnectionEnabled()
+
+    override fun disableBackgroundConnection() = graph.backgroundConnection.disableBackgroundConnection()
 }

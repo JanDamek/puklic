@@ -16,6 +16,7 @@ internal enum class AppNotificationChannel(
     Messages("puklic.messages", R.string.channel_messages, NotificationManagerCompat.IMPORTANCE_DEFAULT),
     Mentions("puklic.mentions", R.string.channel_mentions, NotificationManagerCompat.IMPORTANCE_HIGH),
     Voice("puklic.voice", R.string.channel_voice, NotificationManagerCompat.IMPORTANCE_LOW),
+    Connection("puklic.connection", R.string.channel_connection, NotificationManagerCompat.IMPORTANCE_LOW),
 }
 
 /** Registers every [AppNotificationChannel]; the platform ignores channels that already exist. */
@@ -36,3 +37,9 @@ internal fun Context.launchAppPendingIntent(): PendingIntent {
     }
     return PendingIntent.getActivity(this, 0, launchIntent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
 }
+
+/**
+ * Id of the single ongoing foreground notification. The voice and the background connection services
+ * share it, so a voice call replaces the connection notification instead of adding a second one.
+ */
+internal const val FOREGROUND_NOTIFICATION_ID = 2_001
